@@ -117,3 +117,8 @@ M6-R1 uses Bootstrap 5.3.8 for the backend and public Blade layouts. The backend
 ## Upgrade M6-R1 → M6-R2
 
 See [`docs/UPGRADE-M6-R1-TO-M6-R2.md`](docs/UPGRADE-M6-R1-TO-M6-R2.md). This is an additive database upgrade; do not run `migrate:fresh`.
+
+
+## M7-R1: backend email verification and Mailgun
+
+Backend registrations now require email verification before administration access. Mailgun can be selected as the application mailer using its HTTP API (`MAIL_MAILER=mailgun`) rather than SMTP. See `docs/MAIL-AND-EMAIL-VERIFICATION.md` and `docs/UPGRADE-M7-TO-M7-R1.md`.

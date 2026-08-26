@@ -6,7 +6,9 @@ use App\Enums\MembershipRole;
 use App\Models\Organization;
 use App\Models\Person;
 use App\Models\User;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class RegistrationTest extends TestCase
@@ -15,6 +17,8 @@ class RegistrationTest extends TestCase
 
     public function test_registration_creates_person_user_and_first_organization(): void
     {
+        Notification::fake();
+
         $response = $this->post('/register', [
             'first_name' => 'Luis',
             'last_name' => 'Example',
@@ -27,13 +31,16 @@ class RegistrationTest extends TestCase
             'currency' => 'CAD',
         ]);
 
-        $response->assertRedirect(route('dashboard'));
+        $response->assertRedirect(route('verification.notice'));
         $this->assertSame(1, Person::count());
         $this->assertSame(1, User::count());
         $this->assertSame(1, Organization::count());
         $membership = Person::first()->memberships()->first();
         $this->assertSame(MembershipRole::Owner, $membership->role);
         $this->assertAuthenticated();
+        $user = User::firstOrFail();
+        $this->assertNull($user->email_verified_at);
+        Notification::assertSentTo($user, VerifyEmail::class);
     }
 
     public function test_registration_page_uses_supported_currency_dropdown(): void

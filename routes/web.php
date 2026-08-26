@@ -11,6 +11,7 @@ use App\Http\Controllers\AvailabilityExceptionController;
 use App\Http\Controllers\AvailabilityPreviewController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Requests\Auth\VerifyBackendEmailRequest;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HealthController;
@@ -21,6 +22,8 @@ use App\Http\Controllers\PublicBookingManageController;
 use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\StaffConfirmationController;
 use App\Http\Controllers\ScheduleProposalController;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('login'));
@@ -100,6 +103,25 @@ Route::post('/staff-confirmation/{confirmation}/{token}', [StaffConfirmationCont
 Route::middleware('auth')->group(function (): void {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
+    Route::get('/email/verify', fn () => view('auth.verify-email'))
+        ->name('verification.notice');
+    Route::get('/email/verify/{id}/{hash}', function (VerifyBackendEmailRequest $request): RedirectResponse {
+        $request->fulfill();
+
+        return redirect()->route('dashboard')->with('success', 'Email address verified.');
+    })->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
+    Route::post('/email/verification-notification', function (Request $request): RedirectResponse {
+        if ($request->user()->hasVerifiedEmail()) {
+            return redirect()->route('dashboard');
+        }
+
+        $request->user()->sendEmailVerificationNotification();
+
+        return back()->with('message', 'Verification link sent.');
+    })->middleware('throttle:6,1')->name('verification.send');
+});
+
+Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('/organizations', [OrganizationController::class, 'index'])->name('organizations.index');
     Route::get('/organizations/create', [OrganizationController::class, 'create'])->name('organizations.create');
     Route::post('/organizations', [OrganizationController::class, 'store'])->name('organizations.store');

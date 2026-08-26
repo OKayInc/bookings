@@ -25,5 +25,8 @@ return [
             'throttle' => 60,
         ],
     ],
+    'verification' => [
+        'expire' => (int) env('AUTH_EMAIL_VERIFICATION_EXPIRE', 60),
+    ],
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 ];

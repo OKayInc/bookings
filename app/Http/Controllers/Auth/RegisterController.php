@@ -11,6 +11,7 @@ use App\Models\Organization;
 use App\Models\OrganizationMembership;
 use App\Models\Person;
 use App\Models\User;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -70,10 +71,13 @@ class RegisterController extends Controller
             return [$user, $organization];
         });
 
+        event(new Registered($user));
+
         Auth::login($user);
         $request->session()->regenerate();
         $request->session()->put('active_organization_uuid', $organization->uuid);
 
-        return redirect()->route('dashboard')->with('success', 'Account and first organization created.');
+        return redirect()->route('verification.notice')
+            ->with('success', 'Account created. Please verify your email address to access the backend.');
     }
 }
