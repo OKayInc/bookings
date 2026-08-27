@@ -122,3 +122,8 @@ See [`docs/UPGRADE-M6-R1-TO-M6-R2.md`](docs/UPGRADE-M6-R1-TO-M6-R2.md). This is 
 ## M7-R1: backend email verification and Mailgun
 
 Backend registrations now require email verification before administration access. Mailgun can be selected as the application mailer using its HTTP API (`MAIL_MAILER=mailgun`) rather than SMTP. See `docs/MAIL-AND-EMAIL-VERIFICATION.md` and `docs/UPGRADE-M7-TO-M7-R1.md`.
+
+
+## M7-R2: durable calendar OAuth state
+
+Calendar OAuth no longer depends on the Laravel session surviving the Google/Microsoft consent round trip. Short-lived, one-time hashed OAuth transactions are stored in MariaDB. This revision is based on the current GitHub repository and preserves the manual Apache `.htaccess` and session-independent backend email-verification fix. See `docs/UPGRADE-REPOSITORY-TO-M7-R2.md`.

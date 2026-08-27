@@ -128,6 +128,10 @@ Route::get('/email/verify/{id}/{hash}', function (
         ->with('success', 'Email address verified. You may now sign in.');
 })->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
 
+Route::get('/calendar-connections/oauth/{provider}/callback', [CalendarConnectionController::class, 'callback'])
+    ->middleware('throttle:20,1')
+    ->name('calendar-connections.callback');
+
 Route::middleware('auth')->group(function (): void {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
@@ -158,7 +162,6 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
 
         Route::get('/calendar-connections', [CalendarConnectionController::class, 'index'])->name('calendar-connections.index');
         Route::get('/calendar-connections/resources/{resource}/{provider}/connect', [CalendarConnectionController::class, 'connect'])->name('calendar-connections.connect');
-        Route::get('/calendar-connections/oauth/{provider}/callback', [CalendarConnectionController::class, 'callback'])->name('calendar-connections.callback');
         Route::post('/calendar-connections/{connection}/refresh', [CalendarConnectionController::class, 'refresh'])->name('calendar-connections.refresh');
         Route::delete('/calendar-connections/{connection}', [CalendarConnectionController::class, 'destroy'])->name('calendar-connections.destroy');
 

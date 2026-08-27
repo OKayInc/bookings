@@ -7,10 +7,13 @@ use App\Domain\Calendars\CalendarSyncService;
 use App\Enums\CalendarConnectionStatus;
 use App\Enums\CalendarProvider;
 use App\Models\CalendarConnection;
+use App\Models\CalendarOauthState;
 use App\Models\Resource;
 use App\Support\Organizations\OrganizationContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Throwable;
@@ -40,42 +43,85 @@ class CalendarConnectionController extends Controller
         $providerEnum = CalendarProvider::tryFrom($provider);
         abort_if($providerEnum === null, 404);
 
-        $state = Str::random(64);
-        $request->session()->put('calendar_oauth', [
-            'state' => $state,
+        $state = Str::random(80);
+        $ttlMinutes = max(5, (int) config('calendars.oauth_state_ttl_minutes', 15));
+
+        CalendarOauthState::query()
+            ->where('user_id', $request->user()->getKey())
+            ->where('resource_id', $resource->getKey())
+            ->where('provider', $providerEnum->value)
+            ->whereNull('consumed_at_utc')
+            ->delete();
+
+        CalendarOauthState::create([
+            'user_id' => $request->user()->getKey(),
+            'organization_id' => $context->organization()->getKey(),
+            'resource_id' => $resource->getKey(),
             'provider' => $providerEnum->value,
-            'resource_uuid' => $resource->uuid,
-            'organization_uuid' => $context->organization()->uuid,
+            'state_hash' => hash('sha256', $state),
+            'expires_at_utc' => now('UTC')->addMinutes($ttlMinutes),
         ]);
+
+        // Opportunistic pruning keeps this tiny transaction table bounded even if cron is unavailable.
+        CalendarOauthState::query()
+            ->where('expires_at_utc', '<', now('UTC')->subDay())
+            ->delete();
 
         return redirect()->away($manager->provider($providerEnum)->authorizationUrl($state));
     }
 
-    public function callback(string $provider, Request $request, OrganizationContext $context, CalendarManager $manager): RedirectResponse
+    public function callback(string $provider, Request $request, CalendarManager $manager): RedirectResponse
     {
         $providerEnum = CalendarProvider::tryFrom($provider);
         abort_if($providerEnum === null, 404);
-        $oauth = (array) $request->session()->pull('calendar_oauth', []);
-        abort_unless(isset($oauth['state'], $oauth['provider'], $oauth['resource_uuid'], $oauth['organization_uuid']), 419, 'Calendar OAuth session expired.');
-        abort_unless(hash_equals((string) $oauth['state'], (string) $request->query('state')), 419, 'Invalid calendar OAuth state.');
-        abort_unless($oauth['provider'] === $providerEnum->value, 419);
-        abort_unless($oauth['organization_uuid'] === $context->organization()->uuid, 403);
 
-        if ($request->filled('error')) {
-            return redirect()->route('calendar-connections.index')->with('error', 'Calendar authorization was not completed: '.$request->query('error'));
+        $rawState = (string) $request->query('state', '');
+        abort_if($rawState === '', 419, 'Missing calendar OAuth state.');
+
+        $oauth = DB::transaction(function () use ($rawState, $providerEnum): CalendarOauthState {
+            $state = CalendarOauthState::query()
+                ->where('state_hash', hash('sha256', $rawState))
+                ->lockForUpdate()
+                ->first();
+
+            abort_unless($state !== null, 419, 'Calendar OAuth state is invalid or expired.');
+            abort_unless($state->provider === $providerEnum, 419, 'Calendar OAuth provider mismatch.');
+            abort_unless($state->consumed_at_utc === null, 419, 'Calendar OAuth state has already been used.');
+            abort_unless($state->expires_at_utc->isFuture(), 419, 'Calendar OAuth state has expired.');
+
+            $state->forceFill(['consumed_at_utc' => now('UTC')])->save();
+
+            return $state->load(['user', 'organization', 'resource']);
+        });
+
+        if ($request->user() && ! $request->user()->is($oauth->user)) {
+            abort(403, 'This calendar authorization belongs to a different backend user.');
         }
 
-        $resource = Resource::whereUuid((string) $oauth['resource_uuid'])->firstOrFail();
-        $this->ensureSameOrganization($resource, $context);
-        $this->authorize('calendar', $resource);
+        Gate::forUser($oauth->user)->authorize('calendar', $oauth->resource);
+
+        if ($request->filled('error')) {
+            return $this->callbackRedirect(
+                $request,
+                $oauth,
+                'error',
+                'Calendar authorization was not completed: '.$request->query('error'),
+            );
+        }
+
+        abort_unless($request->filled('code'), 422, 'Calendar provider did not return an authorization code.');
 
         try {
             $tokens = $manager->provider($providerEnum)->exchangeAuthorizationCode((string) $request->query('code'));
-            $existing = CalendarConnection::query()->where('resource_id', $resource->getKey())->where('provider', $providerEnum->value)->first();
+            $existing = CalendarConnection::query()
+                ->where('resource_id', $oauth->resource->getKey())
+                ->where('provider', $providerEnum->value)
+                ->first();
+
             $connection = CalendarConnection::query()->updateOrCreate(
-                ['resource_id' => $resource->getKey(), 'provider' => $providerEnum->value],
+                ['resource_id' => $oauth->resource->getKey(), 'provider' => $providerEnum->value],
                 [
-                    'organization_id' => $context->organization()->getKey(),
+                    'organization_id' => $oauth->organization->getKey(),
                     'access_token' => $tokens['access_token'],
                     'refresh_token' => $tokens['refresh_token'] ?? $existing?->refresh_token,
                     'token_expires_at_utc' => isset($tokens['expires_in']) ? now('UTC')->addSeconds((int) $tokens['expires_in']) : null,
@@ -87,10 +133,21 @@ class CalendarConnectionController extends Controller
             $manager->refreshCalendars($connection);
         } catch (Throwable $e) {
             report($e);
-            return redirect()->route('calendar-connections.index')->with('error', 'Calendar connection failed: '.$e->getMessage());
+
+            return $this->callbackRedirect(
+                $request,
+                $oauth,
+                'error',
+                'Calendar connection failed: '.$e->getMessage(),
+            );
         }
 
-        return redirect()->route('calendar-connections.index')->with('success', $providerEnum->label().' connected to '.$resource->name.'.');
+        return $this->callbackRedirect(
+            $request,
+            $oauth,
+            'success',
+            $providerEnum->label().' connected to '.$oauth->resource->name.'.',
+        );
     }
 
     public function refresh(CalendarConnection $connection, OrganizationContext $context, CalendarManager $manager): RedirectResponse
@@ -113,6 +170,17 @@ class CalendarConnectionController extends Controller
         $sync->deleteConnectionEvents($connection);
         $connection->delete();
         return back()->with('success', 'Calendar connection removed. Synchronized events were removed when the provider connection allowed it.');
+    }
+
+    private function callbackRedirect(Request $request, CalendarOauthState $oauth, string $flashKey, string $message): RedirectResponse
+    {
+        if ($request->user()?->is($oauth->user)) {
+            $request->session()->put('active_organization_uuid', $oauth->organization->uuid);
+
+            return redirect()->route('calendar-connections.index')->with($flashKey, $message);
+        }
+
+        return redirect()->route('login')->with($flashKey, $message.' Sign in to continue.');
     }
 
     private function ensureSameOrganization(Resource $resource, OrganizationContext $context): void

@@ -5,6 +5,7 @@ return [
     'busy_cache_seconds' => (int) env('CALENDAR_BUSY_CACHE_SECONDS', 30),
     'sync_days_back' => (int) env('CALENDAR_SYNC_DAYS_BACK', 2),
     'sync_days_ahead' => (int) env('CALENDAR_SYNC_DAYS_AHEAD', 730),
+    'oauth_state_ttl_minutes' => (int) env('CALENDAR_OAUTH_STATE_TTL_MINUTES', 15),
 
     'google' => [
         'client_id' => env('GOOGLE_CALENDAR_CLIENT_ID'),

@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('app:about-m1', function (): void {
-    $this->info('Appointment Software M7: Google Calendar and Microsoft Outlook/365 availability and event synchronization.');
+    $this->info('Appointment Software M7-R2: durable Google/Microsoft calendar OAuth state and calendar synchronization.');
 })->purpose('Describe the current appointment software milestone');
 
 Schedule::command('appointments:expire-holds')->everyMinute()->withoutOverlapping();
