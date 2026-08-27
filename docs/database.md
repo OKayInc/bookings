@@ -25,6 +25,19 @@ All entity primary keys continue to use UUIDv7 encoded as `BINARY(16)`.
 
 Acceptance creates an active row in the existing `organization_memberships` table. It does not create an organization for the invitee.
 
+## M7-R6 organization holiday closures
+
+`organization_holidays` stores optional closed-day rules within an organization tenant:
+
+- `organization_id BINARY(16)` owns the rule and cascades deletion with the organization;
+- nullable `preset_key` makes common presets idempotent per organization;
+- `name` is the organization-facing holiday label;
+- `rule_type` is `fixed_annual`, `easter_relative`, `nth_weekday`, or `one_time`;
+- rule-specific fields are `month`, `day`, `weekday`, `occurrence`, `easter_offset_days`, and `specific_date`;
+- `is_active` allows an organization to stop honoring a configured holiday without deleting it.
+
+Rule dates are resolved in application code using the organization's IANA timezone. Movable Easter dates use the Gregorian computus and do not require the PHP calendar extension.
+
 ## appointment_types — M2/M3 configuration
 
 M2 extends `appointment_types` with configuration fields rather than creating a separate table for every small setting. These values define a service/event type; actual scheduled sessions and bookings arrive in M4.

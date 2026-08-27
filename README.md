@@ -147,3 +147,7 @@ Organization switching now persists the selected organization on the backend use
 ## M7-R5: organization-member invitations and resource booking email
 
 Owners and administrators can invite backend members without making them organization owners. New invitees create a person/user account through the email-bound invitation, while existing backend users log in and join with their existing account. A person linked to an assigned resource now receives an immediate email when a booking involving that resource is created. See `docs/CHANGES-M7-R5.md` and `docs/UPGRADE-M7-R4-R3-TO-M7-R5.md`.
+
+## M7-R6: holiday closures and fast organization switching
+
+Managers, administrators, and owners can opt an organization into fixed-date, Easter-relative, nth-weekday, or one-time holiday closures. Active closures are organization-wide hard blocks in the organization's IANA timezone and are enforced again during booking-hold acquisition. No holiday is enabled automatically. Users with more than one active organization membership can switch organizations from a responsive navbar dropdown. See `docs/CHANGES-M7-R6.md` and `docs/UPGRADE-M7-R5-TO-M7-R6.md`.

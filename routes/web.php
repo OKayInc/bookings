@@ -17,6 +17,7 @@ use App\Http\Controllers\HealthController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\OrganizationInvitationAcceptanceController;
 use App\Http\Controllers\OrganizationMemberController;
+use App\Http\Controllers\OrganizationHolidayController;
 use App\Http\Controllers\PublicAppointmentTypeController;
 use App\Http\Controllers\PublicBookingController;
 use App\Http\Controllers\PublicBookingManageController;
@@ -191,6 +192,10 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
             ->name('bookings.answer-file');
 
         Route::get('/availability', [AvailabilityController::class, 'index'])->name('availability.index');
+        Route::get('/availability/holidays', [OrganizationHolidayController::class, 'index'])->name('availability.holidays.index');
+        Route::post('/availability/holidays', [OrganizationHolidayController::class, 'store'])->name('availability.holidays.store');
+        Route::patch('/availability/holidays/{holiday}/toggle', [OrganizationHolidayController::class, 'toggle'])->name('availability.holidays.toggle');
+        Route::delete('/availability/holidays/{holiday}', [OrganizationHolidayController::class, 'destroy'])->name('availability.holidays.destroy');
         Route::get('/availability/organization/edit', [AvailabilityController::class, 'editOrganization'])->name('availability.organization.edit');
         Route::put('/availability/organization', [AvailabilityController::class, 'updateOrganization'])->name('availability.organization.update');
         Route::get('/availability/resources/{resource}/edit', [AvailabilityController::class, 'editResource'])->name('availability.resources.edit');

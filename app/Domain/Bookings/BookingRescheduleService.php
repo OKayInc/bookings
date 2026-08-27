@@ -6,6 +6,7 @@ use App\Enums\AppointmentStatus;
 use App\Domain\Calendars\CalendarSyncService;
 use App\Domain\Calendars\CalendarAvailabilityService;
 use App\Domain\Availability\AvailabilityInterval;
+use App\Domain\Availability\OrganizationHolidayService;
 use App\Enums\BookingHoldStatus;
 use App\Enums\BookingStatus;
 use App\Models\Appointment;
@@ -14,6 +15,7 @@ use App\Models\BookingHold;
 use App\Models\BookingReschedule;
 use App\Models\Person;
 use Closure;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use App\Notifications\BookingStatusChangedEmail;
@@ -28,6 +30,7 @@ class BookingRescheduleService
         private readonly AppointmentLifecycleService $lifecycle,
         private readonly CalendarSyncService $calendarSync,
         private readonly CalendarAvailabilityService $externalCalendars,
+        private readonly OrganizationHolidayService $holidays,
     ) {
     }
 
@@ -97,6 +100,15 @@ class BookingRescheduleService
             if (! hash_equals($hold->appointment_type_id, $lockedBooking->appointment_type_id)
                 || (int) $hold->attendee_count !== (int) $lockedBooking->attendee_count) {
                 throw new RuntimeException('The selected hold does not match this booking.');
+            }
+
+            $lockedBooking->loadMissing('organization');
+            if ($this->holidays->isClosed(
+                $lockedBooking->organization,
+                CarbonImmutable::instance($hold->starts_at_utc)->utc(),
+                CarbonImmutable::instance($hold->ends_at_utc)->utc(),
+            )) {
+                throw new RuntimeException('The organization is now closed on the proposed date. Please choose another time.');
             }
 
             if ($hold->appointment_id === null) {

@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\AppointmentType;
 use App\Models\Organization;
 use App\Models\Resource;
+use App\Enums\MembershipStatus;
 use App\Policies\AppointmentTypePolicy;
 use App\Policies\OrganizationPolicy;
 use App\Policies\ResourcePolicy;
@@ -46,12 +47,23 @@ class AppServiceProvider extends ServiceProvider
             $organization = app(OrganizationContext::class)->get();
             $request = request();
             $user = $request->user();
+            $availableOrganizations = collect();
 
             if (! $organization && $user) {
                 $organization = app(ActiveOrganizationResolver::class)->resolve($user, $request);
             }
 
-            $view->with('activeOrganization', $organization);
+            if ($user) {
+                $availableOrganizations = $user->person->organizations()
+                    ->wherePivot('status', MembershipStatus::Active->value)
+                    ->orderBy('name')
+                    ->get();
+            }
+
+            $view->with([
+                'activeOrganization' => $organization,
+                'availableOrganizations' => $availableOrganizations,
+            ]);
         });
     }
 }

@@ -52,6 +52,21 @@ Modes:
 
 The timezone used when creating the exception is also stored for audit/display purposes.
 
+## Organization holiday closures
+
+`organization_holidays` stores optional organization-wide closed dates. Nothing is imported or enabled automatically. An owner, administrator, or manager can add, disable, re-enable, or remove a closure from **Availability → Holiday closures**.
+
+Supported date rules are:
+
+- annual fixed month/day, such as Christmas Day;
+- an offset from Gregorian Easter Sunday, such as Good Friday (`-2`);
+- an nth weekday in a month, such as the second Monday in October;
+- a one-time calendar date.
+
+Common Canadian/Ontario presets are conveniences only. They are not a jurisdiction-aware or legally complete statutory-holiday calendar, so each organization decides which dates it observes.
+
+Each active date is interpreted from local midnight to the following local midnight in the organization's IANA timezone, then converted to UTC. A holiday is a hard closure: it overrides organization, resource, and appointment-type hours as well as `available` exceptions.
+
 ## Slot generation
 
 For a requested UTC range:
@@ -63,9 +78,10 @@ For a requested UTC range:
 5. align candidate starts to `start_interval_minutes` in the booking/display timezone;
 6. calculate each candidate's real end time using the configured duration unit;
 7. expand the candidate by `buffer_before_minutes` and `buffer_after_minutes` for conflict detection;
-8. reject candidates that overlap active holds.
+8. reject candidates that overlap an active organization holiday closure;
+9. reject candidates that overlap active holds, appointments, or connected-calendar busy periods.
 
-M4 will extend the same conflict stage to confirmed/pending appointment resource reservations.
+Booking-hold acquisition recalculates availability inside its transaction. Booking creation and rescheduling also recheck the organization closure when consuming a hold. This ensures a stale browser result, crafted request, pre-existing group session, or hold created just before a closure was enabled cannot create or move a booking onto the closed date.
 
 ## Why start interval is separate from duration
 

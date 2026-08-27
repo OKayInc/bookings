@@ -9,6 +9,7 @@ use App\Domain\Questionnaires\QuestionnaireSubmission;
 use App\Domain\Calendars\CalendarSyncService;
 use App\Domain\Calendars\CalendarAvailabilityService;
 use App\Domain\Availability\AvailabilityInterval;
+use App\Domain\Availability\OrganizationHolidayService;
 use App\Enums\AppointmentStatus;
 use App\Enums\BookingHoldStatus;
 use App\Enums\BookingStatus;
@@ -18,6 +19,7 @@ use App\Models\AppointmentTypeInvitation;
 use App\Models\Booking;
 use App\Models\BookingHold;
 use App\Models\OrganizationContact;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -34,6 +36,7 @@ class BookingCreationService
         private readonly CalendarSyncService $calendarSync,
         private readonly CalendarAvailabilityService $externalCalendars,
         private readonly BookingResourceNotificationService $resourceNotifications,
+        private readonly OrganizationHolidayService $holidays,
     ) {
     }
 
@@ -73,6 +76,13 @@ class BookingCreationService
             $hold->load(['appointmentType.organization', 'resources', 'invitation', 'contractTemplate']);
             $type = $hold->appointmentType;
             $organization = $type->organization;
+            if ($this->holidays->isClosed(
+                $organization,
+                CarbonImmutable::instance($hold->starts_at_utc)->utc(),
+                CarbonImmutable::instance($hold->ends_at_utc)->utc(),
+            )) {
+                throw new RuntimeException('The organization is now closed on this date. Please choose another time.');
+            }
             $email = trim($contactData['email']);
             $normalized = OrganizationContact::normalizeEmail($email);
 

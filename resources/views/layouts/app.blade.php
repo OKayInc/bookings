@@ -52,10 +52,35 @@
 
                 <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-2 gap-lg-3 mt-3 mt-lg-0">
                     @if($activeOrganization)
-                        <span class="current-organization badge text-bg-secondary text-wrap" title="Current organization">
-                            <span class="current-organization-label">Organization:</span>
-                            <strong>{{ $activeOrganization->name }}</strong>
-                        </span>
+                        @if($availableOrganizations->count() > 1)
+                            <div class="dropdown d-grid d-lg-block organization-switcher">
+                                <button class="current-organization btn btn-outline-light btn-sm dropdown-toggle text-start text-lg-center text-wrap" type="button" id="organizationSwitcher" data-bs-toggle="dropdown" aria-expanded="false" title="Switch organization">
+                                    <span class="current-organization-label">Organization:</span>
+                                    <strong>{{ $activeOrganization->name }}</strong>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-lg-end" aria-labelledby="organizationSwitcher">
+                                    @foreach($availableOrganizations as $organizationOption)
+                                        <li>
+                                            @if(hash_equals((string) $organizationOption->getKey(), (string) $activeOrganization->getKey()))
+                                                <span class="dropdown-item-text active" aria-current="true">✓ {{ $organizationOption->name }}</span>
+                                            @else
+                                                <form method="post" action="{{ route('organizations.switch', $organizationOption) }}" class="m-0">
+                                                    @csrf
+                                                    <button class="dropdown-item" type="submit">{{ $organizationOption->name }}</button>
+                                                </form>
+                                            @endif
+                                        </li>
+                                    @endforeach
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="{{ route('organizations.index') }}">Manage organizations</a></li>
+                                </ul>
+                            </div>
+                        @else
+                            <span class="current-organization badge text-bg-secondary text-wrap" title="Current organization">
+                                <span class="current-organization-label">Organization:</span>
+                                <strong>{{ $activeOrganization->name }}</strong>
+                            </span>
+                        @endif
                     @endif
                     <form method="post" action="{{ route('logout') }}" class="m-0">
                         @csrf

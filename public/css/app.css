@@ -35,6 +35,25 @@ main {
     white-space: nowrap;
 }
 
+.organization-switcher .dropdown-menu {
+    max-height: min(70vh, 28rem);
+    overflow-y: auto;
+}
+
+@media (max-width: 991.98px) {
+    .organization-switcher .current-organization,
+    .organization-switcher .dropdown-menu {
+        width: 100%;
+    }
+
+    .organization-switcher .dropdown-menu {
+        position: static !important;
+        transform: none !important;
+        margin-top: .5rem;
+        max-height: 50vh;
+    }
+}
+
 /* Legacy layout helpers, expressed using Bootstrap variables and breakpoints. */
 .muted {
     color: var(--bs-secondary-color) !important;

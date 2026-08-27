@@ -73,4 +73,31 @@ class BootstrapResponsiveUiTest extends TestCase
             ->assertDontSee('Log out')
             ->assertDontSee('Register');
     }
+
+    public function test_multi_organization_switcher_is_right_aligned_on_desktop_and_inside_collapsed_mobile_navigation(): void
+    {
+        $user = User::factory()->create();
+        $first = Organization::factory()->create(['name' => 'First Organization']);
+        $second = Organization::factory()->create(['name' => 'Second Organization']);
+
+        foreach ([$first, $second] as $organization) {
+            OrganizationMembership::create([
+                'organization_id' => $organization->getKey(),
+                'person_id' => $user->person_id,
+                'role' => MembershipRole::Owner,
+                'status' => MembershipStatus::Active,
+            ]);
+        }
+
+        $response = $this->actingAs($user)
+            ->withSession(['active_organization_uuid' => $first->uuid])
+            ->get(route('dashboard'));
+
+        $response->assertOk()
+            ->assertSee('organization-switcher', false)
+            ->assertSee('dropdown-menu dropdown-menu-lg-end', false)
+            ->assertSee('d-flex flex-column flex-lg-row align-items-lg-center', false)
+            ->assertSee('First Organization')
+            ->assertSee('Second Organization');
+    }
 }

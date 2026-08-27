@@ -69,6 +69,11 @@ class Organization extends Model
         return $this->hasMany(AvailabilitySchedule::class);
     }
 
+    public function holidays(): HasMany
+    {
+        return $this->hasMany(OrganizationHoliday::class);
+    }
+
     public function bookingHolds(): HasMany
     {
         return $this->hasMany(BookingHold::class);

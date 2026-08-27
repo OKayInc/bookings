@@ -5,6 +5,7 @@ namespace App\Domain\Bookings;
 use App\Domain\Availability\AppointmentDurationService;
 use App\Domain\Availability\BookingHoldLease;
 use App\Domain\Availability\BookingHoldService;
+use App\Domain\Availability\OrganizationHolidayService;
 use App\Enums\AppointmentStatus;
 use App\Enums\AttendanceMode;
 use App\Enums\BookingHoldStatus;
@@ -25,6 +26,7 @@ class PublicBookingHoldService
         private readonly BookingHoldService $holds,
         private readonly AppointmentDurationService $durations,
         private readonly BookingNoticeService $notice,
+        private readonly OrganizationHolidayService $holidays,
     ) {
     }
 
@@ -49,6 +51,10 @@ class PublicBookingHoldService
         }
 
         $selectedDuration = $this->durations->selectedValue($type, $durationValue);
+        $endsAtUtc = $this->durations->endAt($startsAtUtc, $type, $selectedDuration, $bookingTimezone);
+        if ($this->holidays->isClosed($type->organization, $startsAtUtc, $endsAtUtc)) {
+            throw new RuntimeException('The organization is closed on the selected date.');
+        }
 
         if ($type->attendance_mode === AttendanceMode::Group) {
             $existing = Appointment::query()

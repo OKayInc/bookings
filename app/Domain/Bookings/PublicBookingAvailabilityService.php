@@ -5,6 +5,7 @@ namespace App\Domain\Bookings;
 use App\Domain\Availability\AppointmentDurationService;
 use App\Domain\Availability\AvailabilityService;
 use App\Domain\Availability\BookableSlot;
+use App\Domain\Availability\OrganizationHolidayService;
 use App\Enums\AppointmentStatus;
 use App\Enums\AttendanceMode;
 use App\Enums\BookingHoldStatus;
@@ -19,6 +20,7 @@ class PublicBookingAvailabilityService
         private readonly AvailabilityService $availability,
         private readonly AppointmentDurationService $durations,
         private readonly BookingNoticeService $notice,
+        private readonly OrganizationHolidayService $holidays,
     ) {
     }
 
@@ -32,6 +34,7 @@ class PublicBookingAvailabilityService
         int $attendeeCount,
         bool $enforceNotice = true,
     ): array {
+        $type->loadMissing('organization');
         $selectedDuration = $this->durations->selectedValue($type, $durationValue);
         $result = [];
         $nowUtc = CarbonImmutable::now('UTC');
@@ -74,6 +77,9 @@ class PublicBookingAvailabilityService
                 continue;
             }
             $end = CarbonImmutable::instance($appointment->ends_at_utc)->utc();
+            if ($this->holidays->isClosed($type->organization, $start, $end)) {
+                continue;
+            }
             $result[$start->format('Y-m-d\TH:i:s.u\Z')] = new BookableSlot($start, $end, $appointment, $remaining);
         }
 

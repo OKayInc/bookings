@@ -6,11 +6,18 @@
 <div class="page-header">
     <div>
         <h1>Availability</h1>
-        <p class="muted">Configure working hours, resource overrides, appointment-type overrides, blackouts, and extra availability.</p>
+        <p class="muted">Configure working hours, holiday closures, resource overrides, appointment-type overrides, blackouts, and extra availability.</p>
     </div>
     <div class="actions">
         <a class="btn" href="{{ route('availability.preview') }}">Preview slots</a>
     </div>
+</div>
+
+<div class="section-card">
+    <h2>Holiday closures</h2>
+    <p class="muted">Choose optional organization-wide closed dates, including annual, Easter-relative, nth-weekday, and one-time holidays.</p>
+    <p><strong>{{ $organization->holidays()->where('is_active', true)->count() }}</strong> active holiday closure(s)</p>
+    <a class="btn btn-primary" href="{{ route('availability.holidays.index') }}">Configure holidays</a>
 </div>
 
 <div class="section-card">

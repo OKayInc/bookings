@@ -90,7 +90,34 @@ class CurrentOrganizationNavigationTest extends TestCase
 
         $response->assertOk()
             ->assertSessionHas('active_organization_uuid', $b->uuid)
+            ->assertSee('id="organizationSwitcher"', false)
             ->assertSee('Organization Beta')
-            ->assertDontSee('Organization Alpha');
+            ->assertSee('Organization Alpha');
+    }
+
+    public function test_navbar_dropdown_can_switch_between_active_memberships(): void
+    {
+        $user = User::factory()->create();
+        $a = Organization::factory()->create(['name' => 'Organization Alpha']);
+        $b = Organization::factory()->create(['name' => 'Organization Beta']);
+
+        foreach ([$a, $b] as $organization) {
+            OrganizationMembership::create([
+                'organization_id' => $organization->getKey(),
+                'person_id' => $user->person_id,
+                'role' => MembershipRole::Owner,
+                'status' => MembershipStatus::Active,
+            ]);
+        }
+        $user->forceFill(['active_organization_id' => $a->getKey()])->save();
+
+        $response = $this->actingAs($user)->get(route('dashboard'));
+
+        $response->assertOk()
+            ->assertSee('id="organizationSwitcher"', false)
+            ->assertSee('dropdown-menu dropdown-menu-lg-end', false)
+            ->assertSee(route('organizations.switch', $b), false)
+            ->assertSee('Organization Alpha')
+            ->assertSee('Organization Beta');
     }
 }

@@ -22,6 +22,7 @@ class AvailabilityService
         private readonly AppointmentDurationService $durations,
         private readonly ResourceRequirementService $requirements,
         private readonly CalendarAvailabilityService $externalCalendars,
+        private readonly OrganizationHolidayService $holidays,
     ) {
     }
 
@@ -69,6 +70,11 @@ class AvailabilityService
         }
 
         $busy = $this->busyIntervals($type, $rangeStartUtc->subDays(14), $rangeEndUtc->addDays(14));
+        array_push($busy, ...$this->holidays->closures(
+            $type->organization,
+            $rangeStartUtc->subDays(14),
+            $rangeEndUtc->addDays(14),
+        ));
         $intervalMinutes = max(1, (int) ($type->start_interval_minutes ?: config('availability.default_start_interval_minutes', 15)));
         $slots = [];
 
@@ -130,6 +136,10 @@ class AvailabilityService
         bool $freshExternalCalendars = false,
     ): bool {
         if (! $resource->is_active) {
+            return false;
+        }
+
+        if ($this->holidays->isClosed($type->organization, $startsAtUtc, $endsAtUtc)) {
             return false;
         }
 
