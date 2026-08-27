@@ -5,10 +5,10 @@ namespace App\Providers;
 use App\Models\AppointmentType;
 use App\Models\Organization;
 use App\Models\Resource;
-use App\Enums\MembershipStatus;
 use App\Policies\AppointmentTypePolicy;
 use App\Policies\OrganizationPolicy;
 use App\Policies\ResourcePolicy;
+use App\Support\Organizations\ActiveOrganizationResolver;
 use App\Support\Organizations\OrganizationContext;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Support\Carbon;
@@ -48,22 +48,7 @@ class AppServiceProvider extends ServiceProvider
             $user = $request->user();
 
             if (! $organization && $user) {
-                $memberships = $user->person
-                    ->memberships()
-                    ->with('organization')
-                    ->where('status', MembershipStatus::Active->value)
-                    ->get();
-
-                $requestedUuid = $request->session()->get('active_organization_uuid');
-
-                if ($requestedUuid) {
-                    $membership = $memberships->first(
-                        fn ($item) => $item->organization && hash_equals($item->organization->uuid, (string) $requestedUuid)
-                    );
-                    $organization = $membership?->organization;
-                }
-
-                $organization ??= $memberships->first()?->organization;
+                $organization = app(ActiveOrganizationResolver::class)->resolve($user, $request);
             }
 
             $view->with('activeOrganization', $organization);

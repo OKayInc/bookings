@@ -139,3 +139,7 @@ Test-only fix for organization logo fallback coverage. See `docs/CHANGES-M7-R3-R
 ## M7-R4-R1
 
 MariaDB migration recovery fix for shared resources. The M7-R4 migration now preserves a dedicated `resource_id` index for the calendar connection foreign key and safely resumes after partial DDL. See `docs/CHANGES-M7-R4-R1.md`.
+
+## M7-R4-R3: durable active organization
+
+Organization switching now persists the selected organization on the backend user, with session state retained as a compatibility/cache layer. This prevents a successful switch POST from reverting to the first membership when the next request loses or carries stale session state.

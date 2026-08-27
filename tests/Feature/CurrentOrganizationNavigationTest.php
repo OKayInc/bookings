@@ -78,11 +78,18 @@ class CurrentOrganizationNavigationTest extends TestCase
         $this->actingAs($user)
             ->withSession(['active_organization_uuid' => $a->uuid])
             ->post(route('organizations.switch', $b))
-            ->assertRedirect(route('dashboard'));
+            ->assertRedirect(route('dashboard'))
+            ->assertSessionHas('active_organization_uuid', $b->uuid);
 
-        $response = $this->get(route('dashboard'));
+        $this->assertTrue(hash_equals($b->getKey(), $user->fresh()->active_organization_id));
+
+        // Simulate a host/browser where the redirect arrives with stale session state.
+        // The persisted preference must remain authoritative and repair the session.
+        $response = $this->withSession(['active_organization_uuid' => $a->uuid])
+            ->get(route('dashboard'));
 
         $response->assertOk()
+            ->assertSessionHas('active_organization_uuid', $b->uuid)
             ->assertSee('Organization Beta')
             ->assertDontSee('Organization Alpha');
     }

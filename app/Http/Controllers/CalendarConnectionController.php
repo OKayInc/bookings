@@ -9,6 +9,7 @@ use App\Enums\CalendarProvider;
 use App\Models\CalendarConnection;
 use App\Models\CalendarOauthState;
 use App\Models\Resource;
+use App\Support\Organizations\ActiveOrganizationResolver;
 use App\Support\Organizations\OrganizationContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -180,7 +181,7 @@ class CalendarConnectionController extends Controller
     private function callbackRedirect(Request $request, CalendarOauthState $oauth, string $flashKey, string $message): RedirectResponse
     {
         if ($request->user()?->is($oauth->user)) {
-            $request->session()->put('active_organization_uuid', $oauth->organization->uuid);
+            app(ActiveOrganizationResolver::class)->select($request->user(), $oauth->organization, $request);
 
             return redirect()->route('calendar-connections.index')->with($flashKey, $message);
         }

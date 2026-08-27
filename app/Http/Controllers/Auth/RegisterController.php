@@ -68,6 +68,8 @@ class RegisterController extends Controller
                 'status' => MembershipStatus::Active,
             ]);
 
+            $user->forceFill(['active_organization_id' => $organization->getKey()])->save();
+
             return [$user, $organization];
         });
 

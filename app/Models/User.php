@@ -21,6 +21,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     protected $hidden = [
         'id',
+        'active_organization_id',
         'password',
         'remember_token',
     ];
@@ -38,5 +39,10 @@ class User extends Authenticatable implements MustVerifyEmail
     public function person(): BelongsTo
     {
         return $this->belongsTo(Person::class);
+    }
+
+    public function activeOrganization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class, 'active_organization_id');
     }
 }
