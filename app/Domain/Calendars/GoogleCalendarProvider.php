@@ -52,7 +52,7 @@ class GoogleCalendarProvider implements CalendarProviderContract
     {
         $items = []; $pageToken = null;
         do {
-            $params = ['maxResults' => 250, 'showHidden' => true];
+            $params = ['maxResults' => 250, 'showHidden' => 'true'];
             if ($pageToken) { $params['pageToken'] = $pageToken; }
             $json = $this->api($accessToken)->get('https://www.googleapis.com/calendar/v3/users/me/calendarList', $params)->throw()->json();
             foreach (($json['items'] ?? []) as $item) {

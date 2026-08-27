@@ -61,4 +61,28 @@ class CalendarProviderTest extends TestCase
         );
     }
 
+    public function test_google_calendar_list_serializes_boolean_query_parameters_as_literals(): void
+    {
+        Http::fake([
+            'https://www.googleapis.com/calendar/v3/users/me/calendarList*' => Http::response([
+                'items' => [[
+                    'id' => 'primary@example.test',
+                    'summary' => 'Primary',
+                    'accessRole' => 'owner',
+                    'primary' => true,
+                ]],
+            ]),
+        ]);
+
+        $calendars = app(GoogleCalendarProvider::class)->listCalendars('token');
+
+        $this->assertCount(1, $calendars);
+        Http::assertSent(function ($request): bool {
+            parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+
+            return ($query['maxResults'] ?? null) === '250'
+                && ($query['showHidden'] ?? null) === 'true';
+        });
+    }
+
 }
