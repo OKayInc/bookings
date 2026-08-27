@@ -7,5 +7,17 @@
 <div class="field"><label>Default appointment requirement</label><select name="default_requirement" required>
 <option value="required" @selected(old('default_requirement', ($resource?->is_required_by_default ?? true) ? 'required' : 'optional') === 'required')>Required</option>
 <option value="optional" @selected(old('default_requirement', ($resource?->is_required_by_default ?? true) ? 'required' : 'optional') === 'optional')>Optional</option>
-</select><div class="muted">Appointment types inherit this setting unless they explicitly override it.</div></div>
+</select><div class="muted">Appointment types in the owning organization inherit this setting unless they explicitly override it.</div></div>
 <div class="field checkbox-list"><label><input type="checkbox" name="is_active" value="1" @checked(old('is_active', $resource?->is_active ?? true))> Active</label></div>
+
+@if($shareableOrganizations->isNotEmpty())
+<div class="field">
+<label>Share with other organizations you own</label>
+<div class="checkbox-list">
+@foreach($shareableOrganizations as $shareOrganization)
+<label><input type="checkbox" name="shared_organization_uuids[]" value="{{ $shareOrganization->uuid }}" @checked(in_array($shareOrganization->getKey(), $sharedOrganizationKeys, true) || in_array($shareOrganization->uuid, old('shared_organization_uuids', []), true))> {{ $shareOrganization->name }}</label>
+@endforeach
+</div>
+<div class="muted">Sharing makes this same physical/staff resource selectable in those organizations. Each organization keeps its own availability schedule.</div>
+</div>
+@endif

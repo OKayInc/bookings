@@ -11,14 +11,14 @@ class ResourcePolicy
 {
     public function manage(User $user, Resource $resource): bool
     {
-        return $resource->organization->memberships()
+        return $resource->organizations()->whereHas('memberships', fn ($query) => $query
             ->where('person_id', $user->person_id)
             ->where('status', MembershipStatus::Active->value)
             ->whereIn('role', [
                 MembershipRole::Owner->value,
                 MembershipRole::Administrator->value,
                 MembershipRole::Manager->value,
-            ])->exists();
+            ]))->exists();
     }
     public function calendar(User $user, Resource $resource): bool
     {

@@ -75,9 +75,9 @@ class AvailabilityScheduleService
             ?? $this->find($type->organization, AvailabilityScope::Organization, $type->organization);
     }
 
-    public function effectiveForResource(Resource $resource): ?AvailabilitySchedule
+    public function effectiveForResource(Organization $organization, Resource $resource): ?AvailabilitySchedule
     {
-        return $this->find($resource->organization, AvailabilityScope::Resource, $resource)
-            ?? $this->find($resource->organization, AvailabilityScope::Organization, $resource->organization);
+        return $this->find($organization, AvailabilityScope::Resource, $resource)
+            ?? $this->find($organization, AvailabilityScope::Organization, $organization);
     }
 }

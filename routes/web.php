@@ -194,6 +194,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::delete('/availability/schedules/{schedule}/exceptions/{exception}', [AvailabilityExceptionController::class, 'destroy'])->name('availability.exceptions.destroy');
         Route::get('/availability/preview', AvailabilityPreviewController::class)->name('availability.preview');
 
+        Route::patch('/resources/{resource}/organization-settings', [ResourceController::class, 'updateOrganizationSettings'])->name('resources.organization-settings.update');
         Route::resource('resources', ResourceController::class)->except(['show', 'destroy']);
         Route::get('/appointment-types/{appointmentType}/contract-template', [AppointmentContractTemplateController::class, 'download'])
             ->name('appointment-types.contract-template.download');

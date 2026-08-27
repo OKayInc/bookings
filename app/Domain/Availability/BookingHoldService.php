@@ -69,7 +69,7 @@ class BookingHoldService
             $endsAtUtc = $this->durations->endAt($startsAtUtc, $lockedType, $durationValue, $timezone);
             $selectedResources = [];
             foreach ($lockedType->resources as $resource) {
-                $required = $this->requirements->isRequired($resource);
+                $required = $this->requirements->isRequired($resource, $lockedType);
                 if ($required || $this->availability->isResourceAvailableAt($resource, $lockedType, $startsAtUtc, $endsAtUtc, true)) {
                     $selectedResources[$resource->getKey()] = ['is_required' => $required];
                 }

@@ -35,9 +35,48 @@ class Resource extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::created(function (Resource $resource): void {
+            if ($resource->organization_id === null) {
+                return;
+            }
+
+            // Reload database defaults before mirroring organization-specific settings.
+            // A freshly-created model may not contain values supplied by MariaDB defaults.
+            $resource->refresh();
+
+            $resource->organizations()->syncWithoutDetaching([
+                $resource->organization_id => [
+                    'is_required_by_default' => (bool) $resource->is_required_by_default,
+                ],
+            ]);
+        });
+    }
+
+    /** Owning organization. Shared access is exposed through organizations(). */
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    public function organizations(): BelongsToMany
+    {
+        return $this->belongsToMany(Organization::class, 'organization_resources')
+            ->withPivot('is_required_by_default')
+            ->withTimestamps();
+    }
+
+    public function isAvailableToOrganization(Organization $organization): bool
+    {
+        return $this->organizations()->whereKey($organization->getKey())->exists();
+    }
+
+    public function defaultRequiredForOrganization(Organization $organization): bool
+    {
+        $shared = $this->organizations()->whereKey($organization->getKey())->first();
+
+        return (bool) ($shared?->pivot?->is_required_by_default ?? $this->is_required_by_default);
     }
 
     public function person(): BelongsTo

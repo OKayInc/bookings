@@ -9,7 +9,7 @@ use Illuminate\Support\Collection;
 
 class ResourceRequirementService
 {
-    public function isRequired(Resource $resource): bool
+    public function isRequired(Resource $resource, ?AppointmentType $type = null): bool
     {
         $mode = ResourceRequirementMode::tryFrom((string) ($resource->pivot?->requirement_mode ?? ResourceRequirementMode::Inherit->value))
             ?? ResourceRequirementMode::Inherit;
@@ -17,7 +17,7 @@ class ResourceRequirementService
         return match ($mode) {
             ResourceRequirementMode::Required => true,
             ResourceRequirementMode::Optional => false,
-            ResourceRequirementMode::Inherit => (bool) $resource->is_required_by_default,
+            ResourceRequirementMode::Inherit => $type ? $resource->defaultRequiredForOrganization($type->organization) : (bool) $resource->is_required_by_default,
         };
     }
 
@@ -26,7 +26,7 @@ class ResourceRequirementService
     {
         $type->loadMissing('resources');
 
-        return $type->resources->filter(fn (Resource $resource): bool => $this->isRequired($resource))->values();
+        return $type->resources->filter(fn (Resource $resource): bool => $this->isRequired($resource, $type))->values();
     }
 
     /** @return Collection<int, Resource> */
@@ -34,7 +34,7 @@ class ResourceRequirementService
     {
         $type->loadMissing('resources');
 
-        return $type->resources->reject(fn (Resource $resource): bool => $this->isRequired($resource))->values();
+        return $type->resources->reject(fn (Resource $resource): bool => $this->isRequired($resource, $type))->values();
     }
 
     public function modeFor(Resource $resource): ResourceRequirementMode

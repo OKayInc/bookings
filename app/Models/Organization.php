@@ -46,9 +46,16 @@ class Organization extends Model
             ->withTimestamps();
     }
 
-    public function resources(): HasMany
+    public function resources(): BelongsToMany
     {
-        return $this->hasMany(Resource::class);
+        return $this->belongsToMany(Resource::class, 'organization_resources')
+            ->withPivot('is_required_by_default')
+            ->withTimestamps();
+    }
+
+    public function ownedResources(): HasMany
+    {
+        return $this->hasMany(Resource::class, 'organization_id');
     }
 
 

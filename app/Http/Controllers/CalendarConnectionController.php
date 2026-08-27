@@ -23,7 +23,11 @@ class CalendarConnectionController extends Controller
     public function index(OrganizationContext $context, Request $request): View
     {
         $organization = $context->organization();
-        $resources = $organization->resources()->with(['person', 'calendarConnections.calendars'])->orderBy('name');
+        $resources = $organization->resources()->with([
+            'person',
+            'calendarConnections' => fn ($query) => $query->where('organization_id', $organization->getKey()),
+            'calendarConnections.calendars',
+        ])->orderBy('name');
         if (! $request->user()->can('manageScheduling', $organization)) {
             $resources->where('person_id', $request->user()->person_id);
         }
@@ -114,12 +118,13 @@ class CalendarConnectionController extends Controller
         try {
             $tokens = $manager->provider($providerEnum)->exchangeAuthorizationCode((string) $request->query('code'));
             $existing = CalendarConnection::query()
+                ->where('organization_id', $oauth->organization->getKey())
                 ->where('resource_id', $oauth->resource->getKey())
                 ->where('provider', $providerEnum->value)
                 ->first();
 
             $connection = CalendarConnection::query()->updateOrCreate(
-                ['resource_id' => $oauth->resource->getKey(), 'provider' => $providerEnum->value],
+                ['organization_id' => $oauth->organization->getKey(), 'resource_id' => $oauth->resource->getKey(), 'provider' => $providerEnum->value],
                 [
                     'organization_id' => $oauth->organization->getKey(),
                     'access_token' => $tokens['access_token'],
@@ -185,7 +190,10 @@ class CalendarConnectionController extends Controller
 
     private function ensureSameOrganization(Resource $resource, OrganizationContext $context): void
     {
-        abort_unless(hash_equals($resource->organization_id, $context->organization()->getKey()), 404);
+        abort_unless(
+            $context->organization()->resources()->where('resources.id', $resource->getKey())->exists(),
+            404,
+        );
     }
 
     private function ensureConnectionOrganization(CalendarConnection $connection, OrganizationContext $context): void

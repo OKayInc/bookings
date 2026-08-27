@@ -217,7 +217,7 @@ class StoreAppointmentTypeRequest extends FormRequest
                     $modes = (array) $this->input('resource_requirement_modes', []);
                     $hasRequiredEmployee = collect($resourceUuids)->contains(function (string $uuid) use ($organizationKey, $modes): bool {
                         $resource = Resource::whereUuid($uuid)
-                            ->where('organization_id', $organizationKey)
+                            ->whereHas('organizations', fn ($query) => $query->where('organizations.id', $organizationKey))
                             ->with('person')
                             ->first();
 
@@ -230,7 +230,7 @@ class StoreAppointmentTypeRequest extends FormRequest
                         $required = match ($mode) {
                             ResourceRequirementMode::Required => true,
                             ResourceRequirementMode::Optional => false,
-                            ResourceRequirementMode::Inherit => (bool) $resource->is_required_by_default,
+                            ResourceRequirementMode::Inherit => $resource->defaultRequiredForOrganization(app(OrganizationContext::class)->organization()),
                         };
 
                         return $required && filled($resource->person?->primary_email);

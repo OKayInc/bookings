@@ -18,6 +18,7 @@ use App\Enums\ResourceRequirementMode;
 use App\Enums\ReminderThresholdBasis;
 use App\Http\Requests\StoreAppointmentTypeRequest;
 use App\Models\AppointmentType;
+use App\Models\Organization;
 use App\Models\Resource;
 use App\Support\Organizations\OrganizationContext;
 use Illuminate\Http\RedirectResponse;
@@ -229,7 +230,7 @@ class AppointmentTypeController extends Controller
     {
         return [
             'appointmentType' => null,
-            'resources' => $context->organization()->resources()->where('is_active', true)->orderBy('name')->get(),
+            'resources' => $context->organization()->resources()->where('resources.is_active', true)->orderBy('name')->get(),
             'visibilities' => AppointmentVisibility::cases(),
             'attendanceModes' => AttendanceMode::cases(),
             'durationModes' => DurationMode::cases(),
@@ -313,14 +314,16 @@ class AppointmentTypeController extends Controller
 
         foreach ($uuids as $uuid) {
             $resource = Resource::whereUuid((string) $uuid)
-                ->where('organization_id', $organizationKey)
+                ->whereHas('organizations', fn ($query) => $query->where('organizations.id', $organizationKey))
                 ->firstOrFail();
+            $organization = Organization::query()->findOrFail($organizationKey);
+            $defaultRequired = $resource->defaultRequiredForOrganization($organization);
             $mode = ResourceRequirementMode::tryFrom((string) ($modes[$uuid] ?? ResourceRequirementMode::Inherit->value))
                 ?? ResourceRequirementMode::Inherit;
             $effectiveRequired = match ($mode) {
                 ResourceRequirementMode::Required => true,
                 ResourceRequirementMode::Optional => false,
-                ResourceRequirementMode::Inherit => (bool) $resource->is_required_by_default,
+                ResourceRequirementMode::Inherit => $defaultRequired,
             };
 
             $sync[$resource->getKey()] = [

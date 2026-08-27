@@ -21,6 +21,8 @@ class StoreResourceRequest extends FormRequest
             'timezone' => ['nullable', new IanaTimezone()],
             'default_requirement' => ['nullable', 'in:required,optional'],
             'is_active' => ['nullable', 'boolean'],
+            'shared_organization_uuids' => ['nullable', 'array'],
+            'shared_organization_uuids.*' => ['uuid', 'distinct'],
         ];
     }
 }

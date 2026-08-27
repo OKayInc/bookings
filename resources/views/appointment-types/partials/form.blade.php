@@ -299,7 +299,7 @@
                         </div>
                         <div class="field" style="margin-bottom:0">
                             <label>Organization default</label>
-                            <div><span class="badge">{{ $resource->is_required_by_default ? 'Required' : 'Optional' }}</span></div>
+                            <div><span class="badge">{{ $resource->pivot->is_required_by_default ? 'Required' : 'Optional' }}</span></div>
                         </div>
                     </div>
                 </div>

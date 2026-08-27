@@ -54,7 +54,7 @@ class AvailabilityController extends Controller
     public function editResource(Resource $resource, OrganizationContext $context, AvailabilityScheduleService $service): View
     {
         $organization = $context->organization();
-        $this->ensureOwned($resource->organization_id, $organization->getKey());
+        $this->ensureResourceAvailable($resource, $organization);
         $this->authorize('manageScheduling', $organization);
 
         return $this->editView($organization, AvailabilityScope::Resource, $resource, $service->find($organization, AvailabilityScope::Resource, $resource), 'Resource: '.$resource->name);
@@ -63,7 +63,7 @@ class AvailabilityController extends Controller
     public function updateResource(StoreAvailabilityScheduleRequest $request, Resource $resource, OrganizationContext $context, AvailabilityScheduleService $service): RedirectResponse
     {
         $organization = $context->organization();
-        $this->ensureOwned($resource->organization_id, $organization->getKey());
+        $this->ensureResourceAvailable($resource, $organization);
         $this->authorize('manageScheduling', $organization);
         $data = $request->validated();
         $service->save($organization, AvailabilityScope::Resource, $resource, $data['timezone'], $request->boolean('is_active'), $data['rules'] ?? []);
@@ -74,7 +74,7 @@ class AvailabilityController extends Controller
     public function resetResource(Resource $resource, OrganizationContext $context, AvailabilityScheduleService $service): RedirectResponse
     {
         $organization = $context->organization();
-        $this->ensureOwned($resource->organization_id, $organization->getKey());
+        $this->ensureResourceAvailable($resource, $organization);
         $this->authorize('manageScheduling', $organization);
         $service->removeCustom($organization, AvailabilityScope::Resource, $resource);
 
@@ -123,6 +123,14 @@ class AvailabilityController extends Controller
             'title' => $title,
             'timezones' => DateTimeZone::listIdentifiers(),
         ]);
+    }
+
+    private function ensureResourceAvailable(Resource $resource, $organization): void
+    {
+        abort_unless(
+            $organization->resources()->where('resources.id', $resource->getKey())->exists(),
+            404,
+        );
     }
 
     private function ensureOwned(mixed $candidate, mixed $organization): void

@@ -135,3 +135,7 @@ Organizations can now upload a default logo. It is displayed in backend/public n
 ## M7-R3-R1
 
 Test-only fix for organization logo fallback coverage. See `docs/CHANGES-M7-R3-R1.md`.
+
+## M7-R4-R1
+
+MariaDB migration recovery fix for shared resources. The M7-R4 migration now preserves a dedicated `resource_id` index for the calendar connection foreign key and safely resumes after partial DDL. See `docs/CHANGES-M7-R4-R1.md`.

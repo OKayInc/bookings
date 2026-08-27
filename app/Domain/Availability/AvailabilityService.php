@@ -37,7 +37,7 @@ class AvailabilityService
             return [];
         }
 
-        $type->loadMissing(['organization', 'resources.organization']);
+        $type->loadMissing(['organization', 'resources']);
         $bookingTimezone ??= $type->organization->timezone;
 
         $scheduleList = [];
@@ -52,7 +52,7 @@ class AvailabilityService
                 return [];
             }
 
-            $schedule = $this->schedules->effectiveForResource($resource);
+            $schedule = $this->schedules->effectiveForResource($type->organization, $resource);
             if ($schedule === null || ! $schedule->is_active) {
                 return [];
             }
@@ -133,7 +133,7 @@ class AvailabilityService
             return false;
         }
 
-        $schedule = $this->schedules->effectiveForResource($resource);
+        $schedule = $this->schedules->effectiveForResource($type->organization, $resource);
         if ($schedule === null || ! $schedule->is_active) {
             return false;
         }
