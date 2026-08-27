@@ -13,6 +13,18 @@
 
 All entity primary keys continue to use UUIDv7 encoded as `BINARY(16)`.
 
+## M7-R5 organization-member invitations
+
+`organization_member_invitations` provides account onboarding before an `organization_membership` can reference a person:
+
+- `organization_id`, `invited_by_person_id`, and nullable `accepted_by_person_id` use UUIDv7 `BINARY(16)` keys;
+- `email` retains the addressed value and `email_normalized` enforces one invitation record per organization/recipient;
+- `role` accepts non-owner backend roles;
+- `token_hash BINARY(32)` stores SHA-256 output, never the raw emailed token;
+- `expires_at_utc`, `accepted_at_utc`, and `revoked_at_utc` enforce and audit invitation lifecycle.
+
+Acceptance creates an active row in the existing `organization_memberships` table. It does not create an organization for the invitee.
+
 ## appointment_types — M2/M3 configuration
 
 M2 extends `appointment_types` with configuration fields rather than creating a separate table for every small setting. These values define a service/event type; actual scheduled sessions and bookings arrive in M4.

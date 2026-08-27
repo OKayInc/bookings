@@ -33,6 +33,7 @@ class BookingCreationService
         private readonly QuestionnairePersistenceService $questionnairePersistence,
         private readonly CalendarSyncService $calendarSync,
         private readonly CalendarAvailabilityService $externalCalendars,
+        private readonly BookingResourceNotificationService $resourceNotifications,
     ) {
     }
 
@@ -227,6 +228,7 @@ class BookingCreationService
         }, 3);
 
         $this->calendarSync->safeSyncAppointment($booking->appointment);
+        $this->resourceNotifications->safeNotifyBookingCreated($booking);
 
         return new BookingCreationResult($booking, $emailVerificationToken, $manageToken);
     }

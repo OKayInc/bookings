@@ -143,3 +143,7 @@ MariaDB migration recovery fix for shared resources. The M7-R4 migration now pre
 ## M7-R4-R3: durable active organization
 
 Organization switching now persists the selected organization on the backend user, with session state retained as a compatibility/cache layer. This prevents a successful switch POST from reverting to the first membership when the next request loses or carries stale session state.
+
+## M7-R5: organization-member invitations and resource booking email
+
+Owners and administrators can invite backend members without making them organization owners. New invitees create a person/user account through the email-bound invitation, while existing backend users log in and join with their existing account. A person linked to an assigned resource now receives an immediate email when a booking involving that resource is created. See `docs/CHANGES-M7-R5.md` and `docs/UPGRADE-M7-R4-R3-TO-M7-R5.md`.

@@ -15,6 +15,8 @@ use App\Http\Controllers\BookingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\OrganizationController;
+use App\Http\Controllers\OrganizationInvitationAcceptanceController;
+use App\Http\Controllers\OrganizationMemberController;
 use App\Http\Controllers\PublicAppointmentTypeController;
 use App\Http\Controllers\PublicBookingController;
 use App\Http\Controllers\PublicBookingManageController;
@@ -100,6 +102,13 @@ Route::get('/staff-confirmation/{confirmation}/{token}', [StaffConfirmationContr
 Route::post('/staff-confirmation/{confirmation}/{token}', [StaffConfirmationController::class, 'respond'])
     ->middleware('throttle:20,1')
     ->name('public.staff-confirmations.respond');
+
+Route::get('/organization-invitation/{token}', [OrganizationInvitationAcceptanceController::class, 'show'])
+    ->middleware('throttle:30,1')
+    ->name('organization-invitations.show');
+Route::post('/organization-invitation/{token}', [OrganizationInvitationAcceptanceController::class, 'accept'])
+    ->middleware('throttle:10,1')
+    ->name('organization-invitations.accept');
 
 Route::get('/email/verify/{id}/{hash}', function (
     Request $request,
@@ -196,6 +205,9 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
 
         Route::patch('/resources/{resource}/organization-settings', [ResourceController::class, 'updateOrganizationSettings'])->name('resources.organization-settings.update');
         Route::resource('resources', ResourceController::class)->except(['show', 'destroy']);
+        Route::get('/organization-members', [OrganizationMemberController::class, 'index'])->name('organization-members.index');
+        Route::post('/organization-member-invitations', [OrganizationMemberController::class, 'store'])->name('organization-members.invitations.store');
+        Route::delete('/organization-member-invitations/{invitation}', [OrganizationMemberController::class, 'destroy'])->name('organization-members.invitations.destroy');
         Route::get('/appointment-types/{appointmentType}/contract-template', [AppointmentContractTemplateController::class, 'download'])
             ->name('appointment-types.contract-template.download');
         Route::post('/appointment-types/{appointmentType}/invitations', [AppointmentTypeInvitationController::class, 'store'])
