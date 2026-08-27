@@ -27,6 +27,13 @@ class StoreOrganizationRequest extends FormRequest
             'name' => ['required', 'string', 'max:180'],
             'timezone' => ['required', new IanaTimezone()],
             'currency' => ['required', 'string', Rule::in(PaymentCurrencyCatalog::codes())],
+            'logo_file' => [
+                'nullable',
+                'file',
+                'mimes:'.implode(',', config('organizations.logo_extensions', ['jpg', 'jpeg', 'png', 'webp'])),
+                'max:'.config('organizations.max_logo_kilobytes', 5120),
+            ],
+            'remove_logo' => ['nullable', 'boolean'],
         ];
     }
 }

@@ -127,3 +127,11 @@ Backend registrations now require email verification before administration acces
 ## M7-R2: durable calendar OAuth state
 
 Calendar OAuth no longer depends on the Laravel session surviving the Google/Microsoft consent round trip. Short-lived, one-time hashed OAuth transactions are stored in MariaDB. This revision is based on the current GitHub repository and preserves the manual Apache `.htaccess` and session-independent backend email-verification fix. See `docs/UPGRADE-REPOSITORY-TO-M7-R2.md`.
+
+## M7-R3: organization logos
+
+Organizations can now upload a default logo. It is displayed in backend/public navigation and is used as the fallback image for appointment types that do not define their own logo. See `docs/CHANGES-M7-R3.md`.
+
+## M7-R3-R1
+
+Test-only fix for organization logo fallback coverage. See `docs/CHANGES-M7-R3-R1.md`.

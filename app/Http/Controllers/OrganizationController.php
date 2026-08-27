@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Money\PaymentCurrencyCatalog;
+use App\Domain\Organizations\OrganizationLogoService;
 use App\Enums\MembershipRole;
 use App\Enums\MembershipStatus;
 use App\Http\Requests\StoreOrganizationRequest;
@@ -34,7 +35,7 @@ class OrganizationController extends Controller
         ]);
     }
 
-    public function store(StoreOrganizationRequest $request): RedirectResponse
+    public function store(StoreOrganizationRequest $request, OrganizationLogoService $logos): RedirectResponse
     {
         $data = $request->validated();
 
@@ -63,6 +64,10 @@ class OrganizationController extends Controller
             return $organization;
         });
 
+        if ($request->hasFile('logo_file')) {
+            $logos->replace($organization, $request->file('logo_file'));
+        }
+
         $request->session()->put('active_organization_uuid', $organization->uuid);
 
         return redirect()->route('dashboard')->with('success', 'Organization created.');
@@ -79,7 +84,7 @@ class OrganizationController extends Controller
         ]);
     }
 
-    public function update(StoreOrganizationRequest $request, Organization $organization): RedirectResponse
+    public function update(StoreOrganizationRequest $request, Organization $organization, OrganizationLogoService $logos): RedirectResponse
     {
         $this->authorize('update', $organization);
         $data = $request->validated();
@@ -89,6 +94,12 @@ class OrganizationController extends Controller
             'timezone' => $data['timezone'],
             'currency' => strtoupper($data['currency']),
         ]);
+
+        if ($request->hasFile('logo_file')) {
+            $logos->replace($organization, $request->file('logo_file'));
+        } elseif ($request->boolean('remove_logo')) {
+            $logos->remove($organization);
+        }
 
         return redirect()->route('organizations.index')->with('success', 'Organization updated.');
     }

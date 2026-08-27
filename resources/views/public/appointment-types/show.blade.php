@@ -2,7 +2,7 @@
 @section('title', $type->name)
 @section('content')
 <div class="card appointment-hero">
-    @if($type->logo_url)<img class="public-logo large" src="{{ $type->logo_url }}" alt="{{ $type->name }} logo">@endif
+    @if(($type->logo_url ?? $type->organization->logo_url))<img class="public-logo large" src="{{ ($type->logo_url ?? $type->organization->logo_url) }}" alt="{{ $type->name }} logo">@endif
     <div>
         <div class="muted">{{ $organization->name }}</div>
         <h1>{{ $type->name }}</h1>

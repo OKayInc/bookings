@@ -12,7 +12,7 @@
 <body class="bg-body-tertiary">
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm" aria-label="Backend navigation">
     <div class="container-fluid px-lg-4">
-        <a class="navbar-brand fw-semibold" href="{{ auth()->check() ? route('dashboard') : route('login') }}">{{ config('app.name') }}</a>
+        <a class="navbar-brand fw-semibold d-flex align-items-center gap-2" href="{{ auth()->check() ? route('dashboard') : route('login') }}">@if($activeOrganization?->logo_url)<img src="{{ $activeOrganization->logo_url }}" alt="{{ $activeOrganization->name }} logo" style="height:32px;width:auto;max-width:120px;object-fit:contain">@endif<span>{{ config('app.name') }}</span></a>
 
         @auth
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#backendNavbar" aria-controls="backendNavbar" aria-expanded="false" aria-label="Toggle navigation">

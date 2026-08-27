@@ -5,7 +5,7 @@
 <div class="grid">
 @forelse($appointmentTypes as $type)
     <div class="card">
-        @if($type->logo_url)<img class="public-logo" src="{{ $type->logo_url }}" alt="{{ $type->name }} logo">@endif
+        @if(($type->logo_url ?? $type->organization->logo_url))<img class="public-logo" src="{{ ($type->logo_url ?? $type->organization->logo_url) }}" alt="{{ $type->name }} logo">@endif
         <h2>{{ $type->name }}</h2>
         <p>{{ $type->description }}</p>
         <dl class="summary-list">
