@@ -7,7 +7,9 @@ use App\Enums\MembershipStatus;
 use App\Models\Organization;
 use App\Models\OrganizationMembership;
 use App\Models\User;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
@@ -58,6 +60,32 @@ class BackendEmailVerificationTest extends TestCase
             ->assertRedirect(route('dashboard'));
 
         $this->assertNotNull($user->fresh()->email_verified_at);
+    }
+
+    public function test_uuid_signed_verification_link_works_without_authenticated_session(): void
+    {
+        Event::fake([Verified::class]);
+
+        $user = User::factory()->create(['email_verified_at' => null]);
+
+        $url = URL::temporarySignedRoute(
+            'verification.verify',
+            now()->addMinutes(60),
+            [
+                'id' => $user->uuid,
+                'hash' => sha1($user->email),
+            ]
+        );
+
+        $this->get($url)
+            ->assertRedirect(route('login'));
+
+        $this->assertNotNull($user->fresh()->email_verified_at);
+
+        Event::assertDispatched(
+            Verified::class,
+            fn (Verified $event): bool => $event->user->is($user)
+        );
     }
 
     public function test_verified_backend_user_can_access_dashboard(): void
