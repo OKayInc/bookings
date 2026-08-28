@@ -29,3 +29,5 @@ M7-R7 internationalizes holiday selection, prevents duplicate configured closure
 ## Schema and dependency
 
 Migration `2026_08_28_000051_add_regional_holiday_settings.php` adds the organization region, regional holiday provider keys, and organization-resource holiday settings. Composer now requires `azuyalabs/yasumi:^2.11`. No new environment variable, queue, or scheduled command is required.
+
+Existing installations must add the new dependency with `composer update azuyalabs/yasumi --with-dependencies`; an existing pre-M7-R7 lock file cannot be updated by `composer install` alone. Provider bootstrap failures are no longer swallowed as empty holiday calendars.

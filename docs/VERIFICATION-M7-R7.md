@@ -12,6 +12,7 @@ Verification completed in the packaging environment:
 - Existing resources migrate with enforcement disabled.
 - Required regional resource closures participate in slot generation and transactional hold acquisition; optional closed resources are skipped.
 - Existing group sessions, final booking creation, and rescheduling recheck snapshotted required resources.
+- A missing Yasumi installation now raises an actionable dependency error instead of silently producing an empty regional calendar.
 - Focused feature coverage was added in `RegionalHolidayAvailabilityTest` and existing holiday/resource suites remain applicable.
 
 This packaging environment does not contain PHP, Composer dependencies, MariaDB, or Memcached, so PHP syntax lint and the Laravel test suite could not run here. Run the commands in `UPGRADE-M7-R6-TO-M7-R7.md` on the deployment/test host before production rollout.

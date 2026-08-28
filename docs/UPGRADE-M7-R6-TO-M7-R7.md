@@ -7,10 +7,12 @@ M7-R7 is additive. It preserves existing users, organizations, memberships, holi
 3. Install the new Yasumi dependency, clear cached application state, and run the additive migration:
 
 ```bash
-composer install --no-dev --optimize-autoloader
+composer update azuyalabs/yasumi --with-dependencies --no-dev --optimize-autoloader
 php artisan optimize:clear
 php artisan migrate
 ```
+
+`composer install` is not sufficient when upgrading an existing M7-R6 checkout whose `composer.lock` predates M7-R7. The targeted update above adds Yasumi to that lock file without updating unrelated direct dependencies.
 
 M7-R7 adds:
 
@@ -20,6 +22,7 @@ M7-R7 adds:
 4. Run focused tests followed by the complete suite:
 
 ```bash
+composer show azuyalabs/yasumi
 php artisan test --filter=RegionalHolidayAvailabilityTest
 php artisan test --filter=OrganizationHolidayAvailabilityTest
 php artisan test --filter=SharedResourceTest

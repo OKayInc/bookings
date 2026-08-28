@@ -3,7 +3,7 @@
 namespace App\Domain\Availability;
 
 use Carbon\CarbonImmutable;
-use Throwable;
+use RuntimeException;
 use Yasumi\Holiday;
 use Yasumi\ProviderInterface;
 use Yasumi\Yasumi;
@@ -26,11 +26,7 @@ class PublicHolidayCalendar
 
         $result = [];
         for ($year = $firstYear; $year < $firstYear + max(1, $yearCount); $year++) {
-            try {
-                $provider = $this->provider($region, $year);
-            } catch (Throwable) {
-                continue;
-            }
+            $provider = $this->provider($region, $year);
 
             foreach ($provider as $holiday) {
                 if (! $this->blocksAvailability($holiday)) {
@@ -70,10 +66,12 @@ class PublicHolidayCalendar
             return null;
         }
 
-        try {
-            $holiday = $this->provider($region, $year)->getHoliday($holidayKey);
-        } catch (Throwable) {
-            return null;
+        $holiday = null;
+        foreach ($this->provider($region, $year) as $candidate) {
+            if (hash_equals($candidate->getKey(), $holidayKey)) {
+                $holiday = $candidate;
+                break;
+            }
         }
 
         if ($holiday === null || ! $this->blocksAvailability($holiday)) {
@@ -99,11 +97,7 @@ class PublicHolidayCalendar
         $closures = [];
 
         for ($year = $startYear; $year <= $endYear; $year++) {
-            try {
-                $provider = $this->provider($region, $year);
-            } catch (Throwable) {
-                continue;
-            }
+            $provider = $this->provider($region, $year);
 
             foreach ($provider as $holiday) {
                 if (! $this->blocksAvailability($holiday)) {
@@ -149,6 +143,12 @@ class PublicHolidayCalendar
 
     private function provider(string $region, int $year): ProviderInterface
     {
+        if (! class_exists(Yasumi::class)) {
+            throw new RuntimeException(
+                'Regional holiday calendars require azuyalabs/yasumi. Run composer update azuyalabs/yasumi --with-dependencies.',
+            );
+        }
+
         return $this->providers[$region][$year] ??= Yasumi::createByISO3166_2($region, $year, 'en_US');
     }
 
