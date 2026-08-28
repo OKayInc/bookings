@@ -166,6 +166,7 @@ class ResourceController extends Controller
             ?: $regions->detect($organization->timezone);
 
         return [
+            'organization' => $organization,
             'resource' => $resource,
             'members' => $organization->people()
                 ->wherePivot('status', MembershipStatus::Active->value)

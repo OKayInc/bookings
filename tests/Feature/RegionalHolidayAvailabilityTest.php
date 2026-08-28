@@ -73,6 +73,36 @@ class RegionalHolidayAvailabilityTest extends TestCase
         ]);
     }
 
+    public function test_resource_create_and_edit_forms_receive_the_active_organization(): void
+    {
+        [$user, $organization] = $this->ownerContext(['name' => 'Canadian Studio']);
+        $resource = Resource::create([
+            'organization_id' => $organization->getKey(),
+            'type' => 'person',
+            'name' => 'Existing photographer',
+            'timezone' => 'America/Toronto',
+            'is_active' => true,
+            'is_required_by_default' => true,
+        ]);
+        $resource->organizations()->updateExistingPivot($organization->getKey(), [
+            'enforce_holidays' => true,
+            'holiday_region' => 'CA-ON',
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['active_organization_uuid' => $organization->uuid])
+            ->get(route('resources.create'))
+            ->assertOk()
+            ->assertSee('This setting belongs to Canadian Studio');
+
+        $this->actingAs($user)
+            ->withSession(['active_organization_uuid' => $organization->uuid])
+            ->get(route('resources.edit', $resource))
+            ->assertOk()
+            ->assertSee('This setting belongs to Canadian Studio')
+            ->assertSee('value="CA-ON" selected', false);
+    }
+
     public function test_selected_regional_holiday_is_not_listed_or_created_twice(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-08-28 12:00:00', 'UTC'));
