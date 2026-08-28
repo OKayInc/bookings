@@ -41,6 +41,7 @@ class AvailabilityService
 
         $type->loadMissing(['organization', 'resources']);
         $bookingTimezone ??= $type->organization->timezone;
+        $replacementGroups = $this->requirements->replacementGroups($type);
 
         $scheduleList = [];
         $typeSchedule = $this->schedules->effectiveForAppointmentType($type);
@@ -98,7 +99,8 @@ class AvailabilityService
                     $end->addMinutes((int) $type->buffer_after_minutes),
                 );
 
-                if (! $this->overlapsAny($blocked, $busy)) {
+                if (! $this->overlapsAny($blocked, $busy)
+                    && $this->replacementGroupsAvailableAt($replacementGroups, $type, $candidate, $end)) {
                     $slots[] = new AvailabilitySlot($candidate, $end);
                 }
 
@@ -276,19 +278,21 @@ class AvailabilityService
     private function busyIntervals(AppointmentType $type, CarbonImmutable $from, CarbonImmutable $to): array
     {
         $resourceKeys = $this->requirements->requiredResources($type)->modelKeys();
+        $hasReplacementGroups = $this->requirements->replacementGroups($type)->isNotEmpty();
 
         $query = BookingHold::query()
             ->where('status', BookingHoldStatus::Active->value)
             ->where('expires_at_utc', '>', now('UTC'))
             ->where('blocked_starts_at_utc', '<', $to->format('Y-m-d H:i:s.u'))
-            ->where('blocked_ends_at_utc', '>', $from->format('Y-m-d H:i:s.u'))
-            ->where(function ($query) use ($type, $resourceKeys): void {
-                $query->where('appointment_type_id', $type->getKey());
+            ->where('blocked_ends_at_utc', '>', $from->format('Y-m-d H:i:s.u'));
 
-                if ($resourceKeys !== []) {
-                    $query->orWhereHas('resources', fn ($q) => $q->whereIn('resources.id', $resourceKeys));
-                }
-            });
+        if ($resourceKeys !== []) {
+            $query->whereHas('resources', fn ($q) => $q->whereIn('resources.id', $resourceKeys));
+        } elseif ($hasReplacementGroups) {
+            $query->whereRaw('1 = 0');
+        } else {
+            $query->where('appointment_type_id', $type->getKey());
+        }
 
         /** @var EloquentCollection<int, BookingHold> $holds */
         $holds = $query->get();
@@ -301,14 +305,15 @@ class AvailabilityService
         $appointmentQuery = Appointment::query()
             ->where('status', AppointmentStatus::Scheduled->value)
             ->where('blocked_starts_at_utc', '<', $to->format('Y-m-d H:i:s.u'))
-            ->where('blocked_ends_at_utc', '>', $from->format('Y-m-d H:i:s.u'))
-            ->where(function ($query) use ($type, $resourceKeys): void {
-                $query->where('appointment_type_id', $type->getKey());
+            ->where('blocked_ends_at_utc', '>', $from->format('Y-m-d H:i:s.u'));
 
-                if ($resourceKeys !== []) {
-                    $query->orWhereHas('resources', fn ($q) => $q->whereIn('resources.id', $resourceKeys));
-                }
-            });
+        if ($resourceKeys !== []) {
+            $appointmentQuery->whereHas('resources', fn ($q) => $q->whereIn('resources.id', $resourceKeys));
+        } elseif ($hasReplacementGroups) {
+            $appointmentQuery->whereRaw('1 = 0');
+        } else {
+            $appointmentQuery->where('appointment_type_id', $type->getKey());
+        }
 
         foreach ($appointmentQuery->get() as $appointment) {
             $busy[] = new AvailabilityInterval(
@@ -320,6 +325,27 @@ class AvailabilityService
         array_push($busy, ...$this->externalCalendars->forRequiredResources($type, $from, $to));
 
         return $busy;
+    }
+
+    /** @param \Illuminate\Support\Collection<string, \Illuminate\Support\Collection<int, Resource>> $groups */
+    private function replacementGroupsAvailableAt(
+        \Illuminate\Support\Collection $groups,
+        AppointmentType $type,
+        CarbonImmutable $startsAtUtc,
+        CarbonImmutable $endsAtUtc,
+    ): bool {
+        foreach ($groups as $resources) {
+            if (! $resources->contains(fn (Resource $resource): bool => $this->isResourceAvailableAt(
+                $resource,
+                $type,
+                $startsAtUtc,
+                $endsAtUtc,
+            ))) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function alignUp(CarbonImmutable $utc, string $timezone, int $intervalMinutes): CarbonImmutable

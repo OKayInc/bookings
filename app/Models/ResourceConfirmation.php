@@ -14,7 +14,7 @@ class ResourceConfirmation extends Model
 
     protected $fillable = [
         'organization_id', 'booking_id', 'appointment_id', 'resource_id', 'person_id',
-        'responded_by_person_id', 'is_required', 'status', 'response_token_hash',
+        'responded_by_person_id', 'is_required', 'replacement_group', 'status', 'response_token_hash',
         'response_note', 'notification_sent_at_utc', 'responded_at_utc',
     ];
 

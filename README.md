@@ -159,3 +159,7 @@ The holiday picker now suggests a country or subdivision from the organization t
 ## M7-R8: cross-organization members as person resources
 
 A backend user may own one organization while accepting an employee, manager, or administrator invitation to another. After acceptance, the receiving organization can select that person's backend account email when creating a person resource or use the direct **Create person resource** action from the member list. Pending invitations are visible but cannot be linked until accepted, and unrelated organization owners remain isolated. See `docs/CHANGES-M7-R8.md` and `docs/UPGRADE-M7-R7-TO-M7-R8.md`.
+
+## M7-R9: replacement resource groups
+
+Appointment types can now require one resource from a named replacement group, such as **Photographer A or Photographer B**. Availability remains open while at least one group member is available, holds snapshot all currently available candidates, and staff confirmation succeeds when any candidate accepts. The accepted candidate is retained on the appointment while the other candidates are marked **Not needed** and released for other bookings. Schedules, busy periods, external calendars, and per-resource regional holidays are evaluated independently for every candidate. See `docs/CHANGES-M7-R9.md` and `docs/UPGRADE-M7-R8-TO-M7-R9.md`.

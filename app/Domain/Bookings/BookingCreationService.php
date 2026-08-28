@@ -122,10 +122,14 @@ class BookingCreationService
                     \Carbon\CarbonImmutable::instance($hold->blocked_starts_at_utc)->utc(),
                     \Carbon\CarbonImmutable::instance($hold->blocked_ends_at_utc)->utc(),
                 );
-                foreach ($this->externalCalendars->forRequiredResources($type, $blocked->start, $blocked->end, true) as $externalBusy) {
-                    if ($blocked->overlaps($externalBusy)) {
-                        throw new RuntimeException('This time became busy in a connected calendar while you were completing the booking. Please choose another time.');
-                    }
+                if ($this->externalCalendars->assignedRequiredResourcesBusy(
+                    $type,
+                    $hold->resources,
+                    $blocked->start,
+                    $blocked->end,
+                    true,
+                )) {
+                    throw new RuntimeException('This time became busy in a connected calendar while you were completing the booking. Please choose another time.');
                 }
             }
 
@@ -277,7 +281,10 @@ class BookingCreationService
         ]);
         $appointment->resources()->sync(
             $hold->resources->mapWithKeys(fn ($resource) => [
-                $resource->getKey() => ['is_required' => (bool) $resource->pivot->is_required],
+                $resource->getKey() => [
+                    'is_required' => (bool) $resource->pivot->is_required,
+                    'replacement_group' => $resource->pivot->replacement_group,
+                ],
             ])->all(),
         );
         $hold->update(['appointment_id' => $appointment->getKey()]);

@@ -10,7 +10,7 @@
 <tr>
 <td><a href="{{ route('bookings.show', $confirmation->booking) }}">{{ $confirmation->booking->reference }} · {{ $confirmation->booking->appointmentType->name }}</a></td>
 <td>{{ $confirmation->resource->name }}</td>
-<td>{{ $confirmation->is_required ? 'Required' : 'Optional' }}</td>
+<td>{{ $confirmation->replacement_group ? 'Replacement: '.$confirmation->replacement_group : ($confirmation->is_required ? 'Required' : 'Optional') }}</td>
 <td>{{ $confirmation->status->label() }}</td>
 <td>{{ $confirmation->booking->appointment->starts_at_utc->setTimezone($confirmation->resource->timezone ?: $confirmation->booking->booking_timezone)->format('Y-m-d g:i A') }}</td>
 </tr>

@@ -102,19 +102,21 @@ class Resource extends Model
 
     public function bookingHolds(): BelongsToMany
     {
-        return $this->belongsToMany(BookingHold::class, 'booking_hold_resources', 'resource_id', 'booking_hold_id');
+        return $this->belongsToMany(BookingHold::class, 'booking_hold_resources', 'resource_id', 'booking_hold_id')
+            ->withPivot('is_required', 'replacement_group');
     }
 
     public function appointmentTypes(): BelongsToMany
     {
         return $this->belongsToMany(AppointmentType::class, 'appointment_type_resources')
-            ->withPivot('is_required', 'requirement_mode')
+            ->withPivot('is_required', 'requirement_mode', 'replacement_group')
             ->withTimestamps();
     }
 
     public function appointments(): BelongsToMany
     {
-        return $this->belongsToMany(Appointment::class, 'appointment_resources');
+        return $this->belongsToMany(Appointment::class, 'appointment_resources')
+            ->withPivot('is_required', 'replacement_group');
     }
 
     public function calendarConnections(): HasMany

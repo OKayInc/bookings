@@ -280,6 +280,10 @@
                         'resource_requirement_modes.'.$resource->uuid,
                         $assignedResource?->pivot?->requirement_mode ?? 'inherit'
                     );
+                    $replacementGroup = old(
+                        'resource_replacement_groups.'.$resource->uuid,
+                        $assignedResource?->pivot?->replacement_group
+                    );
                 @endphp
                 <div class="card compact" style="margin-bottom:8px">
                     <label style="display:flex;align-items:center;gap:8px">
@@ -301,20 +305,29 @@
                             <label>Organization default</label>
                             <div><span class="badge">{{ $resource->pivot->is_required_by_default ? 'Required' : 'Optional' }}</span></div>
                         </div>
+                        <div class="field" style="margin-bottom:0">
+                            <label for="resource_replacement_group_{{ $resource->uuid }}">Replacement group</label>
+                            <input id="resource_replacement_group_{{ $resource->uuid }}"
+                                name="resource_replacement_groups[{{ $resource->uuid }}]"
+                                value="{{ $replacementGroup }}"
+                                maxlength="80"
+                                placeholder="For example: Photographer">
+                            <div class="muted">Used only with “One of a replacement group”. Give every alternative the same group name.</div>
+                        </div>
                     </div>
                 </div>
             @empty
                 <p class="muted">Create resources first if this appointment requires them.</p>
             @endforelse
         </div>
-        <div class="muted">Required resources must be available for a slot to be bookable. Optional resources are reserved when available but do not block the booking if unavailable.</div>
+        <div class="muted">Required resources must all be available. A replacement group requires at least one available member; all available members are reserved until one confirms. Optional resources are reserved when available but do not block the booking.</div>
     </div>
     <div class="field checkbox-list">
         <label>
             <input type="checkbox" name="requires_resource_confirmation" value="1" @checked(old('requires_resource_confirmation', $appointmentType?->requires_resource_confirmation ?? false))>
             Require required employee resources to confirm the appointment
         </label>
-        <div class="muted">Required person-resources receive accept/decline requests. Optional person-resources may respond but never block confirmation.</div>
+        <div class="muted">Required person-resources receive accept/decline requests. In a replacement group, one acceptance satisfies the group and releases the other candidates. Optional person-resources may respond but never block confirmation.</div>
     </div>
 </div>
 

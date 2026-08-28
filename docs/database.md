@@ -1,4 +1,4 @@
-# Database — M3
+# Database — M7-R9
 
 ## Core M1 tables retained
 
@@ -47,6 +47,17 @@ Migration `2026_08_28_000051_add_regional_holiday_settings.php` adds:
 - `organization_resources.enforce_holidays` and nullable `organization_resources.holiday_region`, stored per organization-resource relationship.
 
 Regional organization holidays still require explicit selection and use the existing `preset_key` uniqueness constraint. Resource enforcement is broader by design: when enabled, all official/bank holidays returned for that resource region are availability closures. The resource timezone defines the local date boundary.
+
+## M7-R9 replacement resource snapshots
+
+Migration `2026_08_28_000052_add_replacement_resource_groups.php` adds nullable `replacement_group VARCHAR(80)` to:
+
+- `appointment_type_resources`, where resources with `requirement_mode = replacement` and the same normalized group name form a required 1-of-N group;
+- `booking_hold_resources`, which snapshots the available candidates reserved during checkout;
+- `appointment_resources`, which preserves the candidates and then the accepted resource independently of later appointment-type edits;
+- `resource_confirmations`, which lets workflow status evaluate an acceptance or exhaustion per group.
+
+Replacement candidates retain `is_required = true`; `replacement_group` changes the requirement from “every row” to “at least one row in this group.” Existing rows receive `NULL` and keep their prior required/optional behavior. `resource_confirmations.status` also accepts `superseded`, displayed as **Not needed**, when another candidate fills the same group.
 
 ## appointment_types — M2/M3 configuration
 

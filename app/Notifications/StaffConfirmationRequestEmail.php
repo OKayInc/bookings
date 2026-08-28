@@ -27,11 +27,14 @@ class StaffConfirmationRequestEmail extends Notification
         $start = $booking->appointment->starts_at_utc
             ->setTimezone($booking->appointment->scheduling_timezone)
             ->format('D, M j Y · g:i A');
+        $requirement = $this->confirmation->replacement_group
+            ? 'One confirmation from the “'.$this->confirmation->replacement_group.'” replacement group is required'
+            : ($this->confirmation->is_required ? 'Your confirmation is required' : 'You are an optional resource');
 
         return (new MailMessage)
             ->subject(($this->reminder ? 'Reminder: ' : '').'Appointment confirmation required')
             ->greeting('Hello,')
-            ->line(($this->confirmation->is_required ? 'Your confirmation is required' : 'You are an optional resource').' for '.$booking->appointmentType->name.'.')
+            ->line($requirement.' for '.$booking->appointmentType->name.'.')
             ->line('Booking reference: '.$booking->reference)
             ->line('Scheduled: '.$start.' ('.$booking->appointment->scheduling_timezone.')')
             ->action('Accept or decline', $url)

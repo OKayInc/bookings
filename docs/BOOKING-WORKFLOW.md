@@ -29,6 +29,19 @@ A one-to-one appointment has capacity 1. A group/class appointment can have seve
 9. Final booking transaction creates or joins an appointment/session, creates the booking/contact/attendees, snapshots price/currency, consumes the hold, and records invitation usage.
 10. Email verification, contract review, staff confirmation and future payment requirements determine booking status.
 
+## Replacement resources
+
+An appointment type may assign two or more resources to the same named replacement group. Each group is a 1-of-N requirement:
+
+- a slot is offered when at least one candidate is active and available under its own schedule, busy periods, calendar connections, and regional holidays;
+- a hold reserves every candidate that is available at that moment, preserving a usable fallback while staff respond;
+- one decline leaves the booking pending while another candidate remains pending;
+- the first acceptance satisfies the group, keeps that resource on the appointment, marks other pending confirmations **Not needed**, and releases the non-selected appointment resources;
+- the booking is declined only when every confirmation candidate in a required group has declined;
+- standalone required resources still all need to be available and, when enabled, confirm independently.
+
+The group name is snapshotted from appointment-type configuration through the hold, appointment, and confirmation rows so later configuration edits do not rewrite an in-flight or historical booking.
+
 ## Passwordless access
 
 The database stores only SHA-256 hashes of booking-management and email-verification tokens. Raw tokens are sent in email URLs and are never persisted.

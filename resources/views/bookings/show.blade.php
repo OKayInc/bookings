@@ -148,7 +148,7 @@
     @forelse($booking->resourceConfirmations as $confirmation)
         @php($canRespond = $canManage || ($confirmation->person_id && hash_equals($confirmation->person_id, auth()->user()->person_id)))
         <div class="card compact" style="margin-bottom:8px">
-            <p><strong>{{ $confirmation->resource->name }}</strong> · <span class="badge">{{ $confirmation->is_required ? 'Required' : 'Optional' }}</span> · {{ $confirmation->status->label() }}</p>
+            <p><strong>{{ $confirmation->resource->name }}</strong> · <span class="badge">{{ $confirmation->replacement_group ? 'Replacement: '.$confirmation->replacement_group : ($confirmation->is_required ? 'Required' : 'Optional') }}</span> · {{ $confirmation->status->label() }}</p>
             @if($confirmation->responded_at_utc)<p class="muted">Responded {{ $confirmation->responded_at_utc->format('Y-m-d H:i') }} UTC @if($confirmation->respondedBy) by {{ $confirmation->respondedBy->full_name }} @endif</p>@endif
             @if($confirmation->response_note)<p><strong>Note:</strong> {{ $confirmation->response_note }}</p>@endif
             @if($confirmation->status->value === 'pending' && $canRespond)

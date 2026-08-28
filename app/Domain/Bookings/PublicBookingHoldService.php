@@ -143,7 +143,10 @@ class PublicBookingHoldService
                 'expires_at_utc' => now('UTC')->addMinutes($ttlMinutes ?? (int) config('booking.public_hold_ttl_minutes', 15)),
             ]);
             $hold->resources()->sync($locked->resources->mapWithKeys(fn ($resource) => [
-                $resource->getKey() => ['is_required' => (bool) $resource->pivot->is_required],
+                $resource->getKey() => [
+                    'is_required' => (bool) $resource->pivot->is_required,
+                    'replacement_group' => $resource->pivot->replacement_group,
+                ],
             ])->all());
 
             return new BookingHoldLease($hold->fresh(['appointment', 'resources', 'contractTemplate', 'invitation']), $token);

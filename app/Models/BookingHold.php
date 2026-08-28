@@ -65,7 +65,7 @@ class BookingHold extends Model
     public function resources(): BelongsToMany
     {
         return $this->belongsToMany(Resource::class, 'booking_hold_resources', 'booking_hold_id', 'resource_id')
-            ->withPivot('is_required');
+            ->withPivot('is_required', 'replacement_group');
     }
 
     public function isActive(): bool

@@ -49,7 +49,7 @@ class Appointment extends Model
     public function resources(): BelongsToMany
     {
         return $this->belongsToMany(Resource::class, 'appointment_resources')
-            ->withPivot('is_required');
+            ->withPivot('is_required', 'replacement_group');
     }
 
     public function bookings(): HasMany

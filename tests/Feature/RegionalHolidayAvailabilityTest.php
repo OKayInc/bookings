@@ -197,6 +197,23 @@ class RegionalHolidayAvailabilityTest extends TestCase
         );
     }
 
+    public function test_replacement_resources_use_the_open_regional_candidate(): void
+    {
+        [, $organization, $type] = $this->scheduledType();
+        $canadian = $this->resource($organization, $type, 'Canadian replacement', 'America/Toronto', 'CA-ON', true);
+        $mexican = $this->resource($organization, $type, 'Mexican replacement', 'America/Mexico_City', 'MX', true);
+
+        foreach ([$canadian, $mexican] as $resource) {
+            $type->resources()->updateExistingPivot($resource->getKey(), [
+                'requirement_mode' => 'replacement',
+                'replacement_group' => 'Regional person',
+            ]);
+        }
+
+        $this->assertSame(['09:00', '10:00', '11:00'], $this->localSlots($type, '2026-07-01'));
+        $this->assertSame(['09:00', '10:00', '11:00'], $this->localSlots($type, '2026-09-16'));
+    }
+
     public function test_optional_resource_holiday_does_not_remove_the_slot_but_resource_is_not_reserved(): void
     {
         [, $organization, $type] = $this->scheduledType();

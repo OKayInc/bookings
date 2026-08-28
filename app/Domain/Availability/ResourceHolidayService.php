@@ -7,6 +7,7 @@ use App\Models\AppointmentType;
 use App\Models\Organization;
 use App\Models\Resource;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Str;
 
 class ResourceHolidayService
 {
@@ -87,6 +88,17 @@ class ResourceHolidayService
             }
         }
 
+        foreach ($this->requirements->replacementGroups($type) as $resources) {
+            if ($resources->every(fn (Resource $resource): bool => $this->isClosed(
+                $resource,
+                $type->organization,
+                $startsAtUtc,
+                $endsAtUtc,
+            ))) {
+                return true;
+            }
+        }
+
         return false;
     }
 
@@ -96,11 +108,27 @@ class ResourceHolidayService
         CarbonImmutable $startsAtUtc,
         CarbonImmutable $endsAtUtc,
     ): bool {
-        foreach ($resources as $resource) {
-            if (! (bool) ($resource->pivot?->is_required ?? false)) {
-                continue;
-            }
+        $assigned = collect($resources)->filter(
+            fn (Resource $resource): bool => (bool) ($resource->pivot?->is_required ?? false),
+        );
+
+        foreach ($assigned->filter(fn (Resource $resource): bool => blank($resource->pivot?->replacement_group)) as $resource) {
             if ($this->isClosed($resource, $organization, $startsAtUtc, $endsAtUtc)) {
+                return true;
+            }
+        }
+
+        $groups = $assigned
+            ->filter(fn (Resource $resource): bool => filled($resource->pivot?->replacement_group))
+            ->groupBy(fn (Resource $resource): string => Str::lower(Str::squish((string) $resource->pivot->replacement_group)));
+
+        foreach ($groups as $group) {
+            if ($group->every(fn (Resource $resource): bool => $this->isClosed(
+                $resource,
+                $organization,
+                $startsAtUtc,
+                $endsAtUtc,
+            ))) {
                 return true;
             }
         }

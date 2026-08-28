@@ -83,8 +83,8 @@ class BookingWorkflowService
             Notification::route('mail', $fresh->email)->notify(new BookingStatusChangedEmail(
                 $fresh,
                 $status === BookingStatus::Confirmed
-                    ? 'All required staff have approved your booking.'
-                    : 'A required staff resource declined your booking.',
+                    ? 'All required staff and replacement groups have approved your booking.'
+                    : 'A required staff resource or replacement group declined your booking.',
             ));
         }
 

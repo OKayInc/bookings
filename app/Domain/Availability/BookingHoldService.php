@@ -68,10 +68,40 @@ class BookingHoldService
             $selectedDuration = $this->durations->selectedValue($lockedType, $durationValue);
             $endsAtUtc = $this->durations->endAt($startsAtUtc, $lockedType, $durationValue, $timezone);
             $selectedResources = [];
-            foreach ($lockedType->resources as $resource) {
-                $required = $this->requirements->isRequired($resource, $lockedType);
-                if ($required || $this->availability->isResourceAvailableAt($resource, $lockedType, $startsAtUtc, $endsAtUtc, true)) {
-                    $selectedResources[$resource->getKey()] = ['is_required' => $required];
+
+            foreach ($this->requirements->requiredResources($lockedType) as $resource) {
+                $selectedResources[$resource->getKey()] = [
+                    'is_required' => true,
+                    'replacement_group' => null,
+                ];
+            }
+
+            foreach ($this->requirements->replacementGroups($lockedType) as $resources) {
+                $availableInGroup = 0;
+                $replacementGroup = $this->requirements->replacementGroup($resources->first());
+                foreach ($resources as $resource) {
+                    if (! $this->availability->isResourceAvailableAt($resource, $lockedType, $startsAtUtc, $endsAtUtc, true)) {
+                        continue;
+                    }
+
+                    $selectedResources[$resource->getKey()] = [
+                        'is_required' => true,
+                        'replacement_group' => $replacementGroup,
+                    ];
+                    $availableInGroup++;
+                }
+
+                if ($availableInGroup === 0) {
+                    throw new RuntimeException('The selected appointment time no longer has an available replacement resource.');
+                }
+            }
+
+            foreach ($this->requirements->optionalResources($lockedType) as $resource) {
+                if ($this->availability->isResourceAvailableAt($resource, $lockedType, $startsAtUtc, $endsAtUtc, true)) {
+                    $selectedResources[$resource->getKey()] = [
+                        'is_required' => false,
+                        'replacement_group' => null,
+                    ];
                 }
             }
             $token = Str::random(64);

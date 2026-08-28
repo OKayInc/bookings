@@ -100,6 +100,8 @@ class StoreAppointmentTypeRequest extends FormRequest
             'resource_uuids.*' => ['uuid', 'distinct'],
             'resource_requirement_modes' => ['nullable', 'array'],
             'resource_requirement_modes.*' => ['nullable', Rule::enum(ResourceRequirementMode::class)],
+            'resource_replacement_groups' => ['nullable', 'array'],
+            'resource_replacement_groups.*' => ['nullable', 'string', 'max:80'],
             'requires_resource_confirmation' => ['nullable', 'boolean'],
             'email_verification_mode' => ['nullable', Rule::enum(EmailVerificationMode::class)],
 
@@ -204,17 +206,49 @@ class StoreAppointmentTypeRequest extends FormRequest
                 $validator->errors()->add('reminder_clients', 'Enable at least one reminder recipient: clients or resources.');
             }
 
+            $selectedResourceUuids = array_values(array_filter(
+                (array) $this->input('resource_uuids', []),
+                fn (mixed $uuid): bool => is_string($uuid) && Str::isUuid($uuid),
+            ));
+            $requirementModes = (array) $this->input('resource_requirement_modes', []);
+            $replacementNames = (array) $this->input('resource_replacement_groups', []);
+            $replacementGroups = [];
+
+            foreach ($selectedResourceUuids as $uuid) {
+                $mode = ResourceRequirementMode::tryFrom((string) ($requirementModes[$uuid] ?? ResourceRequirementMode::Inherit->value));
+                if ($mode !== ResourceRequirementMode::Replacement) {
+                    continue;
+                }
+
+                $name = Str::squish((string) ($replacementNames[$uuid] ?? ''));
+                if ($name === '') {
+                    $validator->errors()->add(
+                        'resource_replacement_groups.'.$uuid,
+                        'Enter a replacement group name for every replacement resource.',
+                    );
+                    continue;
+                }
+
+                $replacementGroups[Str::lower($name)][] = $uuid;
+            }
+
+            foreach ($replacementGroups as $members) {
+                if (count($members) < 2) {
+                    $validator->errors()->add(
+                        'resource_uuids',
+                        'Each replacement group must contain at least two selected resources.',
+                    );
+                }
+            }
+
             if ($this->boolean('requires_resource_confirmation')) {
-                $resourceUuids = array_values(array_filter(
-                    (array) $this->input('resource_uuids', []),
-                    fn (mixed $uuid): bool => is_string($uuid) && Str::isUuid($uuid),
-                ));
+                $resourceUuids = $selectedResourceUuids;
 
                 if ($resourceUuids === []) {
                     $validator->errors()->add('resource_uuids', 'At least one employee resource is required when resource confirmation is enabled.');
                 } else {
                     $organizationKey = app(OrganizationContext::class)->organization()->getKey();
-                    $modes = (array) $this->input('resource_requirement_modes', []);
+                    $modes = $requirementModes;
                     $hasRequiredEmployee = collect($resourceUuids)->contains(function (string $uuid) use ($organizationKey, $modes): bool {
                         $resource = Resource::whereUuid($uuid)
                             ->whereHas('organizations', fn ($query) => $query->where('organizations.id', $organizationKey))
@@ -229,6 +263,7 @@ class StoreAppointmentTypeRequest extends FormRequest
                             ?? ResourceRequirementMode::Inherit;
                         $required = match ($mode) {
                             ResourceRequirementMode::Required => true,
+                            ResourceRequirementMode::Replacement => true,
                             ResourceRequirementMode::Optional => false,
                             ResourceRequirementMode::Inherit => $resource->defaultRequiredForOrganization(app(OrganizationContext::class)->organization()),
                         };

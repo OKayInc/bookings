@@ -82,6 +82,7 @@ class AppointmentTypeController extends Controller
         $appointmentType->resources()->sync($this->resourceSyncData(
             $data['resource_uuids'] ?? [],
             $data['resource_requirement_modes'] ?? [],
+            $data['resource_replacement_groups'] ?? [],
             $organization->getKey(),
         ));
 
@@ -160,6 +161,7 @@ class AppointmentTypeController extends Controller
         $appointmentType->resources()->sync($this->resourceSyncData(
             $data['resource_uuids'] ?? [],
             $data['resource_requirement_modes'] ?? [],
+            $data['resource_replacement_groups'] ?? [],
             $context->organization()->getKey(),
         ));
 
@@ -308,27 +310,47 @@ class AppointmentTypeController extends Controller
         return $slug;
     }
 
-    private function resourceSyncData(array $uuids, array $modes, string $organizationKey): array
+    private function resourceSyncData(array $uuids, array $modes, array $groups, string $organizationKey): array
     {
         $sync = [];
+        $organization = Organization::query()->findOrFail($organizationKey);
+        $canonicalGroupNames = [];
+
+        foreach ($uuids as $uuid) {
+            $mode = ResourceRequirementMode::tryFrom((string) ($modes[$uuid] ?? ResourceRequirementMode::Inherit->value));
+            if ($mode !== ResourceRequirementMode::Replacement) {
+                continue;
+            }
+
+            $name = Str::squish((string) ($groups[$uuid] ?? ''));
+            if ($name !== '') {
+                $canonicalGroupNames[Str::lower($name)] ??= $name;
+            }
+        }
 
         foreach ($uuids as $uuid) {
             $resource = Resource::whereUuid((string) $uuid)
                 ->whereHas('organizations', fn ($query) => $query->where('organizations.id', $organizationKey))
                 ->firstOrFail();
-            $organization = Organization::query()->findOrFail($organizationKey);
             $defaultRequired = $resource->defaultRequiredForOrganization($organization);
             $mode = ResourceRequirementMode::tryFrom((string) ($modes[$uuid] ?? ResourceRequirementMode::Inherit->value))
                 ?? ResourceRequirementMode::Inherit;
             $effectiveRequired = match ($mode) {
                 ResourceRequirementMode::Required => true,
+                ResourceRequirementMode::Replacement => true,
                 ResourceRequirementMode::Optional => false,
                 ResourceRequirementMode::Inherit => $defaultRequired,
             };
+            $replacementGroup = null;
+            if ($mode === ResourceRequirementMode::Replacement) {
+                $submittedName = Str::squish((string) ($groups[$uuid] ?? ''));
+                $replacementGroup = $canonicalGroupNames[Str::lower($submittedName)] ?? null;
+            }
 
             $sync[$resource->getKey()] = [
                 'requirement_mode' => $mode->value,
                 'is_required' => $effectiveRequired,
+                'replacement_group' => $replacementGroup,
             ];
         }
 

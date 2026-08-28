@@ -9,6 +9,7 @@ use App\Models\ExternalCalendar;
 use App\Models\Resource;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Str;
 
 class CalendarAvailabilityService
 {
@@ -26,6 +27,42 @@ class CalendarAvailabilityService
     public function forResource(Resource $resource, AppointmentType $type, CarbonImmutable $fromUtc, CarbonImmutable $toUtc, bool $fresh = false): array
     {
         return $this->intervals($this->configuredCalendars($type, [$resource->getKey()]), $fromUtc, $toUtc, $fresh);
+    }
+
+    public function assignedRequiredResourcesBusy(
+        AppointmentType $type,
+        iterable $resources,
+        CarbonImmutable $fromUtc,
+        CarbonImmutable $toUtc,
+        bool $fresh = false,
+    ): bool {
+        $assigned = collect($resources)->filter(
+            fn (Resource $resource): bool => (bool) ($resource->pivot?->is_required ?? false),
+        );
+
+        foreach ($assigned->filter(fn (Resource $resource): bool => blank($resource->pivot?->replacement_group)) as $resource) {
+            if ($this->forResource($resource, $type, $fromUtc, $toUtc, $fresh) !== []) {
+                return true;
+            }
+        }
+
+        $groups = $assigned
+            ->filter(fn (Resource $resource): bool => filled($resource->pivot?->replacement_group))
+            ->groupBy(fn (Resource $resource): string => Str::lower(Str::squish((string) $resource->pivot->replacement_group)));
+
+        foreach ($groups as $group) {
+            if ($group->every(fn (Resource $resource): bool => $this->forResource(
+                $resource,
+                $type,
+                $fromUtc,
+                $toUtc,
+                $fresh,
+            ) !== [])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param list<string> $resourceIds */
