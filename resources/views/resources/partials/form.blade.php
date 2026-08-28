@@ -2,7 +2,14 @@
 <div class="field"><label>Name</label><input name="name" value="{{ old('name', $resource?->name) }}" required></div>
 <div class="field"><label>Type</label><select name="type">@foreach(['person','room','equipment','vehicle','other'] as $type)<option value="{{ $type }}" @selected(old('type', $resource?->type ?? 'person') === $type)>{{ ucfirst($type) }}</option>@endforeach</select></div>
 </div>
-<div class="field"><label>Linked organization member (optional)</label><select name="person_uuid"><option value="">None</option>@foreach($members as $member)<option value="{{ $member->uuid }}" @selected(old('person_uuid', $resource?->person?->uuid) === $member->uuid)>{{ $member->full_name }} — {{ $member->primary_email }}</option>@endforeach</select></div>
+<div class="field">
+<label>Linked organization member (optional)</label>
+<select name="person_uuid"><option value="">None</option>@foreach($members as $member)<option value="{{ $member->uuid }}" @selected(old('person_uuid', $selectedPersonUuid) === $member->uuid)>{{ $member->full_name }} — {{ $member->user?->email ?: $member->primary_email }} — {{ ucfirst((string) $member->pivot->role) }}</option>@endforeach</select>
+<div class="muted">Only active members of {{ $organization->name }} can be linked. A person may own another organization and still be an employee here.</div>
+@if($pendingMemberInvitations->isNotEmpty())
+<div class="muted mt-1">Waiting for acceptance: {{ $pendingMemberInvitations->pluck('email')->join(', ') }}. They become selectable after accepting the invitation.</div>
+@endif
+</div>
 <div class="field"><label>Timezone override (optional)</label><select name="timezone"><option value="">Use organization timezone</option>@foreach($timezones as $timezone)<option value="{{ $timezone }}" @selected(old('timezone', $resource?->timezone) === $timezone)>{{ $timezone }}</option>@endforeach</select></div>
 <div class="field"><label>Default appointment requirement</label><select name="default_requirement" required>
 <option value="required" @selected(old('default_requirement', ($resource?->is_required_by_default ?? true) ? 'required' : 'optional') === 'required')>Required</option>

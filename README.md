@@ -155,3 +155,7 @@ Managers, administrators, and owners can opt an organization into fixed-date, Ea
 ## M7-R7: international and resource holiday calendars
 
 The holiday picker now suggests a country or subdivision from the organization timezone and supports explicit international region selection. Selected or date-equivalent holidays disappear from the picker and cannot be created twice. Each organization-resource link may also enforce all official/bank holidays for its own region, so required resources in different countries contribute the union of their closed days while unavailable optional resources are skipped. See `docs/CHANGES-M7-R7.md` and `docs/UPGRADE-M7-R6-TO-M7-R7.md`.
+
+## M7-R8: cross-organization members as person resources
+
+A backend user may own one organization while accepting an employee, manager, or administrator invitation to another. After acceptance, the receiving organization can select that person's backend account email when creating a person resource or use the direct **Create person resource** action from the member list. Pending invitations are visible but cannot be linked until accepted, and unrelated organization owners remain isolated. See `docs/CHANGES-M7-R8.md` and `docs/UPGRADE-M7-R7-TO-M7-R8.md`.

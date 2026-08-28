@@ -40,7 +40,7 @@
                 <h2 class="h4">Current members</h2>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
-                        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+                        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
                         <tbody>
                         @forelse($memberships as $membership)
                             <tr>
@@ -48,9 +48,14 @@
                                 <td>{{ $membership->person->user?->email ?? $membership->person->primary_email }}</td>
                                 <td>{{ ucfirst($membership->role->value) }}</td>
                                 <td>{{ ucfirst($membership->status->value) }}</td>
+                                <td class="text-end">
+                                    @if($membership->status === \App\Enums\MembershipStatus::Active)
+                                        <a class="btn btn-outline-primary btn-sm" href="{{ route('resources.create', ['person' => $membership->person->uuid]) }}">Create person resource</a>
+                                    @endif
+                                </td>
                             </tr>
                         @empty
-                            <tr><td colspan="4" class="text-body-secondary">No members yet.</td></tr>
+                            <tr><td colspan="5" class="text-body-secondary">No members yet.</td></tr>
                         @endforelse
                         </tbody>
                     </table>

@@ -11,7 +11,9 @@ use App\Models\Person;
 use App\Models\Resource;
 use App\Support\Organizations\OrganizationContext;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -34,12 +36,16 @@ class ResourceController extends Controller
         ]);
     }
 
-    public function create(OrganizationContext $context): View
+    public function create(OrganizationContext $context, Request $request): View
     {
         $organization = $context->organization();
         $this->authorize('manageScheduling', $organization);
 
-        return view('resources.create', $this->formData($organization, null));
+        return view('resources.create', $this->formData(
+            $organization,
+            null,
+            $this->requestedActiveMemberUuid($request, $organization),
+        ));
     }
 
     public function store(StoreResourceRequest $request, OrganizationContext $context): RedirectResponse
@@ -66,7 +72,7 @@ class ResourceController extends Controller
         return redirect()->route('resources.index')->with('success', 'Resource created.');
     }
 
-    public function updateOrganizationSettings(Resource $resource, OrganizationContext $context, \Illuminate\Http\Request $request): RedirectResponse
+    public function updateOrganizationSettings(Resource $resource, OrganizationContext $context, Request $request): RedirectResponse
     {
         $organization = $context->organization();
         $this->authorize('manageScheduling', $organization);
@@ -157,7 +163,11 @@ class ResourceController extends Controller
         return redirect()->route('resources.index')->with('success', 'Resource updated.');
     }
 
-    private function formData(Organization $organization, ?Resource $resource): array
+    private function formData(
+        Organization $organization,
+        ?Resource $resource,
+        ?string $preselectedPersonUuid = null,
+    ): array
     {
         $regions = app(HolidayRegionCatalog::class);
         $settings = $resource?->holidaySettingsForOrganization($organization) ?? ['enforce' => false, 'region' => null];
@@ -170,7 +180,16 @@ class ResourceController extends Controller
             'resource' => $resource,
             'members' => $organization->people()
                 ->wherePivot('status', MembershipStatus::Active->value)
-                ->orderBy('first_name')->get(),
+                ->with('user')
+                ->orderBy('first_name')
+                ->get(),
+            'selectedPersonUuid' => $resource?->person?->uuid ?: $preselectedPersonUuid,
+            'pendingMemberInvitations' => $organization->memberInvitations()
+                ->whereNull('accepted_at_utc')
+                ->whereNull('revoked_at_utc')
+                ->where('expires_at_utc', '>', now('UTC'))
+                ->orderBy('email_normalized')
+                ->get(),
             'timezones' => \DateTimeZone::listIdentifiers(),
             'holidayRegions' => $regions->options(),
             'resourceHolidayEnforced' => $settings['enforce'],
@@ -181,6 +200,26 @@ class ResourceController extends Controller
                 ? $resource->organizations()->where('organizations.id', '!=', $organization->getKey())->pluck('organizations.id')->all()
                 : [],
         ];
+    }
+
+    private function requestedActiveMemberUuid(Request $request, Organization $organization): ?string
+    {
+        $uuid = trim((string) $request->query('person', ''));
+        if ($uuid === '') {
+            return null;
+        }
+
+        abort_unless(Str::isUuid($uuid), 404);
+        $person = Person::whereUuid($uuid)->firstOrFail();
+        abort_unless(
+            $organization->memberships()
+                ->where('person_id', $person->getKey())
+                ->where('status', MembershipStatus::Active->value)
+                ->exists(),
+            404,
+        );
+
+        return $person->uuid;
     }
 
     private function ownedOrganizations(Organization $current): \Illuminate\Support\Collection

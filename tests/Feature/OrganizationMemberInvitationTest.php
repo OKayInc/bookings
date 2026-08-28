@@ -111,6 +111,82 @@ class OrganizationMemberInvitationTest extends TestCase
         $this->assertNotNull($invitation->fresh()->accepted_at_utc);
     }
 
+    public function test_owner_of_another_organization_can_join_as_employee_and_be_linked_to_a_person_resource(): void
+    {
+        Notification::fake();
+        [$firstOwner, $firstOrganization] = $this->ownerContext();
+        $secondOwner = User::factory()->create(['email' => 'second.owner@example.test']);
+        $secondOwner->person->update(['primary_email' => 'previous-address@example.test']);
+        $secondOrganization = Organization::factory()->create(['name' => 'Second Organization']);
+        OrganizationMembership::create([
+            'organization_id' => $secondOrganization->getKey(),
+            'person_id' => $secondOwner->person_id,
+            'role' => MembershipRole::Owner,
+            'status' => MembershipStatus::Active,
+        ]);
+
+        $token = 'cross-organization-employee-token';
+        $this->invitation(
+            $firstOrganization,
+            $token,
+            'second.owner@example.test',
+            MembershipRole::Employee,
+        );
+
+        $this->actingAs($firstOwner)
+            ->withSession(['active_organization_uuid' => $firstOrganization->uuid])
+            ->get(route('resources.create'))
+            ->assertOk()
+            ->assertSee('Waiting for acceptance: second.owner@example.test')
+            ->assertDontSee('value="'.$secondOwner->person->uuid.'"', false);
+
+        $this->actingAs($firstOwner)
+            ->withSession(['active_organization_uuid' => $firstOrganization->uuid])
+            ->get(route('resources.create', ['person' => $secondOwner->person->uuid]))
+            ->assertNotFound();
+
+        $this->actingAs($secondOwner)
+            ->post(route('organization-invitations.accept', $token))
+            ->assertRedirect(route('dashboard'));
+
+        $this->assertDatabaseHas('organization_memberships', [
+            'organization_id' => $secondOrganization->getKey(),
+            'person_id' => $secondOwner->person_id,
+            'role' => MembershipRole::Owner->value,
+            'status' => MembershipStatus::Active->value,
+        ]);
+        $this->assertDatabaseHas('organization_memberships', [
+            'organization_id' => $firstOrganization->getKey(),
+            'person_id' => $secondOwner->person_id,
+            'role' => MembershipRole::Employee->value,
+            'status' => MembershipStatus::Active->value,
+        ]);
+
+        $this->actingAs($firstOwner)
+            ->withSession(['active_organization_uuid' => $firstOrganization->uuid])
+            ->get(route('resources.create', ['person' => $secondOwner->person->uuid]))
+            ->assertOk()
+            ->assertSee('second.owner@example.test')
+            ->assertSee('value="'.$secondOwner->person->uuid.'" selected', false);
+
+        $this->actingAs($firstOwner)
+            ->withSession(['active_organization_uuid' => $firstOrganization->uuid])
+            ->post(route('resources.store'), [
+                'name' => 'Second owner as photographer',
+                'type' => 'person',
+                'person_uuid' => $secondOwner->person->uuid,
+                'timezone' => 'America/Toronto',
+                'default_requirement' => 'required',
+                'is_active' => '1',
+            ])
+            ->assertRedirect(route('resources.index'))
+            ->assertSessionHasNoErrors();
+
+        $resource = \App\Models\Resource::where('name', 'Second owner as photographer')->firstOrFail();
+        $this->assertTrue(hash_equals($secondOwner->person_id, $resource->person_id));
+        $this->assertTrue(hash_equals($firstOrganization->getKey(), $resource->organization_id));
+    }
+
     public function test_invitation_cannot_be_accepted_by_a_different_signed_in_user(): void
     {
         [, $organization] = $this->ownerContext();
