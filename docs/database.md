@@ -1,4 +1,4 @@
-# Database — M7-R9
+# Database — M7-R10
 
 ## Core M1 tables retained
 
@@ -165,11 +165,19 @@ M4 added `appointments`, `appointment_resources`, persistent `bookings`, `bookin
 
 ### `appointment_questions`
 
-Question definition, ordering, required/active state, type-specific JSON configuration, and optional number-field pricing rule. UUIDv7 primary key stored as `BINARY(16)`.
+Appointment-type question attachment containing an independent definition snapshot, ordering, required/active state, type-specific JSON configuration, and optional number-field pricing rule. M7-R10 adds a nullable link to its reusable organization template. UUIDv7 primary key stored as `BINARY(16)`.
 
 ### `question_options`
 
 Options for checkbox/radio/select questions, including deterministic order and optional fixed/percentage surcharge.
+
+### `reusable_questions`
+
+Organization-scoped reusable question templates. Stores the default required state, question definition, validation configuration, and optional number-field pricing rule. Templates are copied into `appointment_questions` when attached.
+
+### `reusable_question_options`
+
+Reusable checkbox/radio/select choices and their optional fixed/percentage surcharge. Options are copied into `question_options` when their template is attached.
 
 ### `booking_answers`
 

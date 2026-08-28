@@ -4,7 +4,9 @@
 
 `text`, `textarea`, `checkboxes`, `radio`, `select`, `date`, `time`, `datetime`, `number`, `file`, `email`, `telephone`, `address`.
 
-Questions belong to an appointment type and have explicit ordering, required/active flags and type-specific JSON configuration. Choice questions have unlimited database-backed `question_options` rows.
+Reusable question templates belong to an organization. An appointment type attaches an independent copy with explicit ordering, required/active flags and type-specific JSON configuration. Choice questions have unlimited database-backed option rows in both the reusable template and attached copy.
+
+The questionnaire builder lists and searches active reusable questions before the create form. Attaching an existing question copies its label, help text, placeholder, type-specific validation, pricing rule, and options. The appointment-type copy can then be edited without silently changing other appointment types. An editor may explicitly update the reusable template so future attachments use the revised definition; existing attachments remain unchanged.
 
 ## Verification
 
@@ -37,3 +39,5 @@ A booking stores:
 - private files on `booking_answer_files`.
 
 Changing a questionnaire later does not rewrite historical bookings. Questions with historical answers are disabled rather than deleted.
+
+Removing an attached question leaves its reusable template available. Existing installations are backfilled with one reusable template for every existing appointment question during the M7-R10 migration.

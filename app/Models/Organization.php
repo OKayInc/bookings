@@ -95,6 +95,11 @@ class Organization extends Model
         return $this->hasMany(AppointmentType::class);
     }
 
+    public function reusableQuestions(): HasMany
+    {
+        return $this->hasMany(ReusableQuestion::class);
+    }
+
     public function contacts(): HasMany
     {
         return $this->hasMany(OrganizationContact::class);

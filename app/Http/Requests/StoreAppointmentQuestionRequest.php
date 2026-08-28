@@ -26,6 +26,7 @@ class StoreAppointmentQuestionRequest extends FormRequest
             'placeholder' => ['nullable', 'string', 'max:255'],
             'is_required' => ['nullable', 'boolean'],
             'is_active' => ['nullable', 'boolean'],
+            'update_reusable_question' => ['nullable', 'boolean'],
             'position' => ['nullable', 'integer', 'min:1', 'max:100000'],
             'number_min' => ['nullable', 'numeric'],
             'number_max' => ['nullable', 'numeric'],

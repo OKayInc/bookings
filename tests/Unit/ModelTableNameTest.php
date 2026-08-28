@@ -10,6 +10,8 @@ use App\Models\BookingContractFile;
 use App\Models\BookingContractSubmission;
 use App\Models\AppointmentQuestion;
 use App\Models\QuestionOption;
+use App\Models\ReusableQuestion;
+use App\Models\ReusableQuestionOption;
 use App\Models\BookingAnswer;
 use App\Models\BookingAnswerFile;
 use App\Models\BookingPriceLine;
@@ -60,6 +62,8 @@ class ModelTableNameTest extends TestCase
             [BookingContractFile::class, 'booking_contract_files'],
             [AppointmentQuestion::class, 'appointment_questions'],
             [QuestionOption::class, 'question_options'],
+            [ReusableQuestion::class, 'reusable_questions'],
+            [ReusableQuestionOption::class, 'reusable_question_options'],
             [BookingAnswer::class, 'booking_answers'],
             [BookingAnswerFile::class, 'booking_answer_files'],
             [BookingPriceLine::class, 'booking_price_lines'],

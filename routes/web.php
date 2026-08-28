@@ -229,6 +229,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::get('/appointment-types/{appointmentType}/questionnaire', [AppointmentQuestionController::class, 'index'])->name('appointment-types.questionnaire.index');
         Route::get('/appointment-types/{appointmentType}/questions/create', [AppointmentQuestionController::class, 'create'])->name('appointment-types.questions.create');
         Route::post('/appointment-types/{appointmentType}/questions', [AppointmentQuestionController::class, 'store'])->name('appointment-types.questions.store');
+        Route::post('/appointment-types/{appointmentType}/questions/library/{reusableQuestion}/attach', [AppointmentQuestionController::class, 'attach'])->name('appointment-types.questions.attach');
         Route::get('/appointment-types/{appointmentType}/questions/{question}/edit', [AppointmentQuestionController::class, 'edit'])->name('appointment-types.questions.edit');
         Route::put('/appointment-types/{appointmentType}/questions/{question}', [AppointmentQuestionController::class, 'update'])->name('appointment-types.questions.update');
         Route::delete('/appointment-types/{appointmentType}/questions/{question}', [AppointmentQuestionController::class, 'destroy'])->name('appointment-types.questions.destroy');

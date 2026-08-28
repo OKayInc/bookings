@@ -8,6 +8,9 @@ $qType=old('type',$question?->type?->value ?? 'text');
 <div class="field"><label>Description / help text</label><textarea name="description">{{ old('description',$question?->description) }}</textarea></div>
 <div class="field"><label>Placeholder (optional)</label><input name="placeholder" maxlength="255" value="{{ old('placeholder',$question?->placeholder) }}"></div>
 <div class="row"><label class="inline-check"><input type="checkbox" name="is_required" value="1" @checked(old('is_required',$question?->is_required ?? false))> Required</label><label class="inline-check"><input type="checkbox" name="is_active" value="1" @checked(old('is_active',$question?->is_active ?? true))> Active</label></div>
+@if($question?->reusableQuestion)
+<div class="field"><label class="inline-check"><input type="checkbox" name="update_reusable_question" value="1" @checked(old('update_reusable_question',false))> Update the reusable template for future attachments</label><div class="muted">Existing copies on other appointment types will not change.</div></div>
+@endif
 </div>
 
 <div class="section-card conditional" data-types="number"><h2>Number settings</h2><div class="row three"><div class="field"><label>Minimum</label><input type="number" step="any" name="number_min" value="{{ old('number_min',data_get($question?->configuration,'min')) }}"></div><div class="field"><label>Maximum</label><input type="number" step="any" name="number_max" value="{{ old('number_max',data_get($question?->configuration,'max')) }}"></div><div class="field"><label>Step</label><input type="number" step="any" min="0.0001" name="number_step" value="{{ old('number_step',data_get($question?->configuration,'step',1)) }}"></div></div></div>

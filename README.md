@@ -163,3 +163,7 @@ A backend user may own one organization while accepting an employee, manager, or
 ## M7-R9: replacement resource groups
 
 Appointment types can now require one resource from a named replacement group, such as **Photographer A or Photographer B**. Availability remains open while at least one group member is available, holds snapshot all currently available candidates, and staff confirmation succeeds when any candidate accepts. The accepted candidate is retained on the appointment while the other candidates are marked **Not needed** and released for other bookings. Schedules, busy periods, external calendars, and per-resource regional holidays are evaluated independently for every candidate. See `docs/CHANGES-M7-R9.md` and `docs/UPGRADE-M7-R8-TO-M7-R9.md`.
+
+## M7-R10: reusable questionnaire questions
+
+Question definitions can now be reused across appointment types in the same organization. Before creating a question, the questionnaire builder lists and searches the organization's existing reusable questions and shows which ones are already attached. Attaching copies the full definition, choices, validation, and pricing into an independent appointment-type question, while creating a new question automatically adds it to the reusable library. Existing questions are backfilled without changing booking-answer history. See `docs/CHANGES-M7-R10.md` and `docs/UPGRADE-M7-R9-TO-M7-R10.md`.
