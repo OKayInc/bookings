@@ -20,7 +20,7 @@ class BookingNoticeService
             return $nowUtc->utc();
         }
 
-        return $this->applyNotice(
+        return $this->deadlineUtc(
             $nowUtc,
             $type->organization->timezone,
             $value,
@@ -40,7 +40,7 @@ class BookingNoticeService
             return null;
         }
 
-        return $this->applyNotice(
+        return $this->deadlineUtc(
             $nowUtc,
             $type->organization->timezone,
             $value,
@@ -123,7 +123,7 @@ class BookingNoticeService
         return $this->minimumLabel($type).'; '.$this->maximumLabel($type);
     }
 
-    private function applyNotice(
+    public function deadlineUtc(
         CarbonImmutable $nowUtc,
         string $timezone,
         int $value,

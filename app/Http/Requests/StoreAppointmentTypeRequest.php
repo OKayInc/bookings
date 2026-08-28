@@ -9,15 +9,19 @@ use App\Enums\DurationMode;
 use App\Enums\DurationUnit;
 use App\Enums\EmailVerificationMode;
 use App\Enums\PricingMode;
+use App\Enums\PricingAdjustmentType;
 use App\Enums\ReminderThresholdBasis;
 use App\Enums\ResourceRequirementMode;
 use App\Models\Resource;
+use App\Domain\Money\MoneyService;
+use App\Domain\Questionnaires\PercentageService;
 use App\Rules\MoneyAmount;
 use App\Support\Organizations\OrganizationContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 class StoreAppointmentTypeRequest extends FormRequest
 {
@@ -78,6 +82,16 @@ class StoreAppointmentTypeRequest extends FormRequest
             'booking_notice_unit' => ['nullable', Rule::enum(BookingNoticeUnit::class)],
             'maximum_booking_notice_value' => ['nullable', 'integer', 'min:0'],
             'maximum_booking_notice_unit' => ['nullable', Rule::enum(BookingNoticeUnit::class)],
+
+            'short_notice_fees' => ['nullable', 'array', 'max:50'],
+            'short_notice_fees.*.threshold_value' => ['required', 'integer', 'min:1'],
+            'short_notice_fees.*.threshold_unit' => ['required', Rule::enum(BookingNoticeUnit::class)],
+            'short_notice_fees.*.adjustment_type' => [
+                'required',
+                Rule::in([PricingAdjustmentType::Fixed->value, PricingAdjustmentType::Percentage->value]),
+            ],
+            'short_notice_fees.*.fixed_amount' => ['nullable', new MoneyAmount($currency)],
+            'short_notice_fees.*.percentage' => ['nullable', 'string', 'max:20'],
 
             'buffer_before_minutes' => ['required', 'integer', 'min:0', 'max:'.config('appointment-types.max_buffer_minutes', 10080)],
             'buffer_after_minutes' => ['required', 'integer', 'min:0', 'max:'.config('appointment-types.max_buffer_minutes', 10080)],
@@ -197,6 +211,73 @@ class StoreAppointmentTypeRequest extends FormRequest
                         $validator->errors()->add(
                             $valueField,
                             sprintf('The %s is too large for the %s unit.', $label, $noticeUnit->value),
+                        );
+                    }
+                }
+            }
+
+            $seenShortNoticeThresholds = [];
+            foreach ((array) $this->input('short_notice_fees', []) as $index => $fee) {
+                if (! is_array($fee)) {
+                    continue;
+                }
+
+                $thresholdValue = filter_var($fee['threshold_value'] ?? null, FILTER_VALIDATE_INT);
+                $thresholdUnit = BookingNoticeUnit::tryFrom((string) ($fee['threshold_unit'] ?? ''));
+                if ($thresholdValue !== false && $thresholdValue > 0 && $thresholdUnit !== null) {
+                    $maxNotice = (int) config('appointment-types.max_booking_notice.'.$thresholdUnit->value, PHP_INT_MAX);
+                    if ($thresholdValue > $maxNotice) {
+                        $validator->errors()->add(
+                            'short_notice_fees.'.$index.'.threshold_value',
+                            sprintf('The short-notice threshold is too large for the %s unit.', $thresholdUnit->value),
+                        );
+                    }
+
+                    $thresholdKey = $thresholdValue.':'.$thresholdUnit->value;
+                    if (isset($seenShortNoticeThresholds[$thresholdKey])) {
+                        $validator->errors()->add(
+                            'short_notice_fees.'.$index.'.threshold_value',
+                            'Each short-notice threshold may only be configured once.',
+                        );
+                    }
+                    $seenShortNoticeThresholds[$thresholdKey] = true;
+                }
+
+                $adjustmentType = PricingAdjustmentType::tryFrom((string) ($fee['adjustment_type'] ?? ''));
+                if ($adjustmentType === PricingAdjustmentType::Fixed) {
+                    $amount = $fee['fixed_amount'] ?? null;
+                    if (! is_string($amount) && ! is_int($amount)) {
+                        $validator->errors()->add(
+                            'short_notice_fees.'.$index.'.fixed_amount',
+                            'Enter a fixed short-notice fee.',
+                        );
+                    } else {
+                        try {
+                            if (app(MoneyService::class)->parse($amount, app(OrganizationContext::class)->organization()->currency) <= 0) {
+                                $validator->errors()->add(
+                                    'short_notice_fees.'.$index.'.fixed_amount',
+                                    'The fixed short-notice fee must be greater than zero.',
+                                );
+                            }
+                        } catch (InvalidArgumentException) {
+                            // MoneyAmount reports the field-specific formatting error.
+                        }
+                    }
+                }
+
+                if ($adjustmentType === PricingAdjustmentType::Percentage) {
+                    try {
+                        $basisPoints = app(PercentageService::class)->parseToBasisPoints($fee['percentage'] ?? null);
+                        if ($basisPoints === null || $basisPoints <= 0) {
+                            $validator->errors()->add(
+                                'short_notice_fees.'.$index.'.percentage',
+                                'The short-notice percentage must be greater than zero.',
+                            );
+                        }
+                    } catch (InvalidArgumentException $exception) {
+                        $validator->errors()->add(
+                            'short_notice_fees.'.$index.'.percentage',
+                            $exception->getMessage(),
                         );
                     }
                 }

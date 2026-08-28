@@ -80,3 +80,11 @@ Each appointment type may require advance notice before a guest can reserve a st
 The public availability service removes starts that do not satisfy the notice period, and `PublicBookingHoldService` checks the same rule again while acquiring the hold. This keeps the rule authoritative even if a client submits a start timestamp manually.
 
 Month-based notice uses calendar arithmetic in the organization's IANA timezone (`addMonthsNoOverflow`) rather than a fixed number of days.
+
+## Short-notice fees
+
+The minimum booking notice remains a hard availability rule. Separately, an appointment type may define fixed or percentage price tiers for starts that are still bookable but occur soon after the booking is made.
+
+For each quote, the server calculates every threshold from the current instant in the organization's IANA timezone. If multiple tiers match, only the shortest matching threshold is charged; fees never stack. Exact threshold boundaries are inclusive. Calendar-month tiers use the same `addMonthsNoOverflow` behavior as booking notice.
+
+Percentage tiers apply to the current subtotal after the base duration price and questionnaire extras. The complete quote is recalculated on final submission and persisted to `booking_price_lines` with the selected fee rule UUID and threshold metadata. Changing or deleting appointment-type fee rules later does not alter an existing booking's price snapshot.

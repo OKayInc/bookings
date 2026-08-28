@@ -6,7 +6,9 @@ use App\Domain\Appointments\AppointmentTypeDeletionService;
 use App\Domain\Appointments\AppointmentTypeLogoService;
 use App\Domain\Appointments\AppointmentTypeSummaryService;
 use App\Domain\Contracts\ContractTemplateService;
+use App\Domain\Bookings\ShortNoticeFeeRuleService;
 use App\Domain\Money\MoneyService;
+use App\Domain\Questionnaires\PercentageService;
 use App\Enums\AppointmentVisibility;
 use App\Enums\AttendanceMode;
 use App\Enums\BookingNoticeUnit;
@@ -14,6 +16,7 @@ use App\Enums\DurationMode;
 use App\Enums\DurationUnit;
 use App\Enums\EmailVerificationMode;
 use App\Enums\PricingMode;
+use App\Enums\PricingAdjustmentType;
 use App\Enums\ResourceRequirementMode;
 use App\Enums\ReminderThresholdBasis;
 use App\Http\Requests\StoreAppointmentTypeRequest;
@@ -47,6 +50,7 @@ class AppointmentTypeController extends Controller
         return view('appointment-types.create', array_merge($this->formData($context), [
             'fixedPriceInput' => '',
             'rateAmountInput' => '',
+            'shortNoticeFeeInputs' => [],
         ]));
     }
 
@@ -56,6 +60,7 @@ class AppointmentTypeController extends Controller
         ContractTemplateService $contracts,
         AppointmentTypeLogoService $logos,
         MoneyService $money,
+        ShortNoticeFeeRuleService $shortNoticeFees,
     ): RedirectResponse {
         $organization = $context->organization();
         $this->authorize('manageScheduling', $organization);
@@ -85,6 +90,7 @@ class AppointmentTypeController extends Controller
             $data['resource_replacement_groups'] ?? [],
             $organization->getKey(),
         ));
+        $shortNoticeFees->sync($appointmentType, $data['short_notice_fees'] ?? [], $organization->currency);
 
         if ($request->hasFile('logo_file')) {
             $logos->replace($appointmentType, $request->file('logo_file'));
@@ -97,7 +103,12 @@ class AppointmentTypeController extends Controller
         return redirect()->route('appointment-types.index')->with('success', 'Appointment type created.');
     }
 
-    public function edit(AppointmentType $appointmentType, OrganizationContext $context, MoneyService $money): View
+    public function edit(
+        AppointmentType $appointmentType,
+        OrganizationContext $context,
+        MoneyService $money,
+        PercentageService $percentages,
+    ): View
     {
         $this->ensureSameOrganization($appointmentType, $context);
         $this->authorize('manage', $appointmentType);
@@ -105,6 +116,7 @@ class AppointmentTypeController extends Controller
         $appointmentType->load([
             'organization',
             'resources',
+            'shortNoticeFeeRules',
             'contractTemplate',
             'invitations' => fn ($query) => $query->latest()->limit(50),
         ]);
@@ -119,6 +131,15 @@ class AppointmentTypeController extends Controller
                 'rateAmountInput' => $appointmentType->rate_amount_minor === null
                     ? ''
                     : $money->decimal((int) $appointmentType->rate_amount_minor, $context->organization()->currency),
+                'shortNoticeFeeInputs' => $appointmentType->shortNoticeFeeRules->map(fn ($rule): array => [
+                    'threshold_value' => $rule->threshold_value,
+                    'threshold_unit' => $rule->threshold_unit->value,
+                    'adjustment_type' => $rule->adjustment_type->value,
+                    'fixed_amount' => $rule->fixed_amount_minor === null
+                        ? ''
+                        : $money->decimal((int) $rule->fixed_amount_minor, $context->organization()->currency),
+                    'percentage' => $percentages->display($rule->percentage_bps),
+                ])->values()->all(),
             ],
         ));
     }
@@ -130,6 +151,7 @@ class AppointmentTypeController extends Controller
         ContractTemplateService $contracts,
         AppointmentTypeLogoService $logos,
         MoneyService $money,
+        ShortNoticeFeeRuleService $shortNoticeFees,
     ): RedirectResponse {
         $this->ensureSameOrganization($appointmentType, $context);
         $this->authorize('manage', $appointmentType);
@@ -164,6 +186,11 @@ class AppointmentTypeController extends Controller
             $data['resource_replacement_groups'] ?? [],
             $context->organization()->getKey(),
         ));
+        $shortNoticeFees->sync(
+            $appointmentType,
+            $data['short_notice_fees'] ?? [],
+            $context->organization()->currency,
+        );
 
         if ($previousVisibility === AppointmentVisibility::InviteOnly && $appointmentType->visibility !== AppointmentVisibility::InviteOnly) {
             $appointmentType->invitations()->where('is_active', true)->update(['is_active' => false, 'updated_at' => now()]);
@@ -240,6 +267,7 @@ class AppointmentTypeController extends Controller
             'bookingNoticeUnits' => BookingNoticeUnit::cases(),
             'emailVerificationModes' => EmailVerificationMode::cases(),
             'pricingModes' => PricingMode::cases(),
+            'shortNoticeAdjustmentTypes' => [PricingAdjustmentType::Fixed, PricingAdjustmentType::Percentage],
             'resourceRequirementModes' => ResourceRequirementMode::cases(),
             'reminderThresholdBases' => ReminderThresholdBasis::cases(),
             'organization' => $context->organization(),

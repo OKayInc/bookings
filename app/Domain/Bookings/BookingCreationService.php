@@ -160,7 +160,12 @@ class BookingCreationService
             $this->assertCapacity($appointment, (int) $hold->attendee_count);
 
             $basePriceMinor = $this->pricing->priceForDuration($type, (int) $hold->duration_value, $type->duration_unit);
-            $questionnaire ??= new QuestionnaireSubmission([], $this->questionnairePricing->quote($type, (int) $hold->duration_value, []));
+            $questionnaire ??= new QuestionnaireSubmission([], $this->questionnairePricing->quote(
+                $type,
+                (int) $hold->duration_value,
+                [],
+                CarbonImmutable::instance($hold->starts_at_utc)->utc(),
+            ));
             $priceMinor = $questionnaire->quote->totalMinor;
             $requiresVerification = $type->email_verification_mode !== EmailVerificationMode::None
                 && $contact->email_verified_at === null;

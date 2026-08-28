@@ -1,5 +1,9 @@
-@php $money=app(\App\Domain\Money\MoneyService::class); @endphp
-@if($type->questions->where('is_active',true)->isNotEmpty())
+@php
+$money=app(\App\Domain\Money\MoneyService::class);
+$hasQuestions=$type->questions->where('is_active',true)->isNotEmpty();
+$hasShortNoticeFees=$type->shortNoticeFeeRules->where('is_active',true)->isNotEmpty();
+@endphp
+@if($hasQuestions)
 <div class="section-card" id="questionnaire-section">
 <h2>Questionnaire</h2><p class="muted">Please provide the information requested for this appointment. Verified fields are checked by the server when you submit.</p>
 @foreach($type->questions->where('is_active',true)->sortBy('position') as $question)
@@ -29,7 +33,9 @@ $optionCharge=function($o) use($money,$organization){ if($o->pricing_adjustment_
 </div>
 @endforeach
 </div>
+@endif
 
+@if($hasQuestions || $hasShortNoticeFees)
 <div class="section-card" id="questionnaire-price-card">
 <h2>Price</h2><div id="questionnaire-price-lines"></div><p><strong>Total: <span id="questionnaire-total">Calculating…</span></strong></p><p class="muted">The server recalculates the total when the booking is submitted.</p>
 </div>

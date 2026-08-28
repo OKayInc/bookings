@@ -167,3 +167,11 @@ Appointment types can now require one resource from a named replacement group, s
 ## M7-R10: reusable questionnaire questions
 
 Question definitions can now be reused across appointment types in the same organization. Before creating a question, the questionnaire builder lists and searches the organization's existing reusable questions and shows which ones are already attached. Attaching copies the full definition, choices, validation, and pricing into an independent appointment-type question, while creating a new question automatically adds it to the reusable library. Existing questions are backfilled without changing booking-answer history. See `docs/CHANGES-M7-R10.md` and `docs/UPGRADE-M7-R9-TO-M7-R10.md`.
+
+## M7-R11: tiered short-notice fees
+
+Appointment types can now add fixed or percentage fees based on how soon the selected appointment will start. Multiple thresholds support progressively higher fees as notice becomes shorter; only the shortest matching threshold applies. Percentage fees use the subtotal after questionnaire extras, and the selected rule is included in the live guest quote and immutable booking price lines. See `docs/CHANGES-M7-R11.md` and `docs/UPGRADE-M7-R10-TO-M7-R11.md`.
+
+## M7-R11-R1: Laravel 13 Blade form fix
+
+The appointment-type editor now uses explicit Blade PHP blocks for its short-notice fee variables, preventing the Laravel 13 compiled-view parse error reported by `AppointmentTypeConfigurationTest`. Regression coverage renders both an appointment type with no fee tiers and one with fixed and percentage tiers. See `docs/CHANGES-M7-R11-R1.md` and `docs/UPGRADE-M7-R11-TO-M7-R11-R1.md`.

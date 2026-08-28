@@ -128,7 +128,7 @@ class PublicAppointmentTypeController extends Controller
         $exampleMinor = $summary->examplePrice($type);
         $examplePrice = $money->format($exampleMinor, $organization->currency);
 
-        $type->loadMissing('contractTemplate');
+        $type->loadMissing(['contractTemplate', 'shortNoticeFeeRules']);
         $timezoneOptions = timezone_identifiers_list();
 
         return view('public.appointment-types.show', compact(

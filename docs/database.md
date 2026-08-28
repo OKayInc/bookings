@@ -1,4 +1,4 @@
-# Database — M7-R10
+# Database — M7-R11
 
 ## Core M1 tables retained
 
@@ -98,6 +98,20 @@ These are scheduling blocks, not client-visible appointment duration.
 
 Money is never stored as floating-point values.
 
+### `short_notice_fee_rules`
+
+M7-R11 stores optional appointment-type pricing tiers separately from the base pricing fields:
+
+- `appointment_type_id BINARY(16)` owns the rule and cascades deletion with the appointment type;
+- `threshold_value` plus `threshold_unit` (`minute`, `hour`, `day`, `week`, or `month`) define how soon the appointment may start for the rule to match;
+- `adjustment_type` is `fixed` or `percentage`;
+- `fixed_amount_minor` stores a fixed fee in integer currency minor units;
+- `percentage_bps` stores a percentage in basis points;
+- `position` preserves editor order and `is_active` supports future rule lifecycle changes;
+- a unique constraint prevents the same value/unit threshold from being configured twice for an appointment type.
+
+When several rules match, pricing uses the rule whose calculated deadline is earliest—the shortest actual notice threshold in the organization's timezone. The resulting booking price line stores the rule UUID and threshold metadata, so later configuration edits do not rewrite the historical charge.
+
 ### Workflow/presentation configuration
 
 - `requires_resource_confirmation`
@@ -189,7 +203,7 @@ Private uploaded answer files with original filename, MIME type, byte size and S
 
 ### `booking_price_lines`
 
-Immutable pricing breakdown captured when the booking is committed. Includes base appointment price and each questionnaire-driven surcharge.
+Immutable pricing breakdown captured when the booking is committed. Includes base appointment price, each questionnaire-driven surcharge, and any matching M7-R11 short-notice fee.
 
 ### `bookings.base_price_minor`
 

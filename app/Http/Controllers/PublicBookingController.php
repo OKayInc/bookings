@@ -135,7 +135,7 @@ class PublicBookingController extends Controller
     public function editHold(string $token): View
     {
         $hold = $this->holdByToken($token);
-        $hold->load(['organization', 'appointmentType.organization', 'appointmentType.questions.options', 'contractTemplate', 'invitation']);
+        $hold->load(['organization', 'appointmentType.organization', 'appointmentType.questions.options', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
 
         return view('public.bookings.details', [
             'organization' => $hold->organization,
@@ -152,10 +152,15 @@ class PublicBookingController extends Controller
         MoneyService $money,
     ): JsonResponse {
         $hold = $this->holdByToken($token);
-        $hold->load(['appointmentType.organization', 'appointmentType.questions.options']);
+        $hold->load(['appointmentType.organization', 'appointmentType.questions.options', 'appointmentType.shortNoticeFeeRules']);
         $answers = (array) $request->input('answers', []);
         try {
-            $quote = $questionnaires->quote($hold->appointmentType, (int) $hold->duration_value, $answers);
+            $quote = $questionnaires->quote(
+                $hold->appointmentType,
+                (int) $hold->duration_value,
+                $answers,
+                CarbonImmutable::instance($hold->starts_at_utc)->utc(),
+            );
         } catch (\InvalidArgumentException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
@@ -179,7 +184,7 @@ class PublicBookingController extends Controller
         QuestionnaireSubmissionService $questionnaires,
     ): RedirectResponse {
         $hold = $this->holdByToken($token);
-        $hold->load(['appointmentType.organization', 'appointmentType.questions.options', 'contractTemplate', 'invitation']);
+        $hold->load(['appointmentType.organization', 'appointmentType.questions.options', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
 
         $rules = [
             'first_name' => ['required', 'string', 'max:120'],
@@ -202,7 +207,12 @@ class PublicBookingController extends Controller
         }
 
         $data = $request->validate($rules);
-        $questionnaire = $questionnaires->validateForBooking($request, $hold->appointmentType, (int) $hold->duration_value);
+        $questionnaire = $questionnaires->validateForBooking(
+            $request,
+            $hold->appointmentType,
+            (int) $hold->duration_value,
+            CarbonImmutable::instance($hold->starts_at_utc)->utc(),
+        );
         $files = array_values($request->file('contract_files', []));
         $this->validateContractSet($files);
 

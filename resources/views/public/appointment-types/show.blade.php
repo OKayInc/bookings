@@ -15,7 +15,7 @@
 
 <div class="grid">
     <div class="card"><h3>Duration</h3><p>{{ $summary->duration($type) }}</p></div>
-    <div class="card"><h3>Price</h3><p>{{ $summary->pricing($type) }}</p>@if($type->pricing_mode->value === 'rate')<p class="muted">Example: {{ $examplePrice }}</p>@endif</div>
+    <div class="card"><h3>Price</h3><p>{{ $summary->pricing($type) }}</p>@if($type->pricing_mode->value === 'rate')<p class="muted">Example: {{ $examplePrice }}</p>@endif @if($type->shortNoticeFeeRules->where('is_active', true)->isNotEmpty())<p class="muted">An additional short-notice fee may apply after you select a start time.</p>@endif</div>
     <div class="card"><h3>Attendance</h3><p>{{ $summary->attendance($type) }}</p></div>
     <div class="card"><h3>Booking notice</h3><p>{{ $summary->bookingNotice($type) }}</p></div>
 </div>
@@ -125,7 +125,7 @@
             const response = await fetch(`${slotsUrl}?${params}`, {headers: {'Accept': 'application/json'}});
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || 'Unable to load availability.');
-            price.textContent = `Total before optional add-ons: ${data.price_display}`;
+            price.textContent = `Base total before questionnaire extras or applicable short-notice fees: ${data.price_display}`;
             message.textContent = data.slots.length ? '' : 'No available times were found for this date.';
 
             data.slots.forEach(slot => {

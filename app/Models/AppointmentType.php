@@ -164,6 +164,11 @@ class AppointmentType extends Model
         return $this->hasMany(AppointmentQuestion::class)->orderBy('position');
     }
 
+    public function shortNoticeFeeRules(): HasMany
+    {
+        return $this->hasMany(ShortNoticeFeeRule::class)->orderBy('position');
+    }
+
     public function invitations(): HasMany
     {
         return $this->hasMany(AppointmentTypeInvitation::class);

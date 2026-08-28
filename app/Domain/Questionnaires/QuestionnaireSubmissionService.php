@@ -2,6 +2,7 @@
 namespace App\Domain\Questionnaires;
 use App\Enums\QuestionType;
 use App\Models\AppointmentType;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Validator;
@@ -10,8 +11,8 @@ use Illuminate\Validation\ValidationException;
 use RuntimeException;
 class QuestionnaireSubmissionService {
  public function __construct(private QuestionnairePricingService $pricing, private EmailDomainValidator $emails, private PhoneValidationService $phones, private AddressValidationService $addresses) {}
- public function quote(AppointmentType $type, ?int $duration, array $answers): QuestionnaireQuote { return $this->pricing->quote($type,$duration,$answers); }
- public function validateForBooking(Request $request, AppointmentType $type, ?int $duration): QuestionnaireSubmission {
+ public function quote(AppointmentType $type, ?int $duration, array $answers, ?CarbonImmutable $startsAtUtc=null, ?CarbonImmutable $nowUtc=null): QuestionnaireQuote { return $this->pricing->quote($type,$duration,$answers,$startsAtUtc,$nowUtc); }
+ public function validateForBooking(Request $request, AppointmentType $type, ?int $duration, ?CarbonImmutable $startsAtUtc=null, ?CarbonImmutable $nowUtc=null): QuestionnaireSubmission {
    $type->loadMissing(['questions.options']); $rules=[];
    foreach ($type->questions->where('is_active',true) as $q) {
      $key='answers.'.$q->uuid; $required=$q->is_required?'required':'nullable';
@@ -44,6 +45,6 @@ class QuestionnaireSubmissionService {
      $answers[]=['question'=>$q,'value'=>$value,'normalized'=>$normalized,'files'=>$files];
    }
    // Pricing uses raw option UUIDs / number values rather than display snapshots.
-   return new QuestionnaireSubmission($answers,$this->pricing->quote($type,$duration,$raw));
+   return new QuestionnaireSubmission($answers,$this->pricing->quote($type,$duration,$raw,$startsAtUtc,$nowUtc));
  }
 }

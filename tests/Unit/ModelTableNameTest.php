@@ -33,6 +33,7 @@ use App\Models\OrganizationContact;
 use App\Models\OrganizationMembership;
 use App\Models\Person;
 use App\Models\Resource;
+use App\Models\ShortNoticeFeeRule;
 use App\Models\User;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -49,6 +50,7 @@ class ModelTableNameTest extends TestCase
             [OrganizationMembership::class, 'organization_memberships'],
             [Resource::class, 'resources'],
             [AppointmentType::class, 'appointment_types'],
+            [ShortNoticeFeeRule::class, 'short_notice_fee_rules'],
             [AppointmentTypeInvitation::class, 'appointment_type_invitations'],
             [AppointmentContractTemplate::class, 'appointment_contract_templates'],
             [AvailabilitySchedule::class, 'availability_schedules'],

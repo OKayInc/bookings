@@ -1,15 +1,26 @@
 <?php
 namespace App\Domain\Questionnaires;
 use App\Domain\Appointments\AppointmentTypePricingService;
+use App\Domain\Bookings\ShortNoticeFeeService;
 use App\Enums\PricingAdjustmentType;
 use App\Enums\PricingPercentageBasis;
 use App\Enums\QuestionType;
 use App\Models\AppointmentQuestion;
 use App\Models\AppointmentType;
 use App\Models\QuestionOption;
+use Carbon\CarbonImmutable;
 class QuestionnairePricingService {
- public function __construct(private AppointmentTypePricingService $basePricing) {}
- public function quote(AppointmentType $type, ?int $durationValue, array $answers): QuestionnaireQuote {
+ public function __construct(
+   private AppointmentTypePricingService $basePricing,
+   private ShortNoticeFeeService $shortNoticeFees,
+ ) {}
+ public function quote(
+   AppointmentType $type,
+   ?int $durationValue,
+   array $answers,
+   ?CarbonImmutable $startsAtUtc = null,
+   ?CarbonImmutable $nowUtc = null,
+ ): QuestionnaireQuote {
    $type->loadMissing(['questions.options']);
    $base=$this->basePricing->priceForDuration($type,$durationValue,$type->duration_unit); $total=$base;
    $lines=[new QuestionnairePriceLine('appointment_type',$type->uuid,'Base appointment price','base','1',$base)];
@@ -25,6 +36,15 @@ class QuestionnairePricingService {
        $qty=(int)$raw; $billable=max(0,$qty-(int)$q->pricing_included_units); if ($q->pricing_application_mode->value==='once') $billable=$billable>0?1:0;
        $amount=$this->adjustment($q->pricing_adjustment_type,$q->pricing_amount_minor,$q->pricing_percentage_bps,$q->pricing_percentage_basis,$base,$total,$billable);
        if ($amount>0) { $total=$this->safeAdd($total,$amount); $lines[]=new QuestionnairePriceLine('question',$q->uuid,$q->label,$q->pricing_adjustment_type->value,(string)$billable,$amount,['entered_quantity'=>$qty,'included_units'=>$q->pricing_included_units]); }
+     }
+   }
+   if ($startsAtUtc !== null) {
+     $charge=$this->shortNoticeFees->charge($type,$startsAtUtc,$total,$nowUtc);
+     if ($charge !== null) {
+       $total=$this->safeAdd($total,$charge->amountMinor);
+       $lines[]=new QuestionnairePriceLine(
+         'short_notice_fee',$charge->ruleUuid,$charge->label,$charge->lineType,'1',$charge->amountMinor,$charge->metadata,
+       );
      }
    }
    return new QuestionnaireQuote($base,$total,$lines);

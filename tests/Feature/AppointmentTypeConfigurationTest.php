@@ -173,6 +173,7 @@ class AppointmentTypeConfigurationTest extends TestCase
             ->get(route('appointment-types.edit', $type));
 
         $response->assertOk();
+        $response->assertSee('id="short-notice-fee-list"', false);
         $response->assertSee("control.disabled = !enabled", false);
         $response->assertSee("setRequired(document.getElementById('capacity'), groupAttendance)", false);
     }

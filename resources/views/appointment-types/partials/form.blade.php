@@ -198,6 +198,98 @@
 </div>
 
 <div class="section-card">
+    <h2>Short-notice fees</h2>
+    <p class="muted">Optionally charge more when an appointment will start soon. Add progressively shorter thresholds for higher fees. If several thresholds match, only the shortest matching threshold is charged.</p>
+
+    @php
+        $shortNoticeFeeRows = old('short_notice_fees', $shortNoticeFeeInputs ?? []);
+    @endphp
+    <div id="short-notice-fee-list">
+        @foreach($shortNoticeFeeRows as $index => $fee)
+            @php
+                $adjustmentType = $fee['adjustment_type'] ?? 'fixed';
+            @endphp
+            <div class="card compact short-notice-fee-row" data-index="{{ $index }}" style="margin-top: 1rem;">
+                <div class="row three">
+                    <div class="field">
+                        <label for="short_notice_threshold_value_{{ $index }}">Charge when starting within</label>
+                        <input id="short_notice_threshold_value_{{ $index }}" type="number" min="1" name="short_notice_fees[{{ $index }}][threshold_value]" value="{{ $fee['threshold_value'] ?? '' }}" required>
+                    </div>
+                    <div class="field">
+                        <label for="short_notice_threshold_unit_{{ $index }}">Threshold unit</label>
+                        <select id="short_notice_threshold_unit_{{ $index }}" name="short_notice_fees[{{ $index }}][threshold_unit]" required>
+                            @foreach($bookingNoticeUnits as $unit)
+                                <option value="{{ $unit->value }}" @selected(($fee['threshold_unit'] ?? 'hour') === $unit->value)>{{ ucfirst($unit->value) }}s</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="short_notice_adjustment_type_{{ $index }}">Fee type</label>
+                        <select id="short_notice_adjustment_type_{{ $index }}" name="short_notice_fees[{{ $index }}][adjustment_type]" data-short-notice-type required>
+                            @foreach($shortNoticeAdjustmentTypes as $type)
+                                <option value="{{ $type->value }}" @selected($adjustmentType === $type->value)>{{ ucfirst($type->value) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="field" data-short-notice-fixed>
+                        <label for="short_notice_fixed_amount_{{ $index }}">Fixed fee ({{ $organization->currency }})</label>
+                        <input id="short_notice_fixed_amount_{{ $index }}" inputmode="decimal" name="short_notice_fees[{{ $index }}][fixed_amount]" value="{{ $fee['fixed_amount'] ?? '' }}" placeholder="25.00">
+                    </div>
+                    <div class="field" data-short-notice-percentage>
+                        <label for="short_notice_percentage_{{ $index }}">Percentage of current subtotal</label>
+                        <input id="short_notice_percentage_{{ $index }}" inputmode="decimal" name="short_notice_fees[{{ $index }}][percentage]" value="{{ $fee['percentage'] ?? '' }}" placeholder="20">
+                    </div>
+                </div>
+                <button type="button" class="btn btn-outline-secondary" data-remove-short-notice>Remove fee tier</button>
+            </div>
+        @endforeach
+    </div>
+
+    <button type="button" class="btn btn-outline-secondary" id="add-short-notice-fee" style="margin-top: 1rem;">Add fee tier</button>
+    <div class="muted" style="margin-top: .75rem;">Percentage fees use the appointment subtotal after questionnaire extras. Thresholds use the organization's timezone; calendar months are not treated as fixed 30-day periods.</div>
+
+    <template id="short-notice-fee-template">
+        <div class="card compact short-notice-fee-row" data-index="__INDEX__" style="margin-top: 1rem;">
+            <div class="row three">
+                <div class="field">
+                    <label for="short_notice_threshold_value___INDEX__">Charge when starting within</label>
+                    <input id="short_notice_threshold_value___INDEX__" type="number" min="1" name="short_notice_fees[__INDEX__][threshold_value]" value="" required>
+                </div>
+                <div class="field">
+                    <label for="short_notice_threshold_unit___INDEX__">Threshold unit</label>
+                    <select id="short_notice_threshold_unit___INDEX__" name="short_notice_fees[__INDEX__][threshold_unit]" required>
+                        @foreach($bookingNoticeUnits as $unit)
+                            <option value="{{ $unit->value }}" @selected($unit->value === 'hour')>{{ ucfirst($unit->value) }}s</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="short_notice_adjustment_type___INDEX__">Fee type</label>
+                    <select id="short_notice_adjustment_type___INDEX__" name="short_notice_fees[__INDEX__][adjustment_type]" data-short-notice-type required>
+                        @foreach($shortNoticeAdjustmentTypes as $type)
+                            <option value="{{ $type->value }}">{{ ucfirst($type->value) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+            <div class="row">
+                <div class="field" data-short-notice-fixed>
+                    <label for="short_notice_fixed_amount___INDEX__">Fixed fee ({{ $organization->currency }})</label>
+                    <input id="short_notice_fixed_amount___INDEX__" inputmode="decimal" name="short_notice_fees[__INDEX__][fixed_amount]" value="" placeholder="25.00">
+                </div>
+                <div class="field" data-short-notice-percentage>
+                    <label for="short_notice_percentage___INDEX__">Percentage of current subtotal</label>
+                    <input id="short_notice_percentage___INDEX__" inputmode="decimal" name="short_notice_fees[__INDEX__][percentage]" value="" placeholder="20">
+                </div>
+            </div>
+            <button type="button" class="btn btn-outline-secondary" data-remove-short-notice>Remove fee tier</button>
+        </div>
+    </template>
+</div>
+
+<div class="section-card">
     <h2>Rest / buffer time</h2>
     <div class="row">
         <div class="field">
@@ -511,5 +603,47 @@
 
     [visibility, attendanceMode, durationMode, pricingMode].forEach((element) => element.addEventListener('change', sync));
     sync();
+})();
+</script>
+
+<script>
+(() => {
+    const list = document.getElementById('short-notice-fee-list');
+    const template = document.getElementById('short-notice-fee-template');
+    const addButton = document.getElementById('add-short-notice-fee');
+    let nextIndex = Array.from(list.querySelectorAll('[data-index]')).reduce(
+        (highest, row) => Math.max(highest, Number.parseInt(row.dataset.index, 10) || 0),
+        -1,
+    ) + 1;
+
+    function setFeeFieldState(section, enabled) {
+        section.style.display = enabled ? 'block' : 'none';
+        section.querySelectorAll('input').forEach((input) => {
+            input.disabled = !enabled;
+            input.required = enabled;
+        });
+    }
+
+    function prepareRow(row) {
+        const type = row.querySelector('[data-short-notice-type]');
+        const sync = () => {
+            setFeeFieldState(row.querySelector('[data-short-notice-fixed]'), type.value === 'fixed');
+            setFeeFieldState(row.querySelector('[data-short-notice-percentage]'), type.value === 'percentage');
+        };
+
+        type.addEventListener('change', sync);
+        row.querySelector('[data-remove-short-notice]').addEventListener('click', () => row.remove());
+        sync();
+    }
+
+    list.querySelectorAll('.short-notice-fee-row').forEach(prepareRow);
+    addButton.addEventListener('click', () => {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = template.innerHTML.replaceAll('__INDEX__', String(nextIndex++));
+        const row = wrapper.firstElementChild;
+        list.appendChild(row);
+        prepareRow(row);
+        row.querySelector('input').focus();
+    });
 })();
 </script>
