@@ -167,10 +167,13 @@ class QuestionnaireSubmissionService
             $answers[] = ['question' => $question, 'value' => $value, 'normalized' => $normalized, 'files' => $files];
         }
 
-        return new QuestionnaireSubmission(
-            $answers,
-            $this->pricing->quote($type, $duration, $raw, $startsAtUtc, $nowUtc, $distanceMeters),
-        );
+        try {
+            $quote = $this->pricing->quote($type, $duration, $raw, $startsAtUtc, $nowUtc, $distanceMeters);
+        } catch (\InvalidArgumentException $exception) {
+            throw ValidationException::withMessages(['questionnaire' => $exception->getMessage()]);
+        }
+
+        return new QuestionnaireSubmission($answers, $quote);
     }
 
     private function visibleAnswers(iterable $visibleQuestions, array $answers): array

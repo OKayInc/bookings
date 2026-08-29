@@ -1,4 +1,4 @@
-# Database — M7-R15
+# Database — M7-R16
 
 ## Core M1 tables retained
 
@@ -195,7 +195,7 @@ M4 added `appointments`, `appointment_resources`, persistent `bookings`, `bookin
 
 ### `appointment_questions`
 
-Appointment-type question attachment containing an independent definition snapshot, ordering, required/active state, type-specific JSON configuration, and optional number-field pricing rule. M7-R10 adds a nullable link to its reusable organization template. M7-R12 uses the existing JSON configuration for an address question's private origin, display unit, fee mode, and fixed/range amounts; no schema column is added. UUIDv7 primary key stored as `BINARY(16)`.
+Appointment-type question attachment containing an independent definition snapshot, ordering, required/active state, type-specific JSON configuration, and optional number-field pricing rule. M7-R10 adds a nullable link to its reusable organization template. M7-R12 uses the existing JSON configuration for an address question's private origin, display unit, fee mode, and fixed/range amounts. M7-R16 adds `distance_pricing.fallback.increment` and `distance_pricing.fallback.amount_minor` to range-mode configuration; no schema column is added. UUIDv7 primary key stored as `BINARY(16)`.
 
 ### `question_options`
 
@@ -232,7 +232,7 @@ Private uploaded answer files with original filename, MIME type, byte size and S
 
 ### `booking_price_lines`
 
-Immutable pricing breakdown captured when the booking is committed. Includes base appointment price, each questionnaire-driven surcharge (including a charged M7-R12 address distance rule), and any matching M7-R11 short-notice fee.
+Immutable pricing breakdown captured when the booking is committed. Includes base appointment price, each questionnaire-driven surcharge (including matched distance ranges and M7-R16 per-distance fallbacks), and any matching M7-R11 short-notice fee. A fallback line snapshots its increment, amount per increment, rounded-up block count, route meters, and configured display unit.
 
 ### `bookings.base_price_minor`
 

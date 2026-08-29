@@ -45,6 +45,8 @@ class StoreAppointmentQuestionRequest extends FormRequest
             'distance_ranges.*.minimum' => ['required_with:distance_ranges', 'numeric', 'min:0'],
             'distance_ranges.*.maximum' => ['nullable', 'numeric', 'min:0'],
             'distance_ranges.*.amount' => ['required_with:distance_ranges', 'string', 'max:40'],
+            'distance_fallback_increment' => ['nullable', 'numeric', 'gte:0.001', 'max:1000000'],
+            'distance_fallback_amount' => ['nullable', 'string', 'max:40'],
             'pricing_adjustment_type' => ['nullable', Rule::enum(PricingAdjustmentType::class)],
             'pricing_application_mode' => ['nullable', Rule::enum(PricingApplicationMode::class)],
             'pricing_amount' => ['nullable', 'string', 'max:40'],
@@ -113,6 +115,17 @@ class StoreAppointmentQuestionRequest extends FormRequest
 
                 if ($mode === 'range') {
                     $this->validateDistanceRanges($validator);
+
+                    $increment = $this->input('distance_fallback_increment');
+                    $incrementValue = is_numeric($increment) ? (float) $increment : null;
+                    if ($incrementValue === null || ! is_finite($incrementValue) || $incrementValue < 0.001 || $incrementValue > 1000000) {
+                        $validator->errors()->add('distance_fallback_increment', 'Enter a fallback distance increment between 0.001 and 1,000,000.');
+                    }
+
+                    $amount = trim((string) $this->input('distance_fallback_amount'));
+                    if ($amount === '' || ! is_numeric($amount) || (float) $amount <= 0) {
+                        $validator->errors()->add('distance_fallback_amount', 'Enter a fallback fee greater than zero.');
+                    }
                 }
             }
 

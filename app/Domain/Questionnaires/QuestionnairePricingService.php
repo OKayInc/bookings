@@ -41,7 +41,8 @@ class QuestionnairePricingService {
        $charge=$this->drivingDistancePricing->charge($q,(int)$drivingDistancesMeters[$q->uuid]);
        if ($charge!==null && $charge->amountMinor>0) {
          $total=$this->safeAdd($total,$charge->amountMinor);
-         $lines[]=new QuestionnairePriceLine('question_distance',$q->uuid,$q->label.': driving distance ('.$charge->distanceLabel.')',$charge->lineType,'1',$charge->amountMinor,$charge->metadata);
+         $quantity=$charge->lineType==='distance_fallback'?(string)($charge->metadata['fallback_blocks']??1):'1';
+         $lines[]=new QuestionnairePriceLine('question_distance',$q->uuid,$q->label.': driving distance ('.$charge->distanceLabel.')',$charge->lineType,$quantity,$charge->amountMinor,$charge->metadata);
        }
      }
    }

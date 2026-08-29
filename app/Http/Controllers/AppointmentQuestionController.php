@@ -248,6 +248,13 @@ class AppointmentQuestionController extends Controller
                 }
                 usort($ranges, fn (array $a, array $b): int => $a['minimum'] <=> $b['minimum']);
                 $distancePricing['ranges'] = $ranges;
+                $distancePricing['fallback'] = [
+                    'increment' => (float) $data['distance_fallback_increment'],
+                    'amount_minor' => $money->parse(
+                        $data['distance_fallback_amount'],
+                        $context->organization()->currency,
+                    ),
+                ];
             }
 
             $configuration['distance_pricing'] = $distancePricing;

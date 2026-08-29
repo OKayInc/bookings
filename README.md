@@ -191,3 +191,11 @@ The public date picker now shows time-only slot boxes instead of repeating the s
 ## M7-R15: dependent questionnaire questions
 
 Appointment-type questionnaires can now show a question only when earlier checkbox, radio, or select answers match a Boolean expression. AND conditions form a group and OR starts an alternative group, supporting rules such as `(Question 1 = A AND Question 2 = B) OR Question 1 = C`. The browser updates immediately, while the server independently excludes hidden questions from required validation, provider verification, file handling, pricing, and booking-answer snapshots. See `docs/CHANGES-M7-R15.md` and `docs/UPGRADE-M7-R14-TO-M7-R15.md`.
+
+## M7-R16: per-distance fallback fees
+
+Driving-distance range pricing now requires a positive fallback fee expressed as an amount per configurable kilometer/mile increment. A configured range still wins when it matches, including an intentional zero-dollar free radius; otherwise every started fallback increment is charged. Legacy uncovered ranges without a fallback fail closed instead of silently producing a free route. See `docs/CHANGES-M7-R16.md` and `docs/UPGRADE-M7-R15-TO-M7-R16.md`.
+
+## M7-R16-R1: distance increment persistence assertion
+
+The questionnaire configuration regression test now normalizes the JSON-backed fallback increment to a float before its strict assertion. This accommodates MariaDB returning the whole-number value `5` after a submitted `5.0` is persisted, without weakening the expected numeric value or changing runtime pricing behavior. See `docs/CHANGES-M7-R16-R1.md` and `docs/UPGRADE-M7-R16-TO-M7-R16-R1.md`.

@@ -32,7 +32,7 @@ class DrivingDistancePricingServiceTest extends TestCase
         $this->assertStringNotContainsString('Private point 0', json_encode($charge->metadata, JSON_THROW_ON_ERROR));
     }
 
-    public function test_range_minimum_is_inclusive_maximum_is_exclusive_and_gaps_are_free(): void
+    public function test_range_boundaries_are_preserved_and_gaps_use_rounded_up_fallback_increments(): void
     {
         $question = new AppointmentQuestion([
             'configuration' => [
@@ -42,19 +42,47 @@ class DrivingDistancePricingServiceTest extends TestCase
                     'unit' => 'kilometer',
                     'mode' => 'range',
                     'ranges' => [
-                        ['minimum' => 0, 'maximum' => 10, 'amount_minor' => 1000],
+                        ['minimum' => 0, 'maximum' => 10, 'amount_minor' => 0],
                         ['minimum' => 15, 'maximum' => 25, 'amount_minor' => 3000],
                         ['minimum' => 25, 'maximum' => null, 'amount_minor' => 5000],
                     ],
+                    'fallback' => ['increment' => 5, 'amount_minor' => 700],
                 ],
             ],
         ]);
 
         $pricing = app(DrivingDistancePricingService::class);
-        $this->assertSame(1000, $pricing->charge($question, 9999)?->amountMinor);
-        $this->assertNull($pricing->charge($question, 10000));
+        $this->assertSame(0, $pricing->charge($question, 9999)?->amountMinor);
+        $this->assertSame(1400, $pricing->charge($question, 10000)?->amountMinor);
+        $fallback = $pricing->charge($question, 14999);
+        $this->assertSame(2100, $fallback?->amountMinor);
+        $this->assertSame('distance_fallback', $fallback?->lineType);
+        $this->assertSame(3, $fallback?->metadata['fallback_blocks']);
+        $this->assertSame(5.0, $fallback?->metadata['fallback_increment']);
         $this->assertSame(3000, $pricing->charge($question, 15000)?->amountMinor);
         $this->assertSame(5000, $pricing->charge($question, 25000)?->amountMinor);
+    }
+
+    public function test_uncovered_legacy_range_without_a_fallback_fails_closed(): void
+    {
+        $question = new AppointmentQuestion([
+            'label' => 'Service address',
+            'configuration' => [
+                'distance_pricing' => [
+                    'enabled' => true,
+                    'unit' => 'kilometer',
+                    'mode' => 'range',
+                    'ranges' => [
+                        ['minimum' => 0, 'maximum' => 10, 'amount_minor' => 1000],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('no valid per-distance fallback is configured');
+
+        app(DrivingDistancePricingService::class)->charge($question, 10000);
     }
 
     public function test_mile_ranges_are_compared_against_google_distance_meters(): void
@@ -70,6 +98,7 @@ class DrivingDistancePricingServiceTest extends TestCase
                         ['minimum' => 0, 'maximum' => 10, 'amount_minor' => 1500],
                         ['minimum' => 10, 'maximum' => null, 'amount_minor' => 3500],
                     ],
+                    'fallback' => ['increment' => 5, 'amount_minor' => 900],
                 ],
             ],
         ]);
@@ -80,5 +109,29 @@ class DrivingDistancePricingServiceTest extends TestCase
         $this->assertSame(3500, $charge->amountMinor);
         $this->assertSame('10 mi', $charge->distanceLabel);
         $this->assertSame('mile', $charge->metadata['distance_unit']);
+    }
+
+    public function test_mile_fallback_uses_the_configured_unit_and_every_started_increment(): void
+    {
+        $question = new AppointmentQuestion([
+            'configuration' => [
+                'distance_pricing' => [
+                    'enabled' => true,
+                    'unit' => 'mile',
+                    'mode' => 'range',
+                    'ranges' => [
+                        ['minimum' => 0, 'maximum' => 5, 'amount_minor' => 1000],
+                    ],
+                    'fallback' => ['increment' => 5, 'amount_minor' => 800],
+                ],
+            ],
+        ]);
+
+        $charge = app(DrivingDistancePricingService::class)->charge($question, 19312); // 12 miles.
+
+        $this->assertSame(2400, $charge?->amountMinor);
+        $this->assertSame('12 mi', $charge?->distanceLabel);
+        $this->assertSame('range_fallback', $charge?->metadata['pricing_mode']);
+        $this->assertSame(3, $charge?->metadata['fallback_blocks']);
     }
 }

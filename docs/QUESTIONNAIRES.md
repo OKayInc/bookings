@@ -47,11 +47,13 @@ The public quote and final booking submission ask Google Routes for a `DRIVE` ro
 The fee can be:
 
 - one positive fixed amount for any routable destination; or
-- non-overlapping ranges measured in configured kilometers or miles, each with a non-negative fixed amount.
+- non-overlapping ranges measured in configured kilometers or miles, each with a non-negative fixed amount, plus a required positive per-distance fallback.
 
-Range minimums are inclusive and maximums are exclusive. A blank maximum is open-ended and must be the final range. Gaps are allowed and produce no fee, which supports a free service radius. Google returns integer meters; range thresholds are converted to meters for comparison. Only one range can match one address answer.
+Range minimums are inclusive and maximums are exclusive. A blank maximum is open-ended and must be the final range. Google returns integer meters; range thresholds and fallback increments are converted to meters for comparison. Only one range can match one address answer.
 
-Distance fees are added in questionnaire order before any percentage short-notice fee. The answer snapshot retains meters plus the configured display unit/value. A charged `question_distance` price line retains the distance, pricing mode, and matched range, but never point 0.
+When no range matches, M7-R16 charges the fallback amount for every started configured increment in the selected unit. For example, a 12 km route at `$10 per 5 km` uses `ceil(12 / 5) = 3` increments and charges $30. This applies the fallback to the complete route distance, not merely the gap width. An intentional free radius must be represented by an explicit zero-dollar range; uncovered gaps are never implicitly free. A legacy range configuration without a valid fallback fails closed when an uncovered route is quoted or submitted.
+
+Distance fees are added in questionnaire order before any percentage short-notice fee. The answer snapshot retains meters plus the configured display unit/value. A charged `question_distance` price line retains the distance, pricing mode, and either the matched range or fallback increment/count, but never point 0.
 
 Percentage basis:
 

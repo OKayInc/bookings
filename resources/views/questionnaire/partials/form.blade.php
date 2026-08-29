@@ -66,6 +66,7 @@ $qType=old('type',$question?->type?->value ?? 'text');
     $distanceConfiguration = (array) data_get($question?->configuration, 'distance_pricing', []);
     $distancePricingEnabled = old('distance_pricing_enabled', $distanceConfiguration['enabled'] ?? false);
     $distancePricingMode = old('distance_pricing_mode', $distanceConfiguration['mode'] ?? 'fixed');
+    $distanceUnit = old('distance_unit', $distanceConfiguration['unit'] ?? 'kilometer');
     $storedDistanceRanges = [];
     foreach ((array) ($distanceConfiguration['ranges'] ?? []) as $range) {
         $storedDistanceRanges[] = [
@@ -81,6 +82,16 @@ $qType=old('type',$question?->type?->value ?? 'text');
             ? $money->decimal((int) $distanceConfiguration['fixed_amount_minor'], $organization->currency)
             : '',
     );
+    $distanceFallbackIncrement = old(
+        'distance_fallback_increment',
+        data_get($distanceConfiguration, 'fallback.increment', ''),
+    );
+    $distanceFallbackAmount = old(
+        'distance_fallback_amount',
+        data_get($distanceConfiguration, 'fallback.amount_minor') === null
+            ? ''
+            : $money->decimal((int) data_get($distanceConfiguration, 'fallback.amount_minor'), $organization->currency),
+    );
 @endphp
 <div class="section-card conditional" data-types="address">
 <h2>Driving-distance pricing</h2>
@@ -88,16 +99,17 @@ $qType=old('type',$question?->type?->value ?? 'text');
 <div class="muted">Point 0 is private configuration. It is used by the server for routing and is never shown to the client.</div>
 <div id="distance-pricing-fields" style="margin-top: 1rem;">
 <div class="field"><label for="distance-origin-address">Private point 0 / origin address</label><input id="distance-origin-address" name="distance_origin_address" maxlength="1000" value="{{ old('distance_origin_address', $distanceConfiguration['origin_address'] ?? '') }}" placeholder="Full street address, city, region, postal code, country"><div class="muted">Google Routes calculates a driving route from this origin to the client's validated answer.</div></div>
-<div class="row"><div class="field"><label for="distance-unit">Distance unit</label><select id="distance-unit" name="distance_unit"><option value="kilometer" @selected(old('distance_unit', $distanceConfiguration['unit'] ?? 'kilometer') === 'kilometer')>Kilometers</option><option value="mile" @selected(old('distance_unit', $distanceConfiguration['unit'] ?? 'kilometer') === 'mile')>Miles</option></select></div><div class="field"><label for="distance-pricing-mode">Fee method</label><select id="distance-pricing-mode" name="distance_pricing_mode"><option value="fixed" @selected($distancePricingMode === 'fixed')>Fixed fee for any route</option><option value="range" @selected($distancePricingMode === 'range')>Fee by distance range</option></select></div></div>
+<div class="row"><div class="field"><label for="distance-unit">Distance unit</label><select id="distance-unit" name="distance_unit"><option value="kilometer" @selected($distanceUnit === 'kilometer')>Kilometers</option><option value="mile" @selected($distanceUnit === 'mile')>Miles</option></select></div><div class="field"><label for="distance-pricing-mode">Fee method</label><select id="distance-pricing-mode" name="distance_pricing_mode"><option value="fixed" @selected($distancePricingMode === 'fixed')>Fixed fee for any route</option><option value="range" @selected($distancePricingMode === 'range')>Fee by distance range with per-distance fallback</option></select></div></div>
 <div id="distance-fixed-fields" class="field"><label for="distance-fixed-amount">Fixed fee ({{ $organization->currency }})</label><input id="distance-fixed-amount" inputmode="decimal" name="distance_fixed_amount" value="{{ $distanceFixedAmount }}" placeholder="25.00"></div>
 <div id="distance-range-fields">
-<p class="muted">The minimum is inclusive and the maximum is exclusive. Leave maximum blank for an open-ended final range. Gaps are allowed and produce no distance fee; ranges cannot overlap.</p>
+<p class="muted">The minimum is inclusive and the maximum is exclusive. Leave maximum blank for an open-ended final range. Ranges cannot overlap. Any gap or uncovered distance uses the required fallback below.</p>
 <div id="distance-range-rows">
 @foreach($distanceRangeRows as $index => $range)
 <div class="card compact distance-range-row" data-index="{{ $index }}"><div class="row three"><div class="field"><label>Minimum</label><input type="number" min="0" step="any" name="distance_ranges[{{ $index }}][minimum]" value="{{ $range['minimum'] ?? 0 }}"></div><div class="field"><label>Maximum (optional)</label><input type="number" min="0" step="any" name="distance_ranges[{{ $index }}][maximum]" value="{{ $range['maximum'] ?? '' }}"></div><div class="field"><label>Fee ({{ $organization->currency }})</label><input inputmode="decimal" name="distance_ranges[{{ $index }}][amount]" value="{{ $range['amount'] ?? '' }}"></div></div><button type="button" class="btn btn-danger remove-distance-range">Remove range</button></div>
 @endforeach
 </div>
 <button type="button" id="add-distance-range" class="btn">Add distance range</button>
+<div class="card compact" style="margin-top: 1rem;"><h3>Unmatched-distance fallback</h3><p class="muted">For a distance not covered by a range, charge the fee for every started increment. Example: 12 <span data-distance-unit-short>{{ $distanceUnit === 'mile' ? 'mi' : 'km' }}</span> with a 5 <span data-distance-unit-short>{{ $distanceUnit === 'mile' ? 'mi' : 'km' }}</span> increment uses 3 increments.</p><div class="row"><div class="field"><label for="distance-fallback-increment">Distance per increment (<span data-distance-unit-short>{{ $distanceUnit === 'mile' ? 'mi' : 'km' }}</span>)</label><input id="distance-fallback-increment" type="number" min="0.001" step="any" name="distance_fallback_increment" value="{{ $distanceFallbackIncrement }}" placeholder="5"></div><div class="field"><label for="distance-fallback-amount">Fee per increment ({{ $organization->currency }})</label><input id="distance-fallback-amount" inputmode="decimal" name="distance_fallback_amount" value="{{ $distanceFallbackAmount }}" placeholder="10.00"></div></div></div>
 </div>
 </div>
 </div>
@@ -117,7 +129,7 @@ $qType=old('type',$question?->type?->value ?? 'text');
 (function(){
  const dependencyQuestions=@json($dependencyPayload);
  const type=document.getElementById('question-type');
- const distanceEnabled=document.getElementById('distance-pricing-enabled'); const distanceFields=document.getElementById('distance-pricing-fields'); const distanceMode=document.getElementById('distance-pricing-mode'); const distanceFixed=document.getElementById('distance-fixed-fields'); const distanceRanges=document.getElementById('distance-range-fields');
+ const distanceEnabled=document.getElementById('distance-pricing-enabled'); const distanceFields=document.getElementById('distance-pricing-fields'); const distanceMode=document.getElementById('distance-pricing-mode'); const distanceUnit=document.getElementById('distance-unit'); const distanceFixed=document.getElementById('distance-fixed-fields'); const distanceRanges=document.getElementById('distance-range-fields');
  function toggleDistancePricing(){
    if(!distanceEnabled) return;
    const enabled=type.value==='address' && distanceEnabled.checked; const rangeMode=enabled && distanceMode.value==='range';
@@ -125,9 +137,10 @@ $qType=old('type',$question?->type?->value ?? 'text');
    distanceFields.querySelectorAll('input,select,textarea').forEach(c=>{c.disabled=!enabled;});
    if(enabled){distanceFixed.querySelectorAll('input,select,textarea').forEach(c=>{c.disabled=rangeMode;});distanceRanges.querySelectorAll('input,select,textarea').forEach(c=>{c.disabled=!rangeMode;});}
  }
+ function updateDistanceUnitLabels(){document.querySelectorAll('[data-distance-unit-short]').forEach(label=>{label.textContent=distanceUnit?.value==='mile'?'mi':'km';});}
  function toggle(){ document.querySelectorAll('.conditional').forEach(s=>{const show=s.dataset.types.split(',').includes(type.value);s.style.display=show?'block':'none';s.querySelectorAll('input,select,textarea').forEach(c=>c.disabled=!show);}); toggleDistancePricing(); }
  type.addEventListener('change',toggle); toggle();
- if(distanceEnabled) distanceEnabled.addEventListener('change',toggleDistancePricing); if(distanceMode) distanceMode.addEventListener('change',toggleDistancePricing);
+ if(distanceEnabled) distanceEnabled.addEventListener('change',toggleDistancePricing); if(distanceMode) distanceMode.addEventListener('change',toggleDistancePricing); if(distanceUnit) distanceUnit.addEventListener('change',updateDistanceUnitLabels); updateDistanceUnitLabels();
  let index=document.querySelectorAll('.option-row').length;
  const rows=document.getElementById('option-rows'); const add=document.getElementById('add-option');
  if(add) add.addEventListener('click',()=>{const i=index++; const d=document.createElement('div'); d.className='card compact option-row'; d.innerHTML=`<div class="row"><div class="field"><label>Label</label><input name="options[${i}][label]" required></div><div class="field"><label>Value (optional)</label><input name="options[${i}][value]"></div></div><div class="row three"><div class="field"><label>Charge type</label><select name="options[${i}][pricing_adjustment_type]"><option value="none">None</option><option value="fixed">Fixed</option><option value="percentage">Percentage</option></select></div><div class="field"><label>Fixed {{ $organization->currency }}</label><input name="options[${i}][pricing_amount]"></div><div class="field"><label>Percentage / basis</label><input name="options[${i}][pricing_percentage]"><select name="options[${i}][pricing_percentage_basis]"><option value="base_price">Base Price</option><option value="current_subtotal">Current Subtotal</option></select></div></div><button type="button" class="btn btn-danger remove-option">Remove option</button>`; rows.appendChild(d);});

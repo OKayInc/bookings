@@ -3,6 +3,7 @@
 namespace App\Domain\Questionnaires;
 
 use App\Models\AppointmentQuestion;
+use InvalidArgumentException;
 
 class DrivingDistancePricingService
 {
@@ -68,7 +69,35 @@ class DrivingDistancePricingService
             );
         }
 
-        return null;
+        $fallback = (array) ($configuration['fallback'] ?? []);
+        $increment = (float) ($fallback['increment'] ?? 0);
+        $amountPerIncrement = (int) ($fallback['amount_minor'] ?? 0);
+        if (! is_finite($increment) || $increment < 0.001 || $increment > 1000000 || $amountPerIncrement <= 0) {
+            throw new InvalidArgumentException(
+                'The distance ranges do not cover this route and no valid per-distance fallback is configured for '.$question->label.'.',
+            );
+        }
+
+        $incrementMeters = max(1, $this->thresholdMeters($increment, $unit));
+        $blocks = intdiv($meters, $incrementMeters) + ($meters % $incrementMeters === 0 ? 0 : 1);
+        if ($blocks > 0 && $amountPerIncrement > intdiv(PHP_INT_MAX, $blocks)) {
+            throw new InvalidArgumentException('The fallback distance fee is too large.');
+        }
+
+        return new DrivingDistanceCharge(
+            $amountPerIncrement * $blocks,
+            'distance_fallback',
+            $measurement['label'],
+            [
+                'distance_meters' => $meters,
+                'distance_value' => $measurement['value'],
+                'distance_unit' => $unit,
+                'pricing_mode' => 'range_fallback',
+                'fallback_increment' => $increment,
+                'fallback_amount_minor' => $amountPerIncrement,
+                'fallback_blocks' => $blocks,
+            ],
+        );
     }
 
     public function measurement(int $meters, string $unit): array

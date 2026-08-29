@@ -33,14 +33,14 @@ class QuestionnaireBookingFlowTest extends TestCase {
   $this->assertSame(10000,$booking->base_price_minor); $this->assertSame(20000,$booking->price_minor); $this->assertSame(2,BookingAnswer::count()); $this->assertSame(3,BookingPriceLine::count());
   $this->assertSame('Album',data_get($booking->answers()->where('question_type','checkboxes')->firstOrFail()->value_json,'value.0.label'));
  }
- public function test_address_driving_distance_affects_live_quote_and_is_snapshotted_without_private_origin(): void {
+ public function test_unmatched_address_distance_uses_fallback_in_live_quote_and_booking_snapshot(): void {
   [$org,$type]=$this->type();
   $origin='100 Private Origin Road, Ottawa, ON, Canada';
   $question=$type->questions()->create([
    'type'=>'address','label'=>'Service address','is_required'=>true,'is_active'=>true,'position'=>1,
    'configuration'=>['region'=>'CA','distance_pricing'=>['enabled'=>true,'origin_address'=>$origin,'unit'=>'kilometer','mode'=>'range','ranges'=>[
-    ['minimum'=>0,'maximum'=>10,'amount_minor'=>1000],['minimum'=>10,'maximum'=>25,'amount_minor'=>2500],['minimum'=>25,'maximum'=>null,'amount_minor'=>5000],
-   ]]],
+    ['minimum'=>0,'maximum'=>10,'amount_minor'=>1000],['minimum'=>20,'maximum'=>null,'amount_minor'=>5000],
+   ],'fallback'=>['increment'=>5,'amount_minor'=>1000]]],
   ]);
   config(['questionnaire.google.api_key'=>'address-key','questionnaire.google.routes_api_key'=>'routes-key']);
   Http::fake([
@@ -58,20 +58,23 @@ class QuestionnaireBookingFlowTest extends TestCase {
   $this->get(route('public.booking-holds.edit',$token))->assertOk()->assertDontSee($origin);
 
   $quote=$this->postJson(route('public.booking-holds.quote',$token),['answers'=>[$question->uuid=>'200 Client St, Ottawa, ON']])->assertOk();
-  $quote->assertJsonPath('total_minor',12500)->assertJsonPath('lines.1.amount_minor',2500);
+  $quote->assertJsonPath('total_minor',13000)->assertJsonPath('lines.1.amount_minor',3000)->assertJsonPath('lines.1.quantity','3');
   $this->assertStringContainsString('12.5 km',(string)$quote->json('lines.1.label'));
   $this->assertStringNotContainsString($origin,$quote->getContent());
 
   $response=$this->post(route('public.booking-holds.store',$token),['first_name'=>'Distance','last_name'=>'Client','email'=>'distance@example.test','answers'=>[$question->uuid=>'200 Client St, Ottawa, ON']]);
   $booking=Booking::query()->with(['answers','priceLines'])->firstOrFail();
   $response->assertRedirect(route('public.bookings.received',$booking->reference));
-  $this->assertSame(12500,$booking->price_minor);
+  $this->assertSame(13000,$booking->price_minor);
   $this->assertSame(12500,data_get($booking->answers->first()->normalized_json,'driving_distance.meters'));
   $this->assertSame('kilometer',data_get($booking->answers->first()->normalized_json,'driving_distance.unit'));
   $distanceLine=$booking->priceLines->firstWhere('source_type','question_distance');
   $this->assertNotNull($distanceLine);
-  $this->assertSame(2500,$distanceLine->amount_minor);
-  $this->assertSame(10.0,(float)data_get($distanceLine->metadata,'range_minimum'));
+  $this->assertSame(3000,$distanceLine->amount_minor);
+  $this->assertSame('distance_fallback',$distanceLine->line_type);
+  $this->assertSame(3.0,(float)$distanceLine->quantity);
+  $this->assertSame(5.0,(float)data_get($distanceLine->metadata,'fallback_increment'));
+  $this->assertSame(3,(int)data_get($distanceLine->metadata,'fallback_blocks'));
   $this->assertStringNotContainsString($origin,json_encode($booking->answers->first()->normalized_json,JSON_THROW_ON_ERROR));
   $this->assertStringNotContainsString($origin,json_encode($distanceLine->metadata,JSON_THROW_ON_ERROR));
  }
