@@ -5,15 +5,14 @@ use App\Domain\Bookings\ShortNoticeFeeService;
 use App\Enums\PricingAdjustmentType;
 use App\Enums\PricingPercentageBasis;
 use App\Enums\QuestionType;
-use App\Models\AppointmentQuestion;
 use App\Models\AppointmentType;
-use App\Models\QuestionOption;
 use Carbon\CarbonImmutable;
 class QuestionnairePricingService {
  public function __construct(
    private AppointmentTypePricingService $basePricing,
    private DrivingDistancePricingService $drivingDistancePricing,
    private ShortNoticeFeeService $shortNoticeFees,
+   private QuestionVisibilityService $visibility,
  ) {}
  public function quote(
    AppointmentType $type,
@@ -23,10 +22,10 @@ class QuestionnairePricingService {
    ?CarbonImmutable $nowUtc = null,
    array $drivingDistancesMeters = [],
  ): QuestionnaireQuote {
-   $type->loadMissing(['questions.options']);
+   $visibleQuestions=$this->visibility->visibleQuestions($type,$answers);
    $base=$this->basePricing->priceForDuration($type,$durationValue,$type->duration_unit); $total=$base;
    $lines=[new QuestionnairePriceLine('appointment_type',$type->uuid,'Base appointment price','base','1',$base)];
-   foreach ($type->questions->where('is_active',true)->sortBy('position') as $q) {
+   foreach ($visibleQuestions as $q) {
      $raw=$answers[$q->uuid] ?? null;
      if ($q->type->hasOptions()) {
        $ids=$q->type===QuestionType::Checkboxes ? (array)$raw : ($raw ? [(string)$raw] : []);

@@ -135,7 +135,7 @@ class PublicBookingController extends Controller
     public function editHold(string $token): View
     {
         $hold = $this->holdByToken($token);
-        $hold->load(['organization', 'appointmentType.organization', 'appointmentType.questions.options', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
+        $hold->load(['organization', 'appointmentType.organization', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
 
         return view('public.bookings.details', [
             'organization' => $hold->organization,
@@ -152,7 +152,7 @@ class PublicBookingController extends Controller
         MoneyService $money,
     ): JsonResponse {
         $hold = $this->holdByToken($token);
-        $hold->load(['appointmentType.organization', 'appointmentType.questions.options', 'appointmentType.shortNoticeFeeRules']);
+        $hold->load(['appointmentType.organization', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.shortNoticeFeeRules']);
         $answers = (array) $request->input('answers', []);
         try {
             $quote = $questionnaires->quote(
@@ -184,7 +184,7 @@ class PublicBookingController extends Controller
         QuestionnaireSubmissionService $questionnaires,
     ): RedirectResponse {
         $hold = $this->holdByToken($token);
-        $hold->load(['appointmentType.organization', 'appointmentType.questions.options', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
+        $hold->load(['appointmentType.organization', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
 
         $rules = [
             'first_name' => ['required', 'string', 'max:120'],

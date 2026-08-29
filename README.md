@@ -187,3 +187,7 @@ Active owners now have a guarded danger zone for permanently deleting an organiz
 ## M7-R14: cross-midnight slots and cleaner time boxes
 
 The public date picker now shows time-only slot boxes instead of repeating the selected date. Availability treats the requested day as the allowed start-date range rather than a mandatory finish boundary, so a long appointment may consume continuous available hours after midnight while next-day schedules, conflicts, resources, holidays, buffers, and external calendars remain enforced. See `docs/CHANGES-M7-R14.md` and `docs/UPGRADE-M7-R13-TO-M7-R14.md`.
+
+## M7-R15: dependent questionnaire questions
+
+Appointment-type questionnaires can now show a question only when earlier checkbox, radio, or select answers match a Boolean expression. AND conditions form a group and OR starts an alternative group, supporting rules such as `(Question 1 = A AND Question 2 = B) OR Question 1 = C`. The browser updates immediately, while the server independently excludes hidden questions from required validation, provider verification, file handling, pricing, and booking-answer snapshots. See `docs/CHANGES-M7-R15.md` and `docs/UPGRADE-M7-R14-TO-M7-R15.md`.

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Domain\Money\MoneyService;
 use App\Domain\Questionnaires\PercentageService;
 use App\Domain\Questionnaires\PhoneValidationService;
+use App\Domain\Questionnaires\QuestionVisibilityService;
 use App\Domain\Questionnaires\ReusableQuestionService;
 use App\Enums\PricingAdjustmentType;
 use App\Enums\PricingApplicationMode;
@@ -27,7 +28,7 @@ class AppointmentQuestionController extends Controller
     public function index(AppointmentType $appointmentType, OrganizationContext $context): View
     {
         $this->guard($appointmentType, $context);
-        $appointmentType->load(['questions.options', 'questions.reusableQuestion']);
+        $appointmentType->load(['questions.options', 'questions.reusableQuestion', 'questions.visibilityConditions']);
 
         return view('questionnaire.index', compact('appointmentType'));
     }
@@ -52,20 +53,22 @@ class AppointmentQuestionController extends Controller
         MoneyService $money,
         PercentageService $percent,
         ReusableQuestionService $reusableQuestions,
+        QuestionVisibilityService $visibility,
     ): RedirectResponse {
         $this->guard($appointmentType, $context);
         $data = $request->validated();
 
         try {
-            DB::transaction(function () use ($appointmentType, $data, $request, $context, $money, $percent, $reusableQuestions): void {
+            DB::transaction(function () use ($appointmentType, $data, $request, $context, $money, $percent, $reusableQuestions, $visibility): void {
                 $question = $appointmentType->questions()->create(
                     $this->questionData($data, $request, $context, $money, $percent, $appointmentType),
                 );
                 $this->syncOptions($question, $data, $context, $money, $percent);
+                $visibility->sync($appointmentType, $question, (array) ($data['visibility_conditions'] ?? []));
                 $reusableQuestions->createFromAttachment($question, $context->organization());
             });
         } catch (InvalidArgumentException $exception) {
-            throw ValidationException::withMessages(['pricing' => $exception->getMessage()]);
+            throw ValidationException::withMessages(['question' => $exception->getMessage()]);
         }
 
         return redirect()
@@ -103,7 +106,7 @@ class AppointmentQuestionController extends Controller
         PhoneValidationService $phones,
     ): View {
         $this->guardQuestion($appointmentType, $question, $context);
-        $question->load(['options', 'reusableQuestion']);
+        $question->load(['options', 'reusableQuestion', 'visibilityConditions.sourceQuestion', 'visibilityConditions.expectedOption']);
 
         return view('questionnaire.edit', $this->formData($appointmentType, $question, $context, $phones));
     }
@@ -116,21 +119,23 @@ class AppointmentQuestionController extends Controller
         MoneyService $money,
         PercentageService $percent,
         ReusableQuestionService $reusableQuestions,
+        QuestionVisibilityService $visibility,
     ): RedirectResponse {
         $this->guardQuestion($appointmentType, $question, $context);
         $data = $request->validated();
 
         try {
-            DB::transaction(function () use ($question, $data, $request, $context, $money, $percent, $appointmentType, $reusableQuestions): void {
+            DB::transaction(function () use ($question, $data, $request, $context, $money, $percent, $appointmentType, $reusableQuestions, $visibility): void {
                 $question->update($this->questionData($data, $request, $context, $money, $percent, $appointmentType));
                 $this->syncOptions($question, $data, $context, $money, $percent);
+                $visibility->sync($appointmentType, $question, (array) ($data['visibility_conditions'] ?? []));
 
                 if ($request->boolean('update_reusable_question')) {
                     $reusableQuestions->updateFromAttachment($question);
                 }
             });
         } catch (InvalidArgumentException $exception) {
-            throw ValidationException::withMessages(['pricing' => $exception->getMessage()]);
+            throw ValidationException::withMessages(['question' => $exception->getMessage()]);
         }
 
         return redirect()
@@ -149,6 +154,12 @@ class AppointmentQuestionController extends Controller
         OrganizationContext $context,
     ): RedirectResponse {
         $this->guardQuestion($appointmentType, $question, $context);
+
+        if ($question->dependentVisibilityConditions()->exists()) {
+            return back()->withErrors([
+                'question' => 'Remove this question from every dependent question before disabling or deleting it.',
+            ]);
+        }
 
         if ($question->answers()->exists()) {
             $question->update(['is_active' => false]);
@@ -271,14 +282,20 @@ class AppointmentQuestionController extends Controller
         MoneyService $money,
         PercentageService $percent,
     ): void {
+        $existing = $question->options()->with('visibilityConditions')->get()->keyBy('uuid');
+
         if (! $question->type->hasOptions()) {
+            if ($existing->contains(fn ($option): bool => $option->visibilityConditions->isNotEmpty())) {
+                throw new InvalidArgumentException('This question type cannot change while one of its answers is used by a dependency.');
+            }
             $question->options()->delete();
 
             return;
         }
 
-        $question->options()->delete();
         $usedValues = [];
+        $usedUuids = [];
+        $normalized = [];
 
         foreach (array_values($data['options'] ?? []) as $index => $option) {
             $label = trim($option['label']);
@@ -291,8 +308,19 @@ class AppointmentQuestionController extends Controller
             $usedValues[] = $value;
             $pricing = PricingAdjustmentType::tryFrom($option['pricing_adjustment_type'] ?? 'none')
                 ?? PricingAdjustmentType::None;
+            $uuid = isset($option['uuid']) && $option['uuid'] !== '' ? (string) $option['uuid'] : null;
+            $model = $uuid === null ? null : $existing->get($uuid);
+            if ($uuid !== null && $model === null) {
+                throw new InvalidArgumentException('A submitted answer option does not belong to this question.');
+            }
+            if ($uuid !== null && isset($usedUuids[$uuid])) {
+                throw new InvalidArgumentException('The same answer option cannot be submitted twice.');
+            }
+            if ($uuid !== null) {
+                $usedUuids[$uuid] = true;
+            }
 
-            $question->options()->create([
+            $normalized[] = ['model' => $model, 'data' => [
                 'label' => $label,
                 'value' => $value,
                 'position' => $index + 1,
@@ -305,8 +333,31 @@ class AppointmentQuestionController extends Controller
                     ? $percent->parseToBasisPoints($option['pricing_percentage'] ?? '0')
                     : null,
                 'pricing_percentage_basis' => $option['pricing_percentage_basis'] ?? PricingPercentageBasis::BasePrice->value,
-            ]);
+            ]];
         }
+
+        $removed = $existing->reject(fn ($option, string $uuid): bool => isset($usedUuids[$uuid]));
+        if ($removed->contains(fn ($option): bool => $option->visibilityConditions->isNotEmpty())) {
+            throw new InvalidArgumentException('An answer used by a dependency cannot be removed. Update the dependent question first.');
+        }
+
+        foreach ($normalized as $row) {
+            if ($row['model'] !== null) {
+                $row['model']->update(['value' => '__editing_'.str_replace('-', '', $row['model']->uuid)]);
+            }
+        }
+        foreach ($removed as $option) {
+            $option->delete();
+        }
+        foreach ($normalized as $row) {
+            if ($row['model'] === null) {
+                $question->options()->create($row['data']);
+            } else {
+                $row['model']->update($row['data']);
+            }
+        }
+
+        $question->unsetRelation('options');
     }
 
     private function formData(
@@ -315,6 +366,15 @@ class AppointmentQuestionController extends Controller
         OrganizationContext $context,
         PhoneValidationService $phones,
     ): array {
+        $dependencyQuestions = $appointmentType->questions()
+            ->where('is_active', true)
+            ->with('options')
+            ->get()
+            ->filter(fn (AppointmentQuestion $candidate): bool => $candidate->type->hasOptions()
+                && ($question === null || ($candidate->position < $question->position
+                    && ! hash_equals($candidate->getKey(), $question->getKey()))))
+            ->values();
+
         return [
             'appointmentType' => $appointmentType,
             'question' => $question,
@@ -324,6 +384,7 @@ class AppointmentQuestionController extends Controller
             'percentageBases' => PricingPercentageBasis::cases(),
             'organization' => $context->organization(),
             'phoneRegions' => $phones->supportedRegions(),
+            'dependencyQuestions' => $dependencyQuestions,
         ];
     }
 

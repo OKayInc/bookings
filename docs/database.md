@@ -1,4 +1,4 @@
-# Database — M7-R14
+# Database — M7-R15
 
 ## Core M1 tables retained
 
@@ -200,6 +200,19 @@ Appointment-type question attachment containing an independent definition snapsh
 ### `question_options`
 
 Options for checkbox/radio/select questions, including deterministic order and optional fixed/percentage surcharge.
+
+### `appointment_question_visibility_conditions`
+
+M7-R15 stores appointment-type-specific display dependencies as ordered relational predicates:
+
+- `appointment_question_id` is the dependent/target question;
+- `source_question_id` is an earlier checkbox, radio, or select question on the same appointment type;
+- `question_option_id` is the source answer that must be selected;
+- `boolean_operator` is `and` or `or`, and `position` preserves expression order.
+
+AND binds within a group and OR separates alternative groups. The first connector is normalized to AND and has no effect. All three UUID relationships use `BINARY(16)` keys and cascade when their owning questionnaire data is deleted. Application validation requires an active source and option, strictly earlier ordering, same-appointment-type ownership, and no duplicate predicate. Option UUIDs are preserved during ordinary option edits so a label/value change does not retarget a dependency.
+
+Dependencies belong to the appointment-type attachment rather than its organization-wide reusable template because they reference other attachments in one ordered questionnaire. A newly attached reusable question therefore starts without display dependencies.
 
 ### `reusable_questions`
 

@@ -70,14 +70,20 @@
 @if($type->questions->where('is_active',true)->isNotEmpty() || $type->shortNoticeFeeRules->where('is_active',true)->isNotEmpty())
 <script>
 (function(){
- const form=document.querySelector('form.form-stack'); const total=document.getElementById('questionnaire-total'); const lines=document.getElementById('questionnaire-price-lines'); let timer;
+ const form=document.querySelector('form.form-stack'); const total=document.getElementById('questionnaire-total'); const lines=document.getElementById('questionnaire-price-lines'); const questionElements=Array.from(document.querySelectorAll('.questionnaire-question')); let timer;
+ const questions=new Map(questionElements.map(element=>[element.dataset.questionUuid,element]));
+ questionElements.forEach(element=>{element._visibilityConditions=JSON.parse(element.dataset.visibilityConditions||'[]');element.querySelectorAll('input,select,textarea').forEach(control=>{control.dataset.visibilityRequired=control.required?'1':'0';});});
+ function hasAnswer(questionUuid,optionUuid){const source=questions.get(questionUuid);if(!source||source.hidden)return false;return Array.from(source.querySelectorAll('input,select,textarea')).some(control=>!control.disabled&&control.value===optionUuid&&(!['checkbox','radio'].includes(control.type)||control.checked));}
+ function expressionMatches(conditions){if(conditions.length===0)return true;let completed=false,current=null;conditions.forEach((condition,index)=>{const matches=hasAnswer(condition.source_question_uuid,condition.question_option_uuid);if(index===0)current=matches;else if(condition.boolean_operator==='or'){completed=completed||current;current=matches;}else current=current&&matches;});return completed||Boolean(current);}
+ function clearControl(control){if(control.type==='checkbox'||control.type==='radio')control.checked=false;else if(control.type==='file')control.value='';else control.value='';}
+ function refreshVisibility(){questionElements.forEach(element=>{const show=expressionMatches(element._visibilityConditions);const wasHidden=element.hidden;if(!show&&!wasHidden)element.querySelectorAll('input,select,textarea').forEach(clearControl);element.hidden=!show;element.setAttribute('aria-hidden',show?'false':'true');element.querySelectorAll('input,select,textarea').forEach(control=>{control.disabled=!show;control.required=show&&control.dataset.visibilityRequired==='1';});});}
  async function updateQuote(){
    const source=new FormData(form), body=new FormData(); body.append('_token',source.get('_token'));
    for(const [key,value] of source.entries()) if(key.startsWith('answers[') && !(value instanceof File)) body.append(key,value);
    try { const response=await fetch(@json(route('public.booking-holds.quote',$holdToken)),{method:'POST',headers:{'Accept':'application/json'},body}); const data=await response.json(); if(!response.ok) throw new Error(data.message||'Unable to calculate price.'); total.textContent=data.total_display; lines.innerHTML=data.lines.map(l=>`<div class="price-line"><span>${escapeHtml(l.label)}${l.quantity !== '1.0000' && l.quantity !== '1' ? ' × '+escapeHtml(l.quantity) : ''}</span><strong>${escapeHtml(l.amount_display)}</strong></div>`).join(''); } catch(e){ total.textContent=e.message; }
  }
  function escapeHtml(v){const d=document.createElement('div');d.textContent=String(v);return d.innerHTML;}
- form.addEventListener('change',e=>{if(e.target.name?.startsWith('answers[')){clearTimeout(timer);timer=setTimeout(updateQuote,100);}}); form.addEventListener('input',e=>{if(e.target.type==='number' && e.target.name?.startsWith('answers[')){clearTimeout(timer);timer=setTimeout(updateQuote,250);}}); updateQuote();
+ form.addEventListener('change',e=>{if(e.target.name?.startsWith('answers[')){refreshVisibility();clearTimeout(timer);timer=setTimeout(updateQuote,100);}}); form.addEventListener('input',e=>{if(e.target.type==='number' && e.target.name?.startsWith('answers[')){clearTimeout(timer);timer=setTimeout(updateQuote,250);}}); refreshVisibility(); updateQuote();
 })();
 </script>
 @endif

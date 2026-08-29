@@ -10,8 +10,13 @@ $hasShortNoticeFees=$type->shortNoticeFeeRules->where('is_active',true)->isNotEm
 @php
 $key='answers['.$question->uuid.']'; $oldKey='answers.'.$question->uuid; $cfg=$question->configuration ?? [];
 $optionCharge=function($o) use($money,$organization){ if($o->pricing_adjustment_type->value==='fixed') return ' +'.$money->format((int)$o->pricing_amount_minor,$organization->currency); if($o->pricing_adjustment_type->value==='percentage') return ' +'.rtrim(rtrim(number_format($o->pricing_percentage_bps/100,2,'.',''),'0'),'.').'%'; return ''; };
+$visibilityConditions=$question->visibilityConditions->sortBy('position')->map(fn($condition): array=>[
+ 'boolean_operator'=>$condition->boolean_operator,
+ 'source_question_uuid'=>$condition->sourceQuestion?->uuid,
+ 'question_option_uuid'=>$condition->expectedOption?->uuid,
+])->values()->all();
 @endphp
-<div class="field questionnaire-question" data-question-type="{{ $question->type->value }}">
+<div class="field questionnaire-question" data-question-uuid="{{ $question->uuid }}" data-question-type="{{ $question->type->value }}" data-visibility-conditions='@json($visibilityConditions)'>
 <label for="q_{{ $question->uuid }}">{{ $question->label }} @if($question->is_required)<span aria-label="required">*</span>@endif</label>
 @if($question->description)<div class="muted">{{ $question->description }}</div>@endif
 @switch($question->type->value)

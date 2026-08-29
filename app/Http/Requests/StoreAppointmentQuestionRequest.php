@@ -52,12 +52,17 @@ class StoreAppointmentQuestionRequest extends FormRequest
             'pricing_percentage_basis' => ['nullable', Rule::enum(PricingPercentageBasis::class)],
             'pricing_included_units' => ['nullable', 'integer', 'min:0', 'max:1000000'],
             'options' => ['nullable', 'array', 'max:500'],
+            'options.*.uuid' => ['nullable', 'uuid'],
             'options.*.label' => ['required_with:options', 'string', 'max:255'],
             'options.*.value' => ['nullable', 'string', 'max:180'],
             'options.*.pricing_adjustment_type' => ['nullable', Rule::enum(PricingAdjustmentType::class)],
             'options.*.pricing_amount' => ['nullable', 'string', 'max:40'],
             'options.*.pricing_percentage' => ['nullable', 'string', 'max:20'],
             'options.*.pricing_percentage_basis' => ['nullable', Rule::enum(PricingPercentageBasis::class)],
+            'visibility_conditions' => ['nullable', 'array', 'max:100'],
+            'visibility_conditions.*.boolean_operator' => ['required_with:visibility_conditions', Rule::in(['and', 'or'])],
+            'visibility_conditions.*.source_question_uuid' => ['required_with:visibility_conditions', 'uuid'],
+            'visibility_conditions.*.question_option_uuid' => ['required_with:visibility_conditions', 'uuid'],
         ];
     }
 

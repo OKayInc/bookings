@@ -30,4 +30,6 @@ class AppointmentQuestion extends Model
     public function reusableQuestion(): BelongsTo { return $this->belongsTo(ReusableQuestion::class); }
     public function options(): HasMany { return $this->hasMany(QuestionOption::class)->orderBy('position'); }
     public function answers(): HasMany { return $this->hasMany(BookingAnswer::class); }
+    public function visibilityConditions(): HasMany { return $this->hasMany(AppointmentQuestionVisibilityCondition::class)->orderBy('position'); }
+    public function dependentVisibilityConditions(): HasMany { return $this->hasMany(AppointmentQuestionVisibilityCondition::class, 'source_question_id'); }
 }
