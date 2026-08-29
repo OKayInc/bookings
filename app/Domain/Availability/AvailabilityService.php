@@ -43,6 +43,16 @@ class AvailabilityService
         $bookingTimezone ??= $type->organization->timezone;
         $replacementGroups = $this->requirements->replacementGroups($type);
 
+        // rangeEndUtc limits when a slot may start; it is not a deadline for the
+        // appointment to finish. Evaluate schedules and conflicts far enough to
+        // cover a start immediately before that boundary.
+        $coverageEndUtc = $this->durations->endAt(
+            $rangeEndUtc,
+            $type,
+            $durationValue,
+            $bookingTimezone,
+        );
+
         $scheduleList = [];
         $typeSchedule = $this->schedules->effectiveForAppointmentType($type);
         if ($typeSchedule === null || ! $typeSchedule->is_active) {
@@ -64,23 +74,25 @@ class AvailabilityService
 
         $windows = null;
         foreach ($scheduleList as $schedule) {
-            $set = $this->scheduleIntervals($schedule, $rangeStartUtc, $rangeEndUtc);
+            $set = $this->scheduleIntervals($schedule, $rangeStartUtc, $coverageEndUtc);
             $windows = $windows === null ? $set : $this->intersectSets($windows, $set);
             if ($windows === []) {
                 return [];
             }
         }
 
-        $busy = $this->busyIntervals($type, $rangeStartUtc->subDays(14), $rangeEndUtc->addDays(14));
+        $conflictStartUtc = $rangeStartUtc->subMinutes((int) $type->buffer_before_minutes);
+        $conflictEndUtc = $coverageEndUtc->addMinutes((int) $type->buffer_after_minutes);
+        $busy = $this->busyIntervals($type, $conflictStartUtc, $conflictEndUtc);
         array_push($busy, ...$this->holidays->closures(
             $type->organization,
-            $rangeStartUtc->subDays(14),
-            $rangeEndUtc->addDays(14),
+            $conflictStartUtc,
+            $conflictEndUtc,
         ));
         array_push($busy, ...$this->resourceHolidays->closuresForRequiredResources(
             $type,
-            $rangeStartUtc->subDays(14),
-            $rangeEndUtc->addDays(14),
+            $conflictStartUtc,
+            $conflictEndUtc,
         ));
         $intervalMinutes = max(1, (int) ($type->start_interval_minutes ?: config('availability.default_start_interval_minutes', 15)));
         $slots = [];
@@ -90,7 +102,7 @@ class AvailabilityService
 
             while ($candidate->lt($window->end) && $candidate->lt($rangeEndUtc)) {
                 $end = $this->durations->endAt($candidate, $type, $durationValue, $bookingTimezone);
-                if ($end->gt($window->end) || $end->gt($rangeEndUtc)) {
+                if ($end->gt($window->end)) {
                     break;
                 }
 
@@ -118,11 +130,10 @@ class AvailabilityService
         ?string $bookingTimezone = null,
     ): bool {
         $timezone = $bookingTimezone ?: $type->organization->timezone;
-        $end = $this->durations->endAt($startsAtUtc, $type, $durationValue, $timezone);
         $slots = $this->slots(
             $type,
             $startsAtUtc->subMinutes(max(1, (int) $type->start_interval_minutes)),
-            $end->addMinutes(max(1, (int) $type->start_interval_minutes)),
+            $startsAtUtc->addMinutes(max(1, (int) $type->start_interval_minutes)),
             $durationValue,
             $timezone,
         );
@@ -224,7 +235,16 @@ class AvailabilityService
         for ($date = $localStart; $date->lte($localEnd); $date = $date->addDay()) {
             foreach ($schedule->rules->where('weekday', $date->dayOfWeek) as $rule) {
                 $start = CarbonImmutable::parse($date->format('Y-m-d').' '.$rule->start_time, $timezone)->utc();
-                $end = CarbonImmutable::parse($date->format('Y-m-d').' '.$rule->end_time, $timezone)->utc();
+                $localEnd = CarbonImmutable::parse($date->format('Y-m-d').' '.$rule->end_time, $timezone);
+
+                // HTML time inputs cannot express 24:00. Treat 23:59 as the
+                // end-of-day boundary so it joins a following 00:00 interval
+                // without creating an artificial unavailable minute.
+                if (str_starts_with((string) $rule->end_time, '23:59')) {
+                    $localEnd = $localEnd->addMinute();
+                }
+
+                $end = $localEnd->utc();
                 $interval = $this->clip(new AvailabilityInterval($start, $end), $rangeStartUtc, $rangeEndUtc);
                 if ($interval !== null) {
                     $intervals[] = $interval;

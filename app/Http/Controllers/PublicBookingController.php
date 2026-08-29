@@ -86,8 +86,8 @@ class PublicBookingController extends Controller
                 return [
                     'starts_at_utc' => $slot->startsAtUtc->toIso8601String(),
                     'ends_at_utc' => $slot->endsAtUtc->toIso8601String(),
-                    'client_label' => $clientStart->format('D, M j · g:i A').' – '.$clientEnd->format('g:i A'),
-                    'organization_label' => $orgStart->format('D, M j · g:i A').' – '.$orgEnd->format('g:i A'),
+                    'client_label' => $clientStart->format('g:i A').' – '.$clientEnd->format('g:i A'),
+                    'organization_label' => $orgStart->format('g:i A').' – '.$orgEnd->format('g:i A'),
                     'remaining_capacity' => $slot->remainingCapacity,
                     'join_existing' => $slot->appointment !== null,
                 ];

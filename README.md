@@ -183,3 +183,7 @@ Reusable address questions can now define a private point 0 and optionally add e
 ## M7-R13: permanent organization deletion
 
 Active owners now have a guarded danger zone for permanently deleting an organization. Exact-name and current-password confirmation protects the action; organization-owned data and stored files are removed, incoming shared resources are detached and preserved, and owned resources are unshared everywhere before deletion. The user's active organization then moves to another active membership or the organization-creation page. See `docs/CHANGES-M7-R13.md` and `docs/UPGRADE-M7-R12-TO-M7-R13.md`.
+
+## M7-R14: cross-midnight slots and cleaner time boxes
+
+The public date picker now shows time-only slot boxes instead of repeating the selected date. Availability treats the requested day as the allowed start-date range rather than a mandatory finish boundary, so a long appointment may consume continuous available hours after midnight while next-day schedules, conflicts, resources, holidays, buffers, and external calendars remain enforced. See `docs/CHANGES-M7-R14.md` and `docs/UPGRADE-M7-R13-TO-M7-R14.md`.

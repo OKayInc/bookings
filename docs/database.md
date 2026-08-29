@@ -1,4 +1,4 @@
-# Database — M7-R13
+# Database — M7-R14
 
 ## Core M1 tables retained
 
@@ -12,6 +12,10 @@
 - `appointment_contract_templates`
 
 All entity primary keys continue to use UUIDv7 encoded as `BINARY(16)`.
+
+## M7-R14 multi-day availability evaluation
+
+M7-R14 adds no schema object. The slot engine now distinguishes the requested start range from the schedule/conflict coverage range. Candidate starts remain inside the requested date, while recurring schedules, exceptions, holds, appointments, holiday closures, and calendar busy periods are evaluated through the possible appointment end plus its configured buffers. A `23:59` weekly-rule end is normalized in memory to the following midnight so adjacent `00:00` availability can merge; stored `TIME` values are unchanged.
 
 ## M7-R13 organization deletion lifecycle
 

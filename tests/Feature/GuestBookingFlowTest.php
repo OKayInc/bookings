@@ -46,6 +46,8 @@ class GuestBookingFlowTest extends TestCase
         ]));
 
         $slots->assertOk();
+        $slots->assertJsonPath('slots.0.client_label', '9:00 AM – 10:00 AM');
+        $slots->assertJsonPath('slots.0.organization_label', '9:00 AM – 10:00 AM');
         $start = $slots->json('slots.0.starts_at_utc');
         $this->assertNotEmpty($start);
 
