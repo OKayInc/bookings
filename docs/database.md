@@ -1,4 +1,4 @@
-# Database — M7-R11
+# Database — M7-R12
 
 ## Core M1 tables retained
 
@@ -179,7 +179,7 @@ M4 added `appointments`, `appointment_resources`, persistent `bookings`, `bookin
 
 ### `appointment_questions`
 
-Appointment-type question attachment containing an independent definition snapshot, ordering, required/active state, type-specific JSON configuration, and optional number-field pricing rule. M7-R10 adds a nullable link to its reusable organization template. UUIDv7 primary key stored as `BINARY(16)`.
+Appointment-type question attachment containing an independent definition snapshot, ordering, required/active state, type-specific JSON configuration, and optional number-field pricing rule. M7-R10 adds a nullable link to its reusable organization template. M7-R12 uses the existing JSON configuration for an address question's private origin, display unit, fee mode, and fixed/range amounts; no schema column is added. UUIDv7 primary key stored as `BINARY(16)`.
 
 ### `question_options`
 
@@ -187,7 +187,7 @@ Options for checkbox/radio/select questions, including deterministic order and o
 
 ### `reusable_questions`
 
-Organization-scoped reusable question templates. Stores the default required state, question definition, validation configuration, and optional number-field pricing rule. Templates are copied into `appointment_questions` when attached.
+Organization-scoped reusable question templates. Stores the default required state, question definition, validation configuration, optional number-field pricing rule, and any M7-R12 address distance-pricing configuration. Templates are copied into `appointment_questions` when attached.
 
 ### `reusable_question_options`
 
@@ -195,7 +195,7 @@ Reusable checkbox/radio/select choices and their optional fixed/percentage surch
 
 ### `booking_answers`
 
-Historical snapshot of the question UUID, label, type, raw/display answer and normalized verification metadata. The FK to the current question is nullable so historical answers remain meaningful if a definition is later removed.
+Historical snapshot of the question UUID, label, type, raw/display answer and normalized verification metadata. M7-R12 adds driving meters and the configured display unit/value to a distance-priced address's normalized metadata, without the private origin. The FK to the current question is nullable so historical answers remain meaningful if a definition is later removed.
 
 ### `booking_answer_files`
 
@@ -203,7 +203,7 @@ Private uploaded answer files with original filename, MIME type, byte size and S
 
 ### `booking_price_lines`
 
-Immutable pricing breakdown captured when the booking is committed. Includes base appointment price, each questionnaire-driven surcharge, and any matching M7-R11 short-notice fee.
+Immutable pricing breakdown captured when the booking is committed. Includes base appointment price, each questionnaire-driven surcharge (including a charged M7-R12 address distance rule), and any matching M7-R11 short-notice fee.
 
 ### `bookings.base_price_minor`
 

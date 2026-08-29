@@ -10,8 +10,20 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 class QuestionnaireSubmissionService {
- public function __construct(private QuestionnairePricingService $pricing, private EmailDomainValidator $emails, private PhoneValidationService $phones, private AddressValidationService $addresses) {}
- public function quote(AppointmentType $type, ?int $duration, array $answers, ?CarbonImmutable $startsAtUtc=null, ?CarbonImmutable $nowUtc=null): QuestionnaireQuote { return $this->pricing->quote($type,$duration,$answers,$startsAtUtc,$nowUtc); }
+ public function __construct(private QuestionnairePricingService $pricing, private EmailDomainValidator $emails, private PhoneValidationService $phones, private AddressValidationService $addresses, private DrivingDistanceService $drivingDistances, private DrivingDistancePricingService $drivingDistancePricing) {}
+ public function quote(AppointmentType $type, ?int $duration, array $answers, ?CarbonImmutable $startsAtUtc=null, ?CarbonImmutable $nowUtc=null): QuestionnaireQuote {
+   $type->loadMissing(['questions.options']);
+   $distanceMeters=[];
+   foreach ($type->questions->where('is_active',true) as $q) {
+     if ($q->type!==QuestionType::Address || !data_get($q->configuration,'distance_pricing.enabled',false)) continue;
+     $value=$answers[$q->uuid]??null;
+     if ($value===null || $value==='') continue;
+     if (!is_string($value) || strlen($value)>1000) throw new \InvalidArgumentException('Enter a valid address for '.$q->label.'.');
+     try { $distanceMeters[$q->uuid]=$this->drivingDistances->between((string)data_get($q->configuration,'distance_pricing.origin_address',''),trim($value)); }
+     catch(RuntimeException $e) { throw new \InvalidArgumentException($e->getMessage(),0,$e); }
+   }
+   return $this->pricing->quote($type,$duration,$answers,$startsAtUtc,$nowUtc,$distanceMeters);
+ }
  public function validateForBooking(Request $request, AppointmentType $type, ?int $duration, ?CarbonImmutable $startsAtUtc=null, ?CarbonImmutable $nowUtc=null): QuestionnaireSubmission {
    $type->loadMissing(['questions.options']); $rules=[];
    foreach ($type->questions->where('is_active',true) as $q) {
@@ -32,7 +44,7 @@ class QuestionnaireSubmissionService {
        $rules[$fk]=[$q->is_required?'required':'nullable','array','max:'.$max,...($q->is_required?['min:1']:[])]; $rules[$fk.'.*']=['file','mimes:'.implode(',',$ext),'max:'.$kb];
      }
    }
-   $validated=Validator::make($request->all(),$rules)->validate(); $raw=(array)($validated['answers']??[]); $fileBag=$request->file('answer_files',[]); $answers=[];
+   $validated=Validator::make($request->all(),$rules)->validate(); $raw=(array)($validated['answers']??[]); $fileBag=$request->file('answer_files',[]); $answers=[]; $distanceMeters=[];
    foreach ($type->questions->where('is_active',true)->sortBy('position') as $q) {
      $value=$raw[$q->uuid]??null; $normalized=null; $files=[];
      if ($q->type->hasOptions()) {
@@ -40,11 +52,21 @@ class QuestionnaireSubmissionService {
        $value=$q->type===QuestionType::Checkboxes?$selected->map(fn($o)=>['uuid'=>$o->uuid,'value'=>$o->value,'label'=>$o->label])->values()->all():($selected->first()?['uuid'=>$selected->first()->uuid,'value'=>$selected->first()->value,'label'=>$selected->first()->label]:null);
      } elseif ($q->type===QuestionType::Email && $value) { if(!$this->emails->exists($value)) throw ValidationException::withMessages(['answers.'.$q->uuid=>'The email domain does not appear to exist.']); $normalized=['email'=>strtolower(trim($value))]; }
      elseif ($q->type===QuestionType::Telephone && $value) { try{$normalized=['e164'=>$this->phones->validateAndNormalize($value,data_get($q->configuration,'region'))];}catch(RuntimeException $e){throw ValidationException::withMessages(['answers.'.$q->uuid=>$e->getMessage()]);} }
-     elseif ($q->type===QuestionType::Address && $value) { try{$normalized=$this->addresses->validate($value,data_get($q->configuration,'region'));}catch(RuntimeException $e){throw ValidationException::withMessages(['answers.'.$q->uuid=>$e->getMessage()]);} }
+     elseif ($q->type===QuestionType::Address && $value) {
+       try {
+         $normalized=$this->addresses->validate($value,data_get($q->configuration,'region'));
+         if (data_get($q->configuration,'distance_pricing.enabled',false)) {
+           $meters=$this->drivingDistances->between((string)data_get($q->configuration,'distance_pricing.origin_address',''),trim((string)$value));
+           $distanceMeters[$q->uuid]=$meters;
+           $unit=(string)data_get($q->configuration,'distance_pricing.unit','kilometer');
+           $normalized['driving_distance']=$this->drivingDistancePricing->measurement($meters,$unit);
+         }
+       } catch(RuntimeException $e) { throw ValidationException::withMessages(['answers.'.$q->uuid=>$e->getMessage()]); }
+     }
      elseif ($q->type===QuestionType::File) { $files=array_values((array)($fileBag[$q->uuid]??[])); $value=array_map(fn(UploadedFile $f)=>$f->getClientOriginalName(),$files); }
      $answers[]=['question'=>$q,'value'=>$value,'normalized'=>$normalized,'files'=>$files];
    }
    // Pricing uses raw option UUIDs / number values rather than display snapshots.
-   return new QuestionnaireSubmission($answers,$this->pricing->quote($type,$duration,$raw,$startsAtUtc,$nowUtc));
+   return new QuestionnaireSubmission($answers,$this->pricing->quote($type,$duration,$raw,$startsAtUtc,$nowUtc,$distanceMeters));
  }
 }

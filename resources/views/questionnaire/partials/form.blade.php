@@ -18,6 +18,46 @@ $qType=old('type',$question?->type?->value ?? 'text');
 <div class="section-card conditional" data-types="telephone"><h2>Telephone validation</h2><div class="field"><label>Default country/region</label><select name="phone_region">@foreach($phoneRegions as $region)<option value="{{ $region }}" @selected(old('phone_region',data_get($question?->configuration,'region',config('questionnaire.default_phone_region'))) === $region)>{{ $region }}</option>@endforeach</select><div class="muted">International +country-code numbers work regardless of this default.</div></div></div>
 <div class="section-card conditional" data-types="address"><h2>Address validation</h2><div class="field"><label>Country/region code (optional)</label><input name="address_region" maxlength="2" value="{{ old('address_region',data_get($question?->configuration,'region')) }}" placeholder="CA"><div class="muted">Validated server-side with Google Address Validation API.</div></div></div>
 
+@php
+    $distanceConfiguration = (array) data_get($question?->configuration, 'distance_pricing', []);
+    $distancePricingEnabled = old('distance_pricing_enabled', $distanceConfiguration['enabled'] ?? false);
+    $distancePricingMode = old('distance_pricing_mode', $distanceConfiguration['mode'] ?? 'fixed');
+    $storedDistanceRanges = [];
+    foreach ((array) ($distanceConfiguration['ranges'] ?? []) as $range) {
+        $storedDistanceRanges[] = [
+            'minimum' => $range['minimum'] ?? 0,
+            'maximum' => $range['maximum'] ?? '',
+            'amount' => $money->decimal((int) ($range['amount_minor'] ?? 0), $organization->currency),
+        ];
+    }
+    $distanceRangeRows = old('distance_ranges', $storedDistanceRanges ?: [['minimum' => 0, 'maximum' => '', 'amount' => '']]);
+    $distanceFixedAmount = old(
+        'distance_fixed_amount',
+        isset($distanceConfiguration['fixed_amount_minor'])
+            ? $money->decimal((int) $distanceConfiguration['fixed_amount_minor'], $organization->currency)
+            : '',
+    );
+@endphp
+<div class="section-card conditional" data-types="address">
+<h2>Driving-distance pricing</h2>
+<label class="inline-check"><input id="distance-pricing-enabled" type="checkbox" name="distance_pricing_enabled" value="1" @checked($distancePricingEnabled)> Add a fee calculated from the answer's driving distance</label>
+<div class="muted">Point 0 is private configuration. It is used by the server for routing and is never shown to the client.</div>
+<div id="distance-pricing-fields" style="margin-top: 1rem;">
+<div class="field"><label for="distance-origin-address">Private point 0 / origin address</label><input id="distance-origin-address" name="distance_origin_address" maxlength="1000" value="{{ old('distance_origin_address', $distanceConfiguration['origin_address'] ?? '') }}" placeholder="Full street address, city, region, postal code, country"><div class="muted">Google Routes calculates a driving route from this origin to the client's validated answer.</div></div>
+<div class="row"><div class="field"><label for="distance-unit">Distance unit</label><select id="distance-unit" name="distance_unit"><option value="kilometer" @selected(old('distance_unit', $distanceConfiguration['unit'] ?? 'kilometer') === 'kilometer')>Kilometers</option><option value="mile" @selected(old('distance_unit', $distanceConfiguration['unit'] ?? 'kilometer') === 'mile')>Miles</option></select></div><div class="field"><label for="distance-pricing-mode">Fee method</label><select id="distance-pricing-mode" name="distance_pricing_mode"><option value="fixed" @selected($distancePricingMode === 'fixed')>Fixed fee for any route</option><option value="range" @selected($distancePricingMode === 'range')>Fee by distance range</option></select></div></div>
+<div id="distance-fixed-fields" class="field"><label for="distance-fixed-amount">Fixed fee ({{ $organization->currency }})</label><input id="distance-fixed-amount" inputmode="decimal" name="distance_fixed_amount" value="{{ $distanceFixedAmount }}" placeholder="25.00"></div>
+<div id="distance-range-fields">
+<p class="muted">The minimum is inclusive and the maximum is exclusive. Leave maximum blank for an open-ended final range. Gaps are allowed and produce no distance fee; ranges cannot overlap.</p>
+<div id="distance-range-rows">
+@foreach($distanceRangeRows as $index => $range)
+<div class="card compact distance-range-row" data-index="{{ $index }}"><div class="row three"><div class="field"><label>Minimum</label><input type="number" min="0" step="any" name="distance_ranges[{{ $index }}][minimum]" value="{{ $range['minimum'] ?? 0 }}"></div><div class="field"><label>Maximum (optional)</label><input type="number" min="0" step="any" name="distance_ranges[{{ $index }}][maximum]" value="{{ $range['maximum'] ?? '' }}"></div><div class="field"><label>Fee ({{ $organization->currency }})</label><input inputmode="decimal" name="distance_ranges[{{ $index }}][amount]" value="{{ $range['amount'] ?? '' }}"></div></div><button type="button" class="btn btn-danger remove-distance-range">Remove range</button></div>
+@endforeach
+</div>
+<button type="button" id="add-distance-range" class="btn">Add distance range</button>
+</div>
+</div>
+</div>
+
 <div class="section-card conditional" data-types="number"><h2>Number-field extra charge</h2>
 <div class="row three"><div class="field"><label>Charge type</label><select id="question-pricing-type" name="pricing_adjustment_type">@foreach($pricingTypes as $pt)<option value="{{ $pt->value }}" @selected(old('pricing_adjustment_type',$question?->pricing_adjustment_type?->value ?? 'none')===$pt->value)>{{ ucfirst($pt->value) }}</option>@endforeach</select></div><div class="field"><label>Apply</label><select name="pricing_application_mode">@foreach($pricingModes as $pm)<option value="{{ $pm->value }}" @selected(old('pricing_application_mode',$question?->pricing_application_mode?->value ?? 'per_unit')===$pm->value)>{{ ucwords(str_replace('_',' ',$pm->value)) }}</option>@endforeach</select></div><div class="field"><label>Included units</label><input type="number" min="0" name="pricing_included_units" value="{{ old('pricing_included_units',$question?->pricing_included_units ?? 0) }}"></div></div>
 <div class="row"><div class="field price-fixed"><label>Fixed charge ({{ $organization->currency }})</label><input name="pricing_amount" value="{{ old('pricing_amount',$question?->pricing_amount_minor===null?'':$money->decimal($question->pricing_amount_minor,$organization->currency)) }}"></div><div class="field price-percent"><label>Percentage</label><input name="pricing_percentage" value="{{ old('pricing_percentage',$pct->display($question?->pricing_percentage_bps)) }}" placeholder="25"><label>Basis</label><select name="pricing_percentage_basis">@foreach($percentageBases as $pb)<option value="{{ $pb->value }}" @selected(old('pricing_percentage_basis',$question?->pricing_percentage_basis?->value ?? 'base_price')===$pb->value)>{{ ucwords(str_replace('_',' ',$pb->value)) }}</option>@endforeach</select></div></div>
@@ -32,11 +72,22 @@ $qType=old('type',$question?->type?->value ?? 'text');
 <script>
 (function(){
  const type=document.getElementById('question-type');
- function toggle(){ document.querySelectorAll('.conditional').forEach(s=>{const show=s.dataset.types.split(',').includes(type.value);s.style.display=show?'block':'none';s.querySelectorAll('input,select,textarea').forEach(c=>c.disabled=!show);}); }
+ const distanceEnabled=document.getElementById('distance-pricing-enabled'); const distanceFields=document.getElementById('distance-pricing-fields'); const distanceMode=document.getElementById('distance-pricing-mode'); const distanceFixed=document.getElementById('distance-fixed-fields'); const distanceRanges=document.getElementById('distance-range-fields');
+ function toggleDistancePricing(){
+   if(!distanceEnabled) return;
+   const enabled=type.value==='address' && distanceEnabled.checked; const rangeMode=enabled && distanceMode.value==='range';
+   distanceFields.style.display=enabled?'block':'none'; distanceFixed.style.display=enabled&&!rangeMode?'block':'none'; distanceRanges.style.display=rangeMode?'block':'none';
+   distanceFields.querySelectorAll('input,select,textarea').forEach(c=>{c.disabled=!enabled;});
+   if(enabled){distanceFixed.querySelectorAll('input,select,textarea').forEach(c=>{c.disabled=rangeMode;});distanceRanges.querySelectorAll('input,select,textarea').forEach(c=>{c.disabled=!rangeMode;});}
+ }
+ function toggle(){ document.querySelectorAll('.conditional').forEach(s=>{const show=s.dataset.types.split(',').includes(type.value);s.style.display=show?'block':'none';s.querySelectorAll('input,select,textarea').forEach(c=>c.disabled=!show);}); toggleDistancePricing(); }
  type.addEventListener('change',toggle); toggle();
+ if(distanceEnabled) distanceEnabled.addEventListener('change',toggleDistancePricing); if(distanceMode) distanceMode.addEventListener('change',toggleDistancePricing);
  let index=document.querySelectorAll('.option-row').length;
  const rows=document.getElementById('option-rows'); const add=document.getElementById('add-option');
  if(add) add.addEventListener('click',()=>{const i=index++; const d=document.createElement('div'); d.className='card compact option-row'; d.innerHTML=`<div class="row"><div class="field"><label>Label</label><input name="options[${i}][label]" required></div><div class="field"><label>Value (optional)</label><input name="options[${i}][value]"></div></div><div class="row three"><div class="field"><label>Charge type</label><select name="options[${i}][pricing_adjustment_type]"><option value="none">None</option><option value="fixed">Fixed</option><option value="percentage">Percentage</option></select></div><div class="field"><label>Fixed {{ $organization->currency }}</label><input name="options[${i}][pricing_amount]"></div><div class="field"><label>Percentage / basis</label><input name="options[${i}][pricing_percentage]"><select name="options[${i}][pricing_percentage_basis]"><option value="base_price">Base Price</option><option value="current_subtotal">Current Subtotal</option></select></div></div><button type="button" class="btn btn-danger remove-option">Remove option</button>`; rows.appendChild(d);});
- document.addEventListener('click',e=>{if(e.target.classList.contains('remove-option'))e.target.closest('.option-row').remove();});
+ let distanceIndex=document.querySelectorAll('.distance-range-row').length; const distanceRows=document.getElementById('distance-range-rows'); const addDistance=document.getElementById('add-distance-range');
+ if(addDistance) addDistance.addEventListener('click',()=>{const i=distanceIndex++; const d=document.createElement('div'); d.className='card compact distance-range-row'; d.dataset.index=i; d.innerHTML=`<div class="row three"><div class="field"><label>Minimum</label><input type="number" min="0" step="any" name="distance_ranges[${i}][minimum]" value="0"></div><div class="field"><label>Maximum (optional)</label><input type="number" min="0" step="any" name="distance_ranges[${i}][maximum]"></div><div class="field"><label>Fee ({{ $organization->currency }})</label><input inputmode="decimal" name="distance_ranges[${i}][amount]"></div></div><button type="button" class="btn btn-danger remove-distance-range">Remove range</button>`; distanceRows.appendChild(d);});
+ document.addEventListener('click',e=>{if(e.target.classList.contains('remove-option'))e.target.closest('.option-row').remove();if(e.target.classList.contains('remove-distance-range'))e.target.closest('.distance-range-row').remove();});
 })();
 </script>

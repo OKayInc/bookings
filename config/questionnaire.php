@@ -12,5 +12,9 @@ return [
         'api_key' => env('GOOGLE_MAPS_API_KEY'),
         'address_validation_url' => env('GOOGLE_ADDRESS_VALIDATION_URL', 'https://addressvalidation.googleapis.com/v1:validateAddress'),
         'timeout_seconds' => (int) env('GOOGLE_ADDRESS_VALIDATION_TIMEOUT', 8),
+        'routes_api_key' => env('GOOGLE_ROUTES_API_KEY') ?: env('GOOGLE_MAPS_API_KEY'),
+        'routes_url' => env('GOOGLE_ROUTES_URL', 'https://routes.googleapis.com/directions/v2:computeRoutes'),
+        'routes_timeout_seconds' => (int) env('GOOGLE_ROUTES_TIMEOUT', 8),
+        'routes_cache_seconds' => (int) env('GOOGLE_ROUTES_CACHE_SECONDS', 900),
     ],
 ];

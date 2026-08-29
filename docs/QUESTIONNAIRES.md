@@ -12,7 +12,7 @@ The questionnaire builder lists and searches active reusable questions before th
 
 - Email: RFC syntax plus MX/A/AAAA DNS existence check.
 - Telephone: Google's libphonenumber metadata via `giggsey/libphonenumber-for-php-lite`; normalized to E.164.
-- Address: Google Address Validation API; normalized formatted address, place ID, coordinates and verdict are snapshotted with the answer.
+- Address: Google Address Validation API; normalized formatted address, place ID, coordinates and verdict are snapshotted with the answer. M7-R12 address questions may also calculate a driving distance through Google Routes.
 - Files: private Laravel storage with original filename, MIME, byte size and SHA-256.
 
 ## Price modifiers
@@ -22,6 +22,21 @@ Choice options support `none`, `fixed`, or `percentage` surcharges.
 Numeric questions support the same surcharge types and can apply `once` or `per_unit`, with an included-unit threshold. Price-bearing number questions are validated as integer quantities.
 
 Percentages are stored as integer basis points to avoid floating-point pricing math. A 25% rule is stored as `2500` basis points.
+
+### Address driving-distance fees
+
+An address question can optionally store a private origin address (point 0) in its type-specific configuration. The origin is available only in the authorized question editor and is not rendered in public booking HTML, returned by the quote endpoint, or copied into booking answer/price-line metadata.
+
+The public quote and final booking submission ask Google Routes for a `DRIVE` route from point 0 to the entered destination and request only `routes.distanceMeters`. Successful results are cached for a short configurable period. A missing key, provider failure, or unroutable destination fails closed with a validation error so a configured fee cannot be silently bypassed.
+
+The fee can be:
+
+- one positive fixed amount for any routable destination; or
+- non-overlapping ranges measured in configured kilometers or miles, each with a non-negative fixed amount.
+
+Range minimums are inclusive and maximums are exclusive. A blank maximum is open-ended and must be the final range. Gaps are allowed and produce no fee, which supports a free service radius. Google returns integer meters; range thresholds are converted to meters for comparison. Only one range can match one address answer.
+
+Distance fees are added in questionnaire order before any percentage short-notice fee. The answer snapshot retains meters plus the configured display unit/value. A charged `question_distance` price line retains the distance, pricing mode, and matched range, but never point 0.
 
 Percentage basis:
 

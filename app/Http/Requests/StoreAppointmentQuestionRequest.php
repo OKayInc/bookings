@@ -36,6 +36,15 @@ class StoreAppointmentQuestionRequest extends FormRequest
             'file_max_kilobytes' => ['nullable', 'integer', 'min:1', 'max:102400'],
             'phone_region' => ['nullable', 'string', 'size:2'],
             'address_region' => ['nullable', 'string', 'size:2'],
+            'distance_pricing_enabled' => ['nullable', 'boolean'],
+            'distance_origin_address' => ['nullable', 'string', 'max:1000'],
+            'distance_unit' => ['nullable', Rule::in(['kilometer', 'mile'])],
+            'distance_pricing_mode' => ['nullable', Rule::in(['fixed', 'range'])],
+            'distance_fixed_amount' => ['nullable', 'string', 'max:40'],
+            'distance_ranges' => ['nullable', 'array', 'max:100'],
+            'distance_ranges.*.minimum' => ['required_with:distance_ranges', 'numeric', 'min:0'],
+            'distance_ranges.*.maximum' => ['nullable', 'numeric', 'min:0'],
+            'distance_ranges.*.amount' => ['required_with:distance_ranges', 'string', 'max:40'],
             'pricing_adjustment_type' => ['nullable', Rule::enum(PricingAdjustmentType::class)],
             'pricing_application_mode' => ['nullable', Rule::enum(PricingApplicationMode::class)],
             'pricing_amount' => ['nullable', 'string', 'max:40'],
@@ -81,6 +90,27 @@ class StoreAppointmentQuestionRequest extends FormRequest
                 }
             }
 
+            if ($this->boolean('distance_pricing_enabled')) {
+                if ($type !== QuestionType::Address) {
+                    $validator->errors()->add('distance_pricing_enabled', 'Driving-distance pricing is available only for address questions.');
+                }
+                if (trim((string) $this->input('distance_origin_address')) === '') {
+                    $validator->errors()->add('distance_origin_address', 'Enter the private origin address used as point 0.');
+                }
+
+                $mode = (string) $this->input('distance_pricing_mode', 'fixed');
+                if ($mode === 'fixed') {
+                    $amount = trim((string) $this->input('distance_fixed_amount'));
+                    if ($amount === '' || ! is_numeric($amount) || (float) $amount <= 0) {
+                        $validator->errors()->add('distance_fixed_amount', 'Enter a fixed distance fee greater than zero.');
+                    }
+                }
+
+                if ($mode === 'range') {
+                    $this->validateDistanceRanges($validator);
+                }
+            }
+
             foreach ((array) $this->input('options', []) as $index => $row) {
                 $pricingType = (string) ($row['pricing_adjustment_type'] ?? 'none');
                 if ($pricingType === 'fixed' && trim((string) ($row['pricing_amount'] ?? '')) === '') {
@@ -91,5 +121,51 @@ class StoreAppointmentQuestionRequest extends FormRequest
                 }
             }
         });
+    }
+
+    private function validateDistanceRanges(Validator $validator): void
+    {
+        $rows = array_values((array) $this->input('distance_ranges', []));
+        if ($rows === []) {
+            $validator->errors()->add('distance_ranges', 'Add at least one distance range.');
+
+            return;
+        }
+
+        $validRows = [];
+        foreach ($rows as $index => $row) {
+            $minimum = $row['minimum'] ?? null;
+            $maximum = $row['maximum'] ?? null;
+            $amount = trim((string) ($row['amount'] ?? ''));
+
+            if (! is_numeric($minimum) || (float) $minimum < 0) {
+                continue;
+            }
+            if ($maximum !== null && $maximum !== '' && (! is_numeric($maximum) || (float) $maximum <= (float) $minimum)) {
+                $validator->errors()->add("distance_ranges.$index.maximum", 'Maximum must be greater than minimum.');
+                continue;
+            }
+            if ($amount === '' || ! is_numeric($amount) || (float) $amount < 0) {
+                $validator->errors()->add("distance_ranges.$index.amount", 'Enter a non-negative fee for this range.');
+                continue;
+            }
+
+            $validRows[] = [
+                'index' => $index,
+                'minimum' => (float) $minimum,
+                'maximum' => $maximum === null || $maximum === '' ? null : (float) $maximum,
+            ];
+        }
+
+        usort($validRows, fn (array $a, array $b): int => $a['minimum'] <=> $b['minimum']);
+        $previousMaximum = null;
+        $hasPrevious = false;
+        foreach ($validRows as $row) {
+            if ($hasPrevious && ($previousMaximum === null || $row['minimum'] < $previousMaximum)) {
+                $validator->errors()->add("distance_ranges.{$row['index']}.minimum", 'Distance ranges must not overlap; an open-ended range must be last.');
+            }
+            $previousMaximum = $row['maximum'];
+            $hasPrevious = true;
+        }
     }
 }

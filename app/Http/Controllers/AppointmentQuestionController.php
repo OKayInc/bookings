@@ -212,6 +212,35 @@ class AppointmentQuestionController extends Controller
         if ($questionType === QuestionType::Address && ! empty($data['address_region'])) {
             $configuration['region'] = strtoupper($data['address_region']);
         }
+        if ($questionType === QuestionType::Address && $request->boolean('distance_pricing_enabled')) {
+            $mode = $data['distance_pricing_mode'] ?? 'fixed';
+            $distancePricing = [
+                'enabled' => true,
+                'origin_address' => trim($data['distance_origin_address']),
+                'unit' => $data['distance_unit'] ?? 'kilometer',
+                'mode' => $mode,
+            ];
+
+            if ($mode === 'fixed') {
+                $distancePricing['fixed_amount_minor'] = $money->parse(
+                    $data['distance_fixed_amount'] ?? '0',
+                    $context->organization()->currency,
+                );
+            } else {
+                $ranges = [];
+                foreach ((array) ($data['distance_ranges'] ?? []) as $range) {
+                    $ranges[] = [
+                        'minimum' => (float) $range['minimum'],
+                        'maximum' => ($range['maximum'] ?? '') === '' ? null : (float) $range['maximum'],
+                        'amount_minor' => $money->parse($range['amount'], $context->organization()->currency),
+                    ];
+                }
+                usort($ranges, fn (array $a, array $b): int => $a['minimum'] <=> $b['minimum']);
+                $distancePricing['ranges'] = $ranges;
+            }
+
+            $configuration['distance_pricing'] = $distancePricing;
+        }
 
         return [
             'type' => $questionType->value,

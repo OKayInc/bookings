@@ -175,3 +175,7 @@ Appointment types can now add fixed or percentage fees based on how soon the sel
 ## M7-R11-R1: Laravel 13 Blade form fix
 
 The appointment-type editor now uses explicit Blade PHP blocks for its short-notice fee variables, preventing the Laravel 13 compiled-view parse error reported by `AppointmentTypeConfigurationTest`. Regression coverage renders both an appointment type with no fee tiers and one with fixed and percentage tiers. See `docs/CHANGES-M7-R11-R1.md` and `docs/UPGRADE-M7-R11-TO-M7-R11-R1.md`.
+
+## M7-R12: address driving-distance fees
+
+Reusable address questions can now define a private point 0 and optionally add either one fixed driving-distance fee or non-overlapping kilometer/mile range fees. The server requests only `distanceMeters` from Google Routes, includes the result in the held-time quote, validates it again during final submission, and snapshots the distance and selected rate without exposing the configured origin. See `docs/CHANGES-M7-R12.md` and `docs/UPGRADE-M7-R11-R1-TO-M7-R12.md`.

@@ -12,6 +12,7 @@ use Carbon\CarbonImmutable;
 class QuestionnairePricingService {
  public function __construct(
    private AppointmentTypePricingService $basePricing,
+   private DrivingDistancePricingService $drivingDistancePricing,
    private ShortNoticeFeeService $shortNoticeFees,
  ) {}
  public function quote(
@@ -20,6 +21,7 @@ class QuestionnairePricingService {
    array $answers,
    ?CarbonImmutable $startsAtUtc = null,
    ?CarbonImmutable $nowUtc = null,
+   array $drivingDistancesMeters = [],
  ): QuestionnaireQuote {
    $type->loadMissing(['questions.options']);
    $base=$this->basePricing->priceForDuration($type,$durationValue,$type->duration_unit); $total=$base;
@@ -36,6 +38,12 @@ class QuestionnairePricingService {
        $qty=(int)$raw; $billable=max(0,$qty-(int)$q->pricing_included_units); if ($q->pricing_application_mode->value==='once') $billable=$billable>0?1:0;
        $amount=$this->adjustment($q->pricing_adjustment_type,$q->pricing_amount_minor,$q->pricing_percentage_bps,$q->pricing_percentage_basis,$base,$total,$billable);
        if ($amount>0) { $total=$this->safeAdd($total,$amount); $lines[]=new QuestionnairePriceLine('question',$q->uuid,$q->label,$q->pricing_adjustment_type->value,(string)$billable,$amount,['entered_quantity'=>$qty,'included_units'=>$q->pricing_included_units]); }
+     } elseif ($q->type===QuestionType::Address && array_key_exists($q->uuid,$drivingDistancesMeters)) {
+       $charge=$this->drivingDistancePricing->charge($q,(int)$drivingDistancesMeters[$q->uuid]);
+       if ($charge!==null && $charge->amountMinor>0) {
+         $total=$this->safeAdd($total,$charge->amountMinor);
+         $lines[]=new QuestionnairePriceLine('question_distance',$q->uuid,$q->label.': driving distance ('.$charge->distanceLabel.')',$charge->lineType,'1',$charge->amountMinor,$charge->metadata);
+       }
      }
    }
    if ($startsAtUtc !== null) {

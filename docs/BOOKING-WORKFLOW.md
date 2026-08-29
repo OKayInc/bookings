@@ -88,3 +88,9 @@ The minimum booking notice remains a hard availability rule. Separately, an appo
 For each quote, the server calculates every threshold from the current instant in the organization's IANA timezone. If multiple tiers match, only the shortest matching threshold is charged; fees never stack. Exact threshold boundaries are inclusive. Calendar-month tiers use the same `addMonthsNoOverflow` behavior as booking notice.
 
 Percentage tiers apply to the current subtotal after the base duration price and questionnaire extras. The complete quote is recalculated on final submission and persisted to `booking_price_lines` with the selected fee rule UUID and threshold metadata. Changing or deleting appointment-type fee rules later does not alter an existing booking's price snapshot.
+
+## Address driving-distance fees
+
+An address questionnaire question may use a private configured origin to calculate a driving route to the client's answer. The held-time quote calls Google Routes and adds either the configured fixed fee or the single matching kilometer/mile range. Final submission first validates the address, obtains the route authoritatively, and persists the result with the answer and price breakdown.
+
+The origin is configuration only: it is never placed in guest HTML, quote JSON, booking answers, or booking price-line metadata. If Google cannot return a route, submission fails instead of creating an unpriced booking. Successful route lookups are cached briefly so the quote and immediate final submission normally reuse the same distance result.
