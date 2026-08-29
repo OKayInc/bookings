@@ -179,3 +179,7 @@ The appointment-type editor now uses explicit Blade PHP blocks for its short-not
 ## M7-R12: address driving-distance fees
 
 Reusable address questions can now define a private point 0 and optionally add either one fixed driving-distance fee or non-overlapping kilometer/mile range fees. The server requests only `distanceMeters` from Google Routes, includes the result in the held-time quote, validates it again during final submission, and snapshots the distance and selected rate without exposing the configured origin. See `docs/CHANGES-M7-R12.md` and `docs/UPGRADE-M7-R11-R1-TO-M7-R12.md`.
+
+## M7-R13: permanent organization deletion
+
+Active owners now have a guarded danger zone for permanently deleting an organization. Exact-name and current-password confirmation protects the action; organization-owned data and stored files are removed, incoming shared resources are detached and preserved, and owned resources are unshared everywhere before deletion. The user's active organization then moves to another active membership or the organization-creation page. See `docs/CHANGES-M7-R13.md` and `docs/UPGRADE-M7-R12-TO-M7-R13.md`.

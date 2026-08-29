@@ -164,6 +164,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('/organizations', [OrganizationController::class, 'store'])->name('organizations.store');
     Route::get('/organizations/{organization}/edit', [OrganizationController::class, 'edit'])->name('organizations.edit');
     Route::put('/organizations/{organization}', [OrganizationController::class, 'update'])->name('organizations.update');
+    Route::delete('/organizations/{organization}', [OrganizationController::class, 'destroy'])->name('organizations.destroy');
     Route::post('/organizations/{organization}/switch', [OrganizationController::class, 'switch'])->name('organizations.switch');
 
     Route::middleware('organization')->group(function (): void {

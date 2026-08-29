@@ -1,4 +1,4 @@
-# Database — M7-R12
+# Database — M7-R13
 
 ## Core M1 tables retained
 
@@ -12,6 +12,18 @@
 - `appointment_contract_templates`
 
 All entity primary keys continue to use UUIDv7 encoded as `BINARY(16)`.
+
+## M7-R13 organization deletion lifecycle
+
+M7-R13 adds no schema object. It coordinates existing ownership and foreign-key relationships through an owner-only application service:
+
+- bookings are deleted before contacts, appointment types, appointments, and contract templates protected by restrictive relationships;
+- resources owned elsewhere lose only the deleting organization's `organization_resources` row;
+- resources owned by the deleting organization are detached from all organizations and have external appointment-type, availability, and calendar configuration removed before the resource row is deleted;
+- remaining organization-owned rows cascade through their existing organization foreign keys, while `users.active_organization_id` becomes `NULL` through its existing null-on-delete key;
+- file metadata is collected inside the transaction, while physical file deletion occurs after commit.
+
+This is intentionally a hard delete rather than a soft-delete/archive model. Historical booking/resource pivots that reference an organization-owned resource follow their existing resource cascade, while the other organization's booking and appointment rows remain.
 
 ## M7-R5 organization-member invitations
 

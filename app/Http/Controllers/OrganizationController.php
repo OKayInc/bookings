@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Money\PaymentCurrencyCatalog;
+use App\Domain\Organizations\OrganizationDeletionService;
 use App\Domain\Organizations\OrganizationLogoService;
 use App\Enums\MembershipRole;
 use App\Enums\MembershipStatus;
+use App\Http\Requests\DeleteOrganizationRequest;
 use App\Http\Requests\StoreOrganizationRequest;
 use App\Models\Organization;
 use App\Models\OrganizationMembership;
@@ -103,6 +105,28 @@ class OrganizationController extends Controller
         }
 
         return redirect()->route('organizations.index')->with('success', 'Organization updated.');
+    }
+
+    public function destroy(
+        DeleteOrganizationRequest $request,
+        Organization $organization,
+        OrganizationDeletionService $deletion,
+        ActiveOrganizationResolver $resolver,
+    ): RedirectResponse {
+        $this->authorize('delete', $organization);
+        $name = $organization->name;
+
+        $deletion->delete($organization);
+
+        $user = $request->user()->refresh();
+        $request->session()->forget('active_organization_uuid');
+        $nextOrganization = $resolver->resolve($user, $request);
+
+        $redirect = $nextOrganization
+            ? redirect()->route('organizations.index')
+            : redirect()->route('organizations.create');
+
+        return $redirect->with('success', $name.' and all of its organization data were permanently deleted.');
     }
 
     public function switch(Request $request, Organization $organization, ActiveOrganizationResolver $resolver): RedirectResponse

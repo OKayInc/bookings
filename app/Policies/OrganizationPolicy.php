@@ -9,6 +9,15 @@ use App\Models\User;
 
 class OrganizationPolicy
 {
+    public function delete(User $user, Organization $organization): bool
+    {
+        return $organization->memberships()
+            ->where('person_id', $user->person_id)
+            ->where('status', MembershipStatus::Active->value)
+            ->where('role', MembershipRole::Owner->value)
+            ->exists();
+    }
+
     public function update(User $user, Organization $organization): bool
     {
         return $organization->memberships()
