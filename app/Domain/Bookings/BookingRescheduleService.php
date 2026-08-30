@@ -7,6 +7,7 @@ use App\Domain\Calendars\CalendarSyncService;
 use App\Domain\Calendars\CalendarAvailabilityService;
 use App\Domain\Conferences\ConferenceMeetingService;
 use App\Domain\Availability\AvailabilityInterval;
+use App\Domain\Availability\AppointmentTypeSeasonService;
 use App\Domain\Availability\OrganizationHolidayService;
 use App\Domain\Availability\ResourceHolidayService;
 use App\Enums\BookingHoldStatus;
@@ -35,6 +36,7 @@ class BookingRescheduleService
         private readonly CalendarAvailabilityService $externalCalendars,
         private readonly OrganizationHolidayService $holidays,
         private readonly ResourceHolidayService $resourceHolidays,
+        private readonly AppointmentTypeSeasonService $seasons,
     ) {
     }
 
@@ -115,6 +117,13 @@ class BookingRescheduleService
                 throw new RuntimeException('The organization is now closed on the proposed date. Please choose another time.');
             }
             $hold->loadMissing(['resources', 'appointmentType.organization']);
+            if (! $this->seasons->contains(
+                $hold->appointmentType,
+                CarbonImmutable::instance($hold->starts_at_utc)->utc(),
+                CarbonImmutable::instance($hold->ends_at_utc)->utc(),
+            )) {
+                throw new RuntimeException('This appointment type is no longer offered during the proposed dates. Please choose another time.');
+            }
             $holidayResources = $hold->resources;
             if ($holidayResources->isEmpty() && $hold->appointment_id !== null) {
                 $holidayResources = Appointment::query()->whereKey($hold->appointment_id)->firstOrFail()->resources()->get();

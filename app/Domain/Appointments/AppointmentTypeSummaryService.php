@@ -7,6 +7,7 @@ use App\Domain\Money\MoneyService;
 use App\Enums\AttendanceMode;
 use App\Enums\DurationMode;
 use App\Enums\PricingMode;
+use App\Enums\SeasonRecurrence;
 use App\Models\AppointmentType;
 
 class AppointmentTypeSummaryService
@@ -80,5 +81,21 @@ class AppointmentTypeSummaryService
         }
 
         return 'Online · '.$type->meeting_provider->label();
+    }
+
+    public function season(AppointmentType $type): string
+    {
+        if (! $type->seasonal_availability_enabled
+            || $type->season_start_date === null
+            || $type->season_end_date === null
+            || $type->season_recurrence === null) {
+            return 'Year-round';
+        }
+
+        if ($type->season_recurrence === SeasonRecurrence::Once) {
+            return $type->season_start_date->format('M j, Y').' – '.$type->season_end_date->format('M j, Y');
+        }
+
+        return $type->season_start_date->format('M j').' – '.$type->season_end_date->format('M j').' every year';
     }
 }

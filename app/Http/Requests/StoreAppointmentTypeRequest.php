@@ -13,6 +13,7 @@ use App\Enums\PricingMode;
 use App\Enums\PricingAdjustmentType;
 use App\Enums\ReminderThresholdBasis;
 use App\Enums\ResourceRequirementMode;
+use App\Enums\SeasonRecurrence;
 use App\Models\Resource;
 use App\Domain\Money\MoneyService;
 use App\Domain\Conferences\ConferenceProviderCatalog;
@@ -89,6 +90,19 @@ class StoreAppointmentTypeRequest extends FormRequest
             'booking_notice_unit' => ['nullable', Rule::enum(BookingNoticeUnit::class)],
             'maximum_booking_notice_value' => ['nullable', 'integer', 'min:0'],
             'maximum_booking_notice_unit' => ['nullable', Rule::enum(BookingNoticeUnit::class)],
+            'seasonal_availability_enabled' => ['nullable', 'boolean'],
+            'season_start_date' => [
+                Rule::requiredIf(fn (): bool => $this->boolean('seasonal_availability_enabled')),
+                'nullable', 'date_format:Y-m-d',
+            ],
+            'season_end_date' => [
+                Rule::requiredIf(fn (): bool => $this->boolean('seasonal_availability_enabled')),
+                'nullable', 'date_format:Y-m-d',
+            ],
+            'season_recurrence' => [
+                Rule::requiredIf(fn (): bool => $this->boolean('seasonal_availability_enabled')),
+                'nullable', Rule::enum(SeasonRecurrence::class),
+            ],
 
             'short_notice_fees' => ['nullable', 'array', 'max:50'],
             'short_notice_fees.*.threshold_value' => ['required', 'integer', 'min:1'],
@@ -167,6 +181,8 @@ class StoreAppointmentTypeRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            $this->validateSeason($validator);
+
             if ($this->boolean('is_online')) {
                 $provider = ConferenceProvider::tryFrom((string) $this->input('meeting_provider', ''));
                 if ($provider !== null) {
@@ -386,5 +402,30 @@ class StoreAppointmentTypeRequest extends FormRequest
                 }
             }
         });
+    }
+
+    private function validateSeason(Validator $validator): void
+    {
+        if (! $this->boolean('seasonal_availability_enabled')) {
+            return;
+        }
+
+        $start = \DateTimeImmutable::createFromFormat('!Y-m-d', (string) $this->input('season_start_date'));
+        $end = \DateTimeImmutable::createFromFormat('!Y-m-d', (string) $this->input('season_end_date'));
+        if ($start === false || $end === false
+            || $start->format('Y-m-d') !== $this->input('season_start_date')
+            || $end->format('Y-m-d') !== $this->input('season_end_date')) {
+            return;
+        }
+
+        if ($end < $start) {
+            $validator->errors()->add('season_end_date', 'The season end date must be on or after its start date. For a season crossing New Year, select an end date in the following year.');
+            return;
+        }
+
+        if ($this->input('season_recurrence') === SeasonRecurrence::Yearly->value
+            && $end >= $start->modify('+1 year')) {
+            $validator->errors()->add('season_end_date', 'A yearly season must be shorter than one year.');
+        }
     }
 }

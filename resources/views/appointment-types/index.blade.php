@@ -22,7 +22,7 @@
                     <div><a target="_blank" rel="noopener" href="{{ route('public.appointment-types.unlisted', ['organizationSlug' => $type->organization->slug, 'token' => $type->public_token]) }}">Open secret link</a></div>
                 @endif
             </td>
-            <td>{{ $summary->duration($type) }}<div class="muted">{{ $summary->bookingNotice($type) }}</div><div class="muted">Buffer {{ $type->buffer_before_minutes }}m before / {{ $type->buffer_after_minutes }}m after</div></td>
+            <td>{{ $summary->duration($type) }}<div class="muted">{{ $summary->season($type) }}</div><div class="muted">{{ $summary->bookingNotice($type) }}</div><div class="muted">Buffer {{ $type->buffer_before_minutes }}m before / {{ $type->buffer_after_minutes }}m after</div></td>
             <td>{{ $summary->pricing($type) }}</td>
             <td>{{ $summary->attendance($type) }}</td>
             <td>{{ $type->resources_count }}</td>

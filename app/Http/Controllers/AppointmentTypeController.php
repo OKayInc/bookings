@@ -20,6 +20,7 @@ use App\Enums\PricingMode;
 use App\Enums\PricingAdjustmentType;
 use App\Enums\ResourceRequirementMode;
 use App\Enums\ReminderThresholdBasis;
+use App\Enums\SeasonRecurrence;
 use App\Http\Requests\StoreAppointmentTypeRequest;
 use App\Models\AppointmentType;
 use App\Models\Organization;
@@ -272,6 +273,7 @@ class AppointmentTypeController extends Controller
             'shortNoticeAdjustmentTypes' => [PricingAdjustmentType::Fixed, PricingAdjustmentType::Percentage],
             'resourceRequirementModes' => ResourceRequirementMode::cases(),
             'reminderThresholdBases' => ReminderThresholdBasis::cases(),
+            'seasonRecurrences' => SeasonRecurrence::cases(),
             'organization' => $context->organization(),
         ];
     }
@@ -298,6 +300,10 @@ class AppointmentTypeController extends Controller
             'booking_notice_unit' => $data['booking_notice_unit'] ?? BookingNoticeUnit::Hour->value,
             'maximum_booking_notice_value' => (int) ($data['maximum_booking_notice_value'] ?? 365),
             'maximum_booking_notice_unit' => $data['maximum_booking_notice_unit'] ?? BookingNoticeUnit::Day->value,
+            'seasonal_availability_enabled' => $request->boolean('seasonal_availability_enabled'),
+            'season_start_date' => $request->boolean('seasonal_availability_enabled') ? $data['season_start_date'] : null,
+            'season_end_date' => $request->boolean('seasonal_availability_enabled') ? $data['season_end_date'] : null,
+            'season_recurrence' => $request->boolean('seasonal_availability_enabled') ? $data['season_recurrence'] : null,
             'buffer_before_minutes' => (int) $data['buffer_before_minutes'],
             'buffer_after_minutes' => (int) $data['buffer_after_minutes'],
             'pricing_mode' => $data['pricing_mode'],

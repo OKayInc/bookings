@@ -1,5 +1,11 @@
 # M4 booking workflow
 
+## M7-R18 seasonal gate
+
+An appointment type may define an inclusive one-time or yearly booking season in its organization's timezone. The season gate runs before a slot is offered and again during hold acquisition, final booking, and rescheduling. Existing group sessions are not offered for additional capacity after their date falls outside the current season configuration. Staff schedule-change proposals use the same availability/hold/reschedule services and therefore cannot bypass it.
+
+The public appointment-type catalog hides a seasonal type while the current organization-local instant is off season. Direct access remains available so a client with a link can select a valid future season date.
+
 ## Backend identity vs guest identity
 
 Backend access continues to use:

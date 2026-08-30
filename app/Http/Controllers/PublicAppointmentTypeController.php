@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Appointments\AppointmentTypeSummaryService;
+use App\Domain\Availability\AppointmentTypeSeasonService;
 use App\Domain\Bookings\PublicAppointmentAccessService;
 use App\Domain\Money\MoneyService;
 use App\Enums\AppointmentVisibility;
 use App\Models\AppointmentType;
 use App\Models\AppointmentTypeInvitation;
 use App\Models\Organization;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -16,7 +18,11 @@ use Illuminate\View\View;
 
 class PublicAppointmentTypeController extends Controller
 {
-    public function index(string $organizationSlug, AppointmentTypeSummaryService $summary): View
+    public function index(
+        string $organizationSlug,
+        AppointmentTypeSummaryService $summary,
+        AppointmentTypeSeasonService $seasons,
+    ): View
     {
         $organization = Organization::where('slug', $organizationSlug)->firstOrFail();
         $appointmentTypes = $organization->appointmentTypes()
@@ -24,7 +30,9 @@ class PublicAppointmentTypeController extends Controller
             ->where('is_active', true)
             ->where('visibility', AppointmentVisibility::Public->value)
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->filter(fn (AppointmentType $type): bool => $seasons->isOpenAt($type, CarbonImmutable::now('UTC')))
+            ->values();
 
         return view('public.appointment-types.index', compact('organization', 'appointmentTypes', 'summary'));
     }

@@ -10,6 +10,7 @@ use App\Domain\Calendars\CalendarSyncService;
 use App\Domain\Calendars\CalendarAvailabilityService;
 use App\Domain\Conferences\ConferenceMeetingService;
 use App\Domain\Availability\AvailabilityInterval;
+use App\Domain\Availability\AppointmentTypeSeasonService;
 use App\Domain\Availability\OrganizationHolidayService;
 use App\Domain\Availability\ResourceHolidayService;
 use App\Enums\AppointmentStatus;
@@ -41,6 +42,7 @@ class BookingCreationService
         private readonly BookingResourceNotificationService $resourceNotifications,
         private readonly OrganizationHolidayService $holidays,
         private readonly ResourceHolidayService $resourceHolidays,
+        private readonly AppointmentTypeSeasonService $seasons,
     ) {
     }
 
@@ -80,6 +82,13 @@ class BookingCreationService
             $hold->load(['appointmentType.organization', 'resources', 'invitation', 'contractTemplate']);
             $type = $hold->appointmentType;
             $organization = $type->organization;
+            if (! $this->seasons->contains(
+                $type,
+                CarbonImmutable::instance($hold->starts_at_utc)->utc(),
+                CarbonImmutable::instance($hold->ends_at_utc)->utc(),
+            )) {
+                throw new RuntimeException('This appointment type is no longer offered during the selected dates. Please choose another time.');
+            }
             if ($this->holidays->isClosed(
                 $organization,
                 CarbonImmutable::instance($hold->starts_at_utc)->utc(),

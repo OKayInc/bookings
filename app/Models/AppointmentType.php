@@ -10,6 +10,7 @@ use App\Enums\DurationUnit;
 use App\Enums\EmailVerificationMode;
 use App\Enums\ConferenceProvider;
 use App\Enums\PricingMode;
+use App\Enums\SeasonRecurrence;
 use App\Models\Concerns\HasBinaryUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -48,6 +49,10 @@ class AppointmentType extends Model
         'booking_notice_unit',
         'maximum_booking_notice_value',
         'maximum_booking_notice_unit',
+        'seasonal_availability_enabled',
+        'season_start_date',
+        'season_end_date',
+        'season_recurrence',
         'buffer_after_minutes',
         'pricing_mode',
         'fixed_price_minor',
@@ -87,6 +92,10 @@ class AppointmentType extends Model
             'booking_notice_unit' => BookingNoticeUnit::class,
             'maximum_booking_notice_value' => 'integer',
             'maximum_booking_notice_unit' => BookingNoticeUnit::class,
+            'seasonal_availability_enabled' => 'boolean',
+            'season_start_date' => 'immutable_date',
+            'season_end_date' => 'immutable_date',
+            'season_recurrence' => SeasonRecurrence::class,
             'buffer_after_minutes' => 'integer',
             'pricing_mode' => PricingMode::class,
             'fixed_price_minor' => 'integer',

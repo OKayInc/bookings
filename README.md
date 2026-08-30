@@ -203,3 +203,7 @@ The questionnaire configuration regression test now normalizes the JSON-backed f
 ## M7-R17: organization conference providers
 
 Organization settings now store encrypted Google questionnaire API keys plus Google Meet, Microsoft Teams, Zoom, Webex, and custom-link credentials. Appointment types can be marked online and select any configured provider; Jitsi is always available without credentials. New appointments snapshot the provider and provision a private join link, with staff-visible failure details and retry support. See `docs/CHANGES-M7-R17.md`, `docs/CONFERENCE-INTEGRATIONS.md`, and `docs/UPGRADE-M7-R16-R1-TO-M7-R17.md`.
+
+## M7-R18: recurring booking seasons
+
+Appointment types can now be restricted to an inclusive one-time or yearly recurring date window in the organization's timezone, including seasons that cross New Year. Off-season types are hidden from the public organization catalog, complete appointments must fit inside the season, and holds/bookings/reschedules are revalidated server-side. Existing appointment types remain year-round. See `docs/CHANGES-M7-R18.md` and `docs/UPGRADE-M7-R17-TO-M7-R18.md`.

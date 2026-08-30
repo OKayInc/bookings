@@ -1,4 +1,4 @@
-# Database — M7-R17
+# Database — M7-R18
 
 ## Core M1 tables retained
 
@@ -12,6 +12,16 @@
 - `appointment_contract_templates`
 
 All entity primary keys continue to use UUIDv7 encoded as `BINARY(16)`.
+
+## M7-R18 appointment-type booking seasons
+
+Migration `2026_08_30_000057_add_seasonal_availability_to_appointment_types.php` adds an optional date policy directly to `appointment_types`:
+
+- `seasonal_availability_enabled BOOLEAN` defaults to false, preserving year-round behavior;
+- nullable `season_start_date DATE` and `season_end_date DATE` store inclusive organization-local calendar dates;
+- nullable `season_recurrence VARCHAR(16)` stores `once` or `yearly`.
+
+For yearly recurrence, the reference years distinguish an ordinary same-year window from a season crossing New Year. Runtime evaluation projects its month/day boundaries into the requested year and requires the complete appointment interval to fit.
 
 ## M7-R17 online conference settings
 

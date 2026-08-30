@@ -3,6 +3,7 @@
 namespace App\Domain\Bookings;
 
 use App\Domain\Availability\AppointmentDurationService;
+use App\Domain\Availability\AppointmentTypeSeasonService;
 use App\Domain\Availability\BookingHoldLease;
 use App\Domain\Availability\BookingHoldService;
 use App\Domain\Availability\OrganizationHolidayService;
@@ -29,6 +30,7 @@ class PublicBookingHoldService
         private readonly BookingNoticeService $notice,
         private readonly OrganizationHolidayService $holidays,
         private readonly ResourceHolidayService $resourceHolidays,
+        private readonly AppointmentTypeSeasonService $seasons,
     ) {
     }
 
@@ -54,6 +56,9 @@ class PublicBookingHoldService
 
         $selectedDuration = $this->durations->selectedValue($type, $durationValue);
         $endsAtUtc = $this->durations->endAt($startsAtUtc, $type, $selectedDuration, $bookingTimezone);
+        if (! $this->seasons->contains($type, $startsAtUtc, $endsAtUtc)) {
+            throw new RuntimeException('This appointment type is not offered during the selected dates.');
+        }
         if ($this->holidays->isClosed($type->organization, $startsAtUtc, $endsAtUtc)) {
             throw new RuntimeException('The organization is closed on the selected date.');
         }
@@ -101,13 +106,18 @@ class PublicBookingHoldService
         ?int $ttlMinutes,
     ): BookingHoldLease {
         return DB::transaction(function () use ($type, $appointment, $bookingTimezone, $attendeeCount, $invitation, $ttlMinutes): BookingHoldLease {
+            $lockedType = AppointmentType::query()->whereKey($type->getKey())->lockForUpdate()->firstOrFail();
+            $lockedType->load('organization');
             $locked = Appointment::query()->whereKey($appointment->getKey())->lockForUpdate()->firstOrFail();
             abort_unless($locked->status === AppointmentStatus::Scheduled, 409);
             $locked->load('resources');
 
             $start = CarbonImmutable::instance($locked->starts_at_utc)->utc();
             $end = CarbonImmutable::instance($locked->ends_at_utc)->utc();
-            if ($this->resourceHolidays->assignedRequiredResourcesClosed($type->organization, $locked->resources, $start, $end)) {
+            if (! $this->seasons->contains($lockedType, $start, $end)) {
+                throw new RuntimeException('This appointment type is not offered during the selected dates.');
+            }
+            if ($this->resourceHolidays->assignedRequiredResourcesClosed($lockedType->organization, $locked->resources, $start, $end)) {
                 throw new RuntimeException('A required resource is closed for a holiday on the selected date.');
             }
 
@@ -124,10 +134,10 @@ class PublicBookingHoldService
             }
 
             $token = Str::random(64);
-            $contractId = $type->contractTemplate()->value('id');
+            $contractId = $lockedType->contractTemplate()->value('id');
             $hold = BookingHold::create([
-                'organization_id' => $type->organization_id,
-                'appointment_type_id' => $type->getKey(),
+                'organization_id' => $lockedType->organization_id,
+                'appointment_type_id' => $lockedType->getKey(),
                 'appointment_id' => $locked->getKey(),
                 'appointment_type_invitation_id' => $invitation?->getKey(),
                 'contract_template_id' => $contractId,

@@ -24,6 +24,7 @@ class AvailabilityService
         private readonly CalendarAvailabilityService $externalCalendars,
         private readonly OrganizationHolidayService $holidays,
         private readonly ResourceHolidayService $resourceHolidays,
+        private readonly AppointmentTypeSeasonService $seasons,
     ) {
     }
 
@@ -104,6 +105,10 @@ class AvailabilityService
                 $end = $this->durations->endAt($candidate, $type, $durationValue, $bookingTimezone);
                 if ($end->gt($window->end)) {
                     break;
+                }
+                if (! $this->seasons->contains($type, $candidate, $end)) {
+                    $candidate = $candidate->addMinutes($intervalMinutes);
+                    continue;
                 }
 
                 $blocked = new AvailabilityInterval(
@@ -235,16 +240,16 @@ class AvailabilityService
         for ($date = $localStart; $date->lte($localEnd); $date = $date->addDay()) {
             foreach ($schedule->rules->where('weekday', $date->dayOfWeek) as $rule) {
                 $start = CarbonImmutable::parse($date->format('Y-m-d').' '.$rule->start_time, $timezone)->utc();
-                $localEnd = CarbonImmutable::parse($date->format('Y-m-d').' '.$rule->end_time, $timezone);
+                $ruleLocalEnd = CarbonImmutable::parse($date->format('Y-m-d').' '.$rule->end_time, $timezone);
 
                 // HTML time inputs cannot express 24:00. Treat 23:59 as the
                 // end-of-day boundary so it joins a following 00:00 interval
                 // without creating an artificial unavailable minute.
                 if (str_starts_with((string) $rule->end_time, '23:59')) {
-                    $localEnd = $localEnd->addMinute();
+                    $ruleLocalEnd = $ruleLocalEnd->addMinute();
                 }
 
-                $end = $localEnd->utc();
+                $end = $ruleLocalEnd->utc();
                 $interval = $this->clip(new AvailabilityInterval($start, $end), $rangeStartUtc, $rangeEndUtc);
                 if ($interval !== null) {
                     $intervals[] = $interval;

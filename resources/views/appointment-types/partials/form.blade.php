@@ -226,6 +226,37 @@
 </div>
 
 <div class="section-card">
+    <h2>Booking season</h2>
+    <input type="hidden" name="seasonal_availability_enabled" value="0">
+    <label class="inline-check">
+        <input id="seasonal_availability_enabled" type="checkbox" name="seasonal_availability_enabled" value="1" @checked((bool) old('seasonal_availability_enabled', $appointmentType?->seasonal_availability_enabled ?? false))>
+        Offer this appointment type only during a date range
+    </label>
+
+    <div id="booking-season-fields" style="margin-top:1rem">
+        <div class="row three">
+            <div class="field">
+                <label for="season_start_date">Season starts</label>
+                <input id="season_start_date" type="date" name="season_start_date" value="{{ old('season_start_date', $appointmentType?->season_start_date?->format('Y-m-d')) }}">
+            </div>
+            <div class="field">
+                <label for="season_end_date">Season ends</label>
+                <input id="season_end_date" type="date" name="season_end_date" value="{{ old('season_end_date', $appointmentType?->season_end_date?->format('Y-m-d')) }}">
+            </div>
+            <div class="field">
+                <label for="season_recurrence">Recurrence</label>
+                <select id="season_recurrence" name="season_recurrence">
+                    @foreach($seasonRecurrences as $recurrence)
+                        <option value="{{ $recurrence->value }}" @selected(old('season_recurrence', $appointmentType?->season_recurrence?->value ?? 'yearly') === $recurrence->value)>{{ $recurrence->label() }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+        <div class="muted">Dates use {{ $organization->timezone }}. The ending date is inclusive. For a yearly season crossing New Year, choose the ending date in the following year; only the month/day pattern repeats.</div>
+    </div>
+</div>
+
+<div class="section-card">
     <h2>Short-notice fees</h2>
     <p class="muted">Optionally charge more when an appointment will start soon. Add progressively shorter thresholds for higher fees. If several thresholds match, only the shortest matching threshold is charged.</p>
 
@@ -583,6 +614,8 @@
     const attendanceMode = document.getElementById('attendance_mode');
     const online = document.getElementById('is_online');
     const meetingProviderFields = document.getElementById('meeting-provider-fields');
+    const seasonalAvailability = document.getElementById('seasonal_availability_enabled');
+    const bookingSeasonFields = document.getElementById('booking-season-fields');
     const capacityField = document.getElementById('capacity-field');
     const durationMode = document.getElementById('duration_mode');
     const fixedDuration = document.getElementById('fixed-duration-fields');
@@ -611,6 +644,7 @@
         const passwordProtected = visibility.value === 'password_protected';
         const groupAttendance = attendanceMode.value === 'group';
         const onlineAppointment = online.checked;
+        const seasonalAppointment = seasonalAvailability.checked;
         const fixedDurationMode = durationMode.value === 'fixed';
         const fixedPricingMode = pricingMode.value === 'fixed';
         const ratePricingMode = pricingMode.value === 'rate';
@@ -618,6 +652,7 @@
         setSectionState(passwordField, passwordProtected);
         setSectionState(capacityField, groupAttendance);
         setSectionState(meetingProviderFields, onlineAppointment);
+        setSectionState(bookingSeasonFields, seasonalAppointment);
         setSectionState(fixedDuration, fixedDurationMode);
         setSectionState(variableDuration, !fixedDurationMode);
         setSectionState(fixedPrice, fixedPricingMode);
@@ -625,6 +660,9 @@
 
         setRequired(document.getElementById('capacity'), groupAttendance);
         setRequired(document.getElementById('meeting_provider'), onlineAppointment);
+        setRequired(document.getElementById('season_start_date'), seasonalAppointment);
+        setRequired(document.getElementById('season_end_date'), seasonalAppointment);
+        setRequired(document.getElementById('season_recurrence'), seasonalAppointment);
         setRequired(document.getElementById('duration_value'), fixedDurationMode);
         setRequired(document.getElementById('minimum_duration_value'), !fixedDurationMode);
         setRequired(document.getElementById('maximum_duration_value'), !fixedDurationMode);
@@ -634,7 +672,7 @@
         setRequired(document.getElementById('rate_unit'), ratePricingMode);
     }
 
-    [visibility, attendanceMode, online, durationMode, pricingMode].forEach((element) => element.addEventListener('change', sync));
+    [visibility, attendanceMode, online, seasonalAvailability, durationMode, pricingMode].forEach((element) => element.addEventListener('change', sync));
     sync();
 })();
 </script>

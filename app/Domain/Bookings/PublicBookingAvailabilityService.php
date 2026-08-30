@@ -3,6 +3,7 @@
 namespace App\Domain\Bookings;
 
 use App\Domain\Availability\AppointmentDurationService;
+use App\Domain\Availability\AppointmentTypeSeasonService;
 use App\Domain\Availability\AvailabilityService;
 use App\Domain\Availability\BookableSlot;
 use App\Domain\Availability\OrganizationHolidayService;
@@ -23,6 +24,7 @@ class PublicBookingAvailabilityService
         private readonly BookingNoticeService $notice,
         private readonly OrganizationHolidayService $holidays,
         private readonly ResourceHolidayService $resourceHolidays,
+        private readonly AppointmentTypeSeasonService $seasons,
     ) {
     }
 
@@ -79,6 +81,9 @@ class PublicBookingAvailabilityService
                 continue;
             }
             $end = CarbonImmutable::instance($appointment->ends_at_utc)->utc();
+            if (! $this->seasons->contains($type, $start, $end)) {
+                continue;
+            }
             if ($this->holidays->isClosed($type->organization, $start, $end)) {
                 continue;
             }
