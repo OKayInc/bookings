@@ -8,12 +8,14 @@ use App\Enums\BookingNoticeUnit;
 use App\Enums\DurationMode;
 use App\Enums\DurationUnit;
 use App\Enums\EmailVerificationMode;
+use App\Enums\ConferenceProvider;
 use App\Enums\PricingMode;
 use App\Enums\PricingAdjustmentType;
 use App\Enums\ReminderThresholdBasis;
 use App\Enums\ResourceRequirementMode;
 use App\Models\Resource;
 use App\Domain\Money\MoneyService;
+use App\Domain\Conferences\ConferenceProviderCatalog;
 use App\Domain\Questionnaires\PercentageService;
 use App\Rules\MoneyAmount;
 use App\Support\Organizations\OrganizationContext;
@@ -53,6 +55,11 @@ class StoreAppointmentTypeRequest extends FormRequest
             ],
 
             'attendance_mode' => ['required', Rule::enum(AttendanceMode::class)],
+            'is_online' => ['nullable', 'boolean'],
+            'meeting_provider' => [
+                Rule::requiredIf(fn (): bool => $this->boolean('is_online')),
+                'nullable', Rule::enum(ConferenceProvider::class),
+            ],
             'capacity' => [
                 Rule::requiredIf(fn (): bool => $this->input('attendance_mode') === AttendanceMode::Group->value),
                 'nullable', 'integer', 'min:2', 'max:'.config('appointment-types.max_capacity', 100000),
@@ -160,6 +167,19 @@ class StoreAppointmentTypeRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            if ($this->boolean('is_online')) {
+                $provider = ConferenceProvider::tryFrom((string) $this->input('meeting_provider', ''));
+                if ($provider !== null) {
+                    $organization = app(OrganizationContext::class)->organization();
+                    if (! app(ConferenceProviderCatalog::class)->isConfigured($organization, $provider)) {
+                        $validator->errors()->add(
+                            'meeting_provider',
+                            $provider->label().' is not fully configured in Organization > Settings.',
+                        );
+                    }
+                }
+            }
+
             $unitValue = (string) $this->input('duration_unit', 'minute');
             $unit = DurationUnit::tryFrom($unitValue);
 

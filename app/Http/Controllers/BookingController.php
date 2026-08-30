@@ -8,6 +8,7 @@ use App\Domain\Bookings\ResourceConfirmationService;
 use App\Domain\Bookings\ContractSubmissionService;
 use App\Domain\Bookings\BookingScheduleProposalService;
 use App\Domain\Bookings\PublicBookingAvailabilityService;
+use App\Domain\Conferences\ConferenceMeetingService;
 use App\Enums\ContractReviewStatus;
 use App\Enums\ResourceConfirmationStatus;
 use App\Models\Booking;
@@ -167,6 +168,26 @@ class BookingController extends Controller
         }
 
         return back()->with('success', 'Booking cancelled.');
+    }
+
+    public function retryConference(
+        Booking $booking,
+        OrganizationContext $context,
+        ConferenceMeetingService $conferenceMeetings,
+    ): RedirectResponse {
+        $this->sameOrganization($booking, $context);
+        $this->authorize('manageScheduling', $context->organization());
+        abort_if($booking->appointment->meeting_provider === null, 404);
+
+        $conferenceMeetings->safeSync($booking->appointment);
+        $appointment = $booking->appointment->fresh();
+
+        return back()->with(
+            $appointment->meeting_status === 'ready' ? 'success' : 'error',
+            $appointment->meeting_status === 'ready'
+                ? 'Online meeting is ready.'
+                : 'The meeting provider could not create a meeting. Review the provider error and organization settings.',
+        );
     }
 
     public function scheduleProposalSlots(

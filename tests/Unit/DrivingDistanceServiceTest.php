@@ -3,6 +3,9 @@
 namespace Tests\Unit;
 
 use App\Domain\Questionnaires\DrivingDistanceService;
+use App\Models\Organization;
+use App\Models\OrganizationConferenceSetting;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -11,6 +14,8 @@ use Tests\TestCase;
 
 class DrivingDistanceServiceTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -52,5 +57,22 @@ class DrivingDistanceServiceTest extends TestCase
         $this->expectExceptionMessage('A driving route could not be found');
 
         app(DrivingDistanceService::class)->between('Origin', 'Unroutable destination');
+    }
+
+    public function test_organization_routes_key_overrides_deployment_key(): void
+    {
+        $organization = Organization::factory()->create();
+        OrganizationConferenceSetting::create([
+            'organization_id' => $organization->getKey(),
+            'google_routes_api_key' => 'organization-routes-key',
+        ]);
+        Http::fake(['*' => Http::response(['routes' => [['distanceMeters' => 1000]]])]);
+
+        app(DrivingDistanceService::class)->between('Origin', 'Destination', $organization);
+
+        Http::assertSent(fn (Request $request): bool => $request->hasHeader(
+            'X-Goog-Api-Key',
+            'organization-routes-key',
+        ));
     }
 }

@@ -9,6 +9,27 @@
     <div class="card"><h3>Price</h3><p>{{ app(\App\Domain\Money\MoneyService::class)->format($booking->price_minor, $booking->currency) }}</p><p>{{ $booking->attendee_count }} attendee(s)</p></div>
 </div>
 
+@if($booking->appointment->meeting_provider)
+<div class="card">
+    <h2>Online meeting · {{ $booking->appointment->meeting_provider->label() }}</h2>
+    @if($booking->appointment->meeting_status === 'ready' && $booking->appointment->meeting_join_url)
+        <div class="actions">
+            <a class="btn btn-primary" target="_blank" rel="noopener noreferrer" href="{{ $booking->appointment->meeting_join_url }}">Join meeting</a>
+            @if($booking->appointment->meeting_host_url)
+                <a class="btn" target="_blank" rel="noopener noreferrer" href="{{ $booking->appointment->meeting_host_url }}">Start as host</a>
+            @endif
+        </div>
+    @elseif($booking->appointment->meeting_status === 'error')
+        <div class="alert alert-warning"><strong>Meeting creation failed.</strong> {{ $booking->appointment->meeting_error }}</div>
+        @if($canManage)
+            <form method="post" action="{{ route('bookings.conference.retry', $booking) }}">@csrf<button class="btn" type="submit">Retry meeting creation</button></form>
+        @endif
+    @else
+        <p class="muted">The meeting link is being prepared.</p>
+    @endif
+</div>
+@endif
+
 @php
     $pendingProposal = $booking->scheduleProposals->first(fn ($proposal) => $proposal->status->value === 'pending' && $proposal->expires_at_utc->isFuture());
     $warningProposals = $booking->scheduleProposals->filter(fn ($proposal) => $proposal->warning_active);

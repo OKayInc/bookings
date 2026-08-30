@@ -199,3 +199,7 @@ Driving-distance range pricing now requires a positive fallback fee expressed as
 ## M7-R16-R1: distance increment persistence assertion
 
 The questionnaire configuration regression test now normalizes the JSON-backed fallback increment to a float before its strict assertion. This accommodates MariaDB returning the whole-number value `5` after a submitted `5.0` is persisted, without weakening the expected numeric value or changing runtime pricing behavior. See `docs/CHANGES-M7-R16-R1.md` and `docs/UPGRADE-M7-R16-TO-M7-R16-R1.md`.
+
+## M7-R17: organization conference providers
+
+Organization settings now store encrypted Google questionnaire API keys plus Google Meet, Microsoft Teams, Zoom, Webex, and custom-link credentials. Appointment types can be marked online and select any configured provider; Jitsi is always available without credentials. New appointments snapshot the provider and provision a private join link, with staff-visible failure details and retry support. See `docs/CHANGES-M7-R17.md`, `docs/CONFERENCE-INTEGRATIONS.md`, and `docs/UPGRADE-M7-R16-R1-TO-M7-R17.md`.

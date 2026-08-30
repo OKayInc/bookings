@@ -7,6 +7,7 @@ use App\Domain\Appointments\AppointmentTypeLogoService;
 use App\Domain\Appointments\AppointmentTypeSummaryService;
 use App\Domain\Contracts\ContractTemplateService;
 use App\Domain\Bookings\ShortNoticeFeeRuleService;
+use App\Domain\Conferences\ConferenceProviderCatalog;
 use App\Domain\Money\MoneyService;
 use App\Domain\Questionnaires\PercentageService;
 use App\Enums\AppointmentVisibility;
@@ -262,6 +263,7 @@ class AppointmentTypeController extends Controller
             'resources' => $context->organization()->resources()->where('resources.is_active', true)->orderBy('name')->get(),
             'visibilities' => AppointmentVisibility::cases(),
             'attendanceModes' => AttendanceMode::cases(),
+            'meetingProviders' => app(ConferenceProviderCatalog::class)->options($context->organization()),
             'durationModes' => DurationMode::cases(),
             'durationUnits' => DurationUnit::cases(),
             'bookingNoticeUnits' => BookingNoticeUnit::cases(),
@@ -282,6 +284,8 @@ class AppointmentTypeController extends Controller
 
         return [
             'attendance_mode' => $data['attendance_mode'],
+            'is_online' => $request->boolean('is_online'),
+            'meeting_provider' => $request->boolean('is_online') ? $data['meeting_provider'] : null,
             'capacity' => $data['attendance_mode'] === AttendanceMode::Single->value ? 1 : (int) $data['capacity'],
             'duration_mode' => $data['duration_mode'],
             'duration_unit' => $data['duration_unit'],

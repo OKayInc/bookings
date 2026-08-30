@@ -18,6 +18,7 @@ use App\Models\CalendarConnection;
 use App\Models\CalendarOauthState;
 use App\Models\Organization;
 use App\Models\OrganizationContact;
+use App\Models\OrganizationConferenceSetting;
 use App\Models\OrganizationMembership;
 use App\Models\Resource;
 use App\Models\User;
@@ -94,6 +95,13 @@ class OrganizationDeletionTest extends TestCase
 
         $organization->update(['logo_path' => 'organization-logos/delete/logo.png']);
         Storage::disk('public')->put($organization->logo_path, 'organization-logo');
+        OrganizationConferenceSetting::create([
+            'organization_id' => $organization->getKey(),
+            'zoom_account_id' => 'delete-account',
+            'zoom_client_id' => 'delete-client',
+            'zoom_client_secret' => 'delete-secret',
+            'zoom_host_user_id' => 'delete-host@example.test',
+        ]);
 
         $type = $this->appointmentType($organization, 'delete-session', 'appointment-type-logos/delete/logo.png');
         Storage::disk('public')->put($type->logo_path, 'appointment-type-logo');
@@ -206,6 +214,7 @@ class OrganizationDeletionTest extends TestCase
         $this->assertDatabaseCount('appointments', 0);
         $this->assertDatabaseCount('appointment_types', 0);
         $this->assertDatabaseCount('organization_contacts', 0);
+        $this->assertDatabaseCount('organization_conference_settings', 0);
         $this->assertDatabaseCount('appointment_contract_templates', 0);
         Storage::disk('public')->assertMissing('organization-logos/delete/logo.png');
         Storage::disk('public')->assertMissing('appointment-type-logos/delete/logo.png');

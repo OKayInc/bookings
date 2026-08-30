@@ -2,13 +2,14 @@
 
 namespace App\Domain\Questionnaires;
 
+use App\Models\Organization;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 class DrivingDistanceService
 {
-    public function between(string $originAddress, string $destinationAddress): int
+    public function between(string $originAddress, string $destinationAddress, ?Organization $organization = null): int
     {
         $originAddress = trim($originAddress);
         $destinationAddress = trim($destinationAddress);
@@ -17,14 +18,19 @@ class DrivingDistanceService
             throw new RuntimeException('A complete origin and destination are required to calculate driving distance.');
         }
 
-        $key = (string) config('questionnaire.google.routes_api_key');
+        $organization?->loadMissing('conferenceSettings');
+        $settings = $organization?->conferenceSettings;
+        $key = (string) ($settings?->google_routes_api_key
+            ?: $settings?->google_maps_api_key
+            ?: config('questionnaire.google.routes_api_key'));
         if ($key === '') {
-            throw new RuntimeException('Driving distance pricing is not configured. Set GOOGLE_ROUTES_API_KEY and enable Google Routes API.');
+            throw new RuntimeException('Driving distance pricing is not configured. Add a Google Routes API key in Organization > Settings or set GOOGLE_ROUTES_API_KEY.');
         }
 
         $cacheKey = 'questionnaire:driving-distance:'.hash(
             'sha256',
-            strtolower($originAddress).'|'.strtolower($destinationAddress),
+            ($organization === null ? 'platform' : bin2hex($organization->getKey()))
+                .'|'.strtolower($originAddress).'|'.strtolower($destinationAddress),
         );
 
         return Cache::remember(

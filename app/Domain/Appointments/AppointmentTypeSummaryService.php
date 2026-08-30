@@ -72,4 +72,13 @@ class AppointmentTypeSummaryService
             ? '1 attendee'
             : 'Up to '.number_format((int) $type->capacity).' attendees per session';
     }
+
+    public function location(AppointmentType $type): string
+    {
+        if (! $type->is_online || $type->meeting_provider === null) {
+            return 'In person or arranged by the organization';
+        }
+
+        return 'Online · '.$type->meeting_provider->label();
+    }
 }

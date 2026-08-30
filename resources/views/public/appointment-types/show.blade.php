@@ -17,6 +17,7 @@
     <div class="card"><h3>Duration</h3><p>{{ $summary->duration($type) }}</p></div>
     <div class="card"><h3>Price</h3><p>{{ $summary->pricing($type) }}</p>@if($type->pricing_mode->value === 'rate')<p class="muted">Example: {{ $examplePrice }}</p>@endif @if($type->shortNoticeFeeRules->where('is_active', true)->isNotEmpty())<p class="muted">An additional short-notice fee may apply after you select a start time.</p>@endif</div>
     <div class="card"><h3>Attendance</h3><p>{{ $summary->attendance($type) }}</p></div>
+    <div class="card"><h3>Location</h3><p>{{ $summary->location($type) }}</p></div>
     <div class="card"><h3>Booking notice</h3><p>{{ $summary->bookingNotice($type) }}</p></div>
 </div>
 

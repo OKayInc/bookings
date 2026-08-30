@@ -8,6 +8,7 @@ use App\Enums\BookingNoticeUnit;
 use App\Enums\DurationMode;
 use App\Enums\DurationUnit;
 use App\Enums\EmailVerificationMode;
+use App\Enums\ConferenceProvider;
 use App\Enums\PricingMode;
 use App\Models\Concerns\HasBinaryUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -32,6 +33,8 @@ class AppointmentType extends Model
         'access_password',
         'public_token',
         'attendance_mode',
+        'is_online',
+        'meeting_provider',
         'capacity',
         'duration_mode',
         'duration_unit',
@@ -69,6 +72,8 @@ class AppointmentType extends Model
         return [
             'visibility' => AppointmentVisibility::class,
             'attendance_mode' => AttendanceMode::class,
+            'is_online' => 'boolean',
+            'meeting_provider' => ConferenceProvider::class,
             'capacity' => 'integer',
             'duration_mode' => DurationMode::class,
             'duration_unit' => DurationUnit::class,

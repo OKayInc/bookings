@@ -21,6 +21,20 @@
     </div>
 </div>
 
+<?php if ($booking->appointment->meeting_provider && !in_array($booking->status->value, ['cancelled', 'declined'], true)): ?>
+<div class="card">
+    <h2>Online meeting · <?= e($booking->appointment->meeting_provider->label()) ?></h2>
+    <?php if ($booking->appointment->meeting_status === 'ready' && $booking->appointment->meeting_join_url): ?>
+        <p><a class="btn btn-primary" target="_blank" rel="noopener noreferrer" href="<?= e($booking->appointment->meeting_join_url) ?>">Join meeting</a></p>
+        <p class="muted">Keep this private meeting link with your booking details.</p>
+    <?php elseif ($booking->appointment->meeting_status === 'error'): ?>
+        <p>The organization is preparing the meeting link. Please check this page again later or contact them if the appointment is approaching.</p>
+    <?php else: ?>
+        <p class="muted">The meeting link is being prepared.</p>
+    <?php endif; ?>
+</div>
+<?php endif; ?>
+
 <?php echo view('public.bookings.partials.schedule-proposals-content', get_defined_vars())->render(); ?>
 <?php echo view('public.bookings.partials.questionnaire-answers-content', get_defined_vars())->render(); ?>
 

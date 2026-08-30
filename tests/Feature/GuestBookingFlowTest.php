@@ -78,6 +78,41 @@ class GuestBookingFlowTest extends TestCase
         Notification::assertSentOnDemand(BookingAccessEmail::class);
     }
 
+    public function test_online_jitsi_booking_provisions_a_unique_private_meeting_link(): void
+    {
+        Notification::fake();
+        [, $type] = $this->availableType();
+        $type->update(['is_online' => true, 'meeting_provider' => 'jitsi']);
+
+        $slots = $this->getJson(route('public.booking.slots', $type).'?'.http_build_query([
+            'access_mode' => 'direct',
+            'timezone' => 'America/Toronto',
+            'date' => '2026-08-31',
+            'duration_value' => 60,
+            'attendee_count' => 1,
+        ]))->assertOk();
+
+        $hold = $this->postJson(route('public.booking.holds.store', $type), [
+            'access_mode' => 'direct',
+            'timezone' => 'America/Toronto',
+            'starts_at_utc' => $slots->json('slots.0.starts_at_utc'),
+            'duration_value' => 60,
+            'attendee_count' => 1,
+        ])->assertOk();
+        $token = basename((string) parse_url($hold->json('continue_url'), PHP_URL_PATH));
+
+        $this->post(route('public.booking-holds.store', $token), [
+            'first_name' => 'Online',
+            'last_name' => 'Guest',
+            'email' => 'online@example.test',
+        ])->assertRedirect();
+
+        $appointment = Appointment::query()->firstOrFail();
+        $this->assertSame('jitsi', $appointment->meeting_provider->value);
+        $this->assertSame('ready', $appointment->meeting_status);
+        $this->assertStringStartsWith('https://meet.jit.si/appointment-to-', $appointment->meeting_join_url);
+    }
+
     private function availableType(): array
     {
         $organization = Organization::factory()->create([

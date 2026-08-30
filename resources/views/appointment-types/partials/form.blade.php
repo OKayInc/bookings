@@ -94,6 +94,34 @@
 </div>
 
 <div class="section-card">
+    <h2>Location</h2>
+    <input type="hidden" name="is_online" value="0">
+    <label class="inline-check">
+        <input id="is_online" type="checkbox" name="is_online" value="1" @checked((bool) old('is_online', $appointmentType?->is_online ?? false))>
+        This is an online appointment
+    </label>
+    <div id="meeting-provider-fields" style="margin-top:1rem">
+        @php
+            $selectedMeetingProvider = old('meeting_provider', $appointmentType?->meeting_provider?->value ?? 'jitsi');
+        @endphp
+        <div class="field">
+            <label for="meeting_provider">Meeting provider</label>
+            <select id="meeting_provider" name="meeting_provider">
+                @foreach($meetingProviders as $option)
+                    @php
+                        $provider = $option['provider'];
+                    @endphp
+                    <option value="{{ $provider->value }}" @selected($selectedMeetingProvider === $provider->value) @disabled(!$option['configured'] && $selectedMeetingProvider !== $provider->value)>
+                        {{ $provider->label() }}{{ $option['configured'] ? '' : ' — not configured' }}
+                    </option>
+                @endforeach
+            </select>
+            <div class="muted">Jitsi is always available. Owners and administrators configure organization-specific credentials under Organization &gt; Settings.</div>
+        </div>
+    </div>
+</div>
+
+<div class="section-card">
     <h2>Duration</h2>
     <div class="row">
         <div class="field">
@@ -553,6 +581,8 @@
     const visibility = document.getElementById('visibility');
     const passwordField = document.getElementById('password-field');
     const attendanceMode = document.getElementById('attendance_mode');
+    const online = document.getElementById('is_online');
+    const meetingProviderFields = document.getElementById('meeting-provider-fields');
     const capacityField = document.getElementById('capacity-field');
     const durationMode = document.getElementById('duration_mode');
     const fixedDuration = document.getElementById('fixed-duration-fields');
@@ -580,18 +610,21 @@
     function sync() {
         const passwordProtected = visibility.value === 'password_protected';
         const groupAttendance = attendanceMode.value === 'group';
+        const onlineAppointment = online.checked;
         const fixedDurationMode = durationMode.value === 'fixed';
         const fixedPricingMode = pricingMode.value === 'fixed';
         const ratePricingMode = pricingMode.value === 'rate';
 
         setSectionState(passwordField, passwordProtected);
         setSectionState(capacityField, groupAttendance);
+        setSectionState(meetingProviderFields, onlineAppointment);
         setSectionState(fixedDuration, fixedDurationMode);
         setSectionState(variableDuration, !fixedDurationMode);
         setSectionState(fixedPrice, fixedPricingMode);
         setSectionState(ratePrice, ratePricingMode);
 
         setRequired(document.getElementById('capacity'), groupAttendance);
+        setRequired(document.getElementById('meeting_provider'), onlineAppointment);
         setRequired(document.getElementById('duration_value'), fixedDurationMode);
         setRequired(document.getElementById('minimum_duration_value'), !fixedDurationMode);
         setRequired(document.getElementById('maximum_duration_value'), !fixedDurationMode);
@@ -601,7 +634,7 @@
         setRequired(document.getElementById('rate_unit'), ratePricingMode);
     }
 
-    [visibility, attendanceMode, durationMode, pricingMode].forEach((element) => element.addEventListener('change', sync));
+    [visibility, attendanceMode, online, durationMode, pricingMode].forEach((element) => element.addEventListener('change', sync));
     sync();
 })();
 </script>

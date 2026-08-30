@@ -15,6 +15,7 @@ use App\Http\Controllers\BookingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\OrganizationController;
+use App\Http\Controllers\OrganizationSettingsController;
 use App\Http\Controllers\OrganizationInvitationAcceptanceController;
 use App\Http\Controllers\OrganizationMemberController;
 use App\Http\Controllers\OrganizationHolidayController;
@@ -170,6 +171,8 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::middleware('organization')->group(function (): void {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
         Route::get('/admin/health', HealthController::class)->name('admin.health');
+        Route::get('/settings', [OrganizationSettingsController::class, 'edit'])->name('settings.edit');
+        Route::put('/settings', [OrganizationSettingsController::class, 'update'])->name('settings.update');
 
         Route::get('/calendar-connections', [CalendarConnectionController::class, 'index'])->name('calendar-connections.index');
         Route::get('/calendar-connections/resources/{resource}/{provider}/connect', [CalendarConnectionController::class, 'connect'])->name('calendar-connections.connect');
@@ -181,6 +184,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::post('/bookings/{booking}/confirmations/{confirmation}/respond', [BookingController::class, 'respondConfirmation'])->name('bookings.confirmations.respond');
         Route::post('/bookings/{booking}/confirmations/{confirmation}/remind', [BookingController::class, 'remindConfirmation'])->name('bookings.confirmations.remind');
         Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
+        Route::post('/bookings/{booking}/conference/retry', [BookingController::class, 'retryConference'])->name('bookings.conference.retry');
         Route::get('/bookings/{booking}/schedule-proposal/slots', [BookingController::class, 'scheduleProposalSlots'])->name('bookings.schedule-proposals.slots');
         Route::post('/bookings/{booking}/schedule-proposals', [BookingController::class, 'createScheduleProposal'])->name('bookings.schedule-proposals.store');
         Route::post('/bookings/{booking}/schedule-proposals/{proposal}/withdraw', [BookingController::class, 'withdrawScheduleProposal'])->name('bookings.schedule-proposals.withdraw');

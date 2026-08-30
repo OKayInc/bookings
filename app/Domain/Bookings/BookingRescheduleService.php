@@ -5,6 +5,7 @@ namespace App\Domain\Bookings;
 use App\Enums\AppointmentStatus;
 use App\Domain\Calendars\CalendarSyncService;
 use App\Domain\Calendars\CalendarAvailabilityService;
+use App\Domain\Conferences\ConferenceMeetingService;
 use App\Domain\Availability\AvailabilityInterval;
 use App\Domain\Availability\OrganizationHolidayService;
 use App\Domain\Availability\ResourceHolidayService;
@@ -30,6 +31,7 @@ class BookingRescheduleService
         private readonly BookingWorkflowService $workflow,
         private readonly AppointmentLifecycleService $lifecycle,
         private readonly CalendarSyncService $calendarSync,
+        private readonly ConferenceMeetingService $conferenceMeetings,
         private readonly CalendarAvailabilityService $externalCalendars,
         private readonly OrganizationHolidayService $holidays,
         private readonly ResourceHolidayService $resourceHolidays,
@@ -175,6 +177,7 @@ class BookingRescheduleService
         $this->lifecycle->cancelIfOrphaned($oldAppointment);
         $this->workflow->refreshStatus($updated);
         $updated = $updated->fresh(['appointment', 'appointmentType']);
+        $this->conferenceMeetings->safeSync($updated->appointment);
         $this->calendarSync->safeSyncAppointment($updated->appointment);
         Notification::route('mail', $updated->email)->notify(new BookingStatusChangedEmail($updated, 'Your booking has been rescheduled.'));
 
@@ -183,7 +186,7 @@ class BookingRescheduleService
 
     private function createAppointmentFromHold(BookingHold $hold): Appointment
     {
-        $hold->loadMissing('resources');
+        $hold->loadMissing(['resources', 'appointmentType']);
         $appointment = Appointment::create([
             'organization_id' => $hold->organization_id,
             'appointment_type_id' => $hold->appointment_type_id,
@@ -195,6 +198,8 @@ class BookingRescheduleService
             'duration_value' => $hold->duration_value,
             'capacity' => $hold->appointmentType()->value('capacity'),
             'status' => AppointmentStatus::Scheduled->value,
+            'meeting_provider' => $hold->appointmentType->is_online ? $hold->appointmentType->meeting_provider?->value : null,
+            'meeting_status' => $hold->appointmentType->is_online ? 'pending' : null,
         ]);
         $appointment->resources()->sync($hold->resources->mapWithKeys(fn ($resource) => [
             $resource->getKey() => [

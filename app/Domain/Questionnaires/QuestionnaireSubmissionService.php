@@ -52,6 +52,7 @@ class QuestionnaireSubmissionService
                 $distanceMeters[$question->uuid] = $this->drivingDistances->between(
                     (string) data_get($question->configuration, 'distance_pricing.origin_address', ''),
                     trim($value),
+                    $type->organization,
                 );
             } catch (RuntimeException $exception) {
                 throw new \InvalidArgumentException($exception->getMessage(), 0, $exception);
@@ -146,11 +147,16 @@ class QuestionnaireSubmissionService
                 }
             } elseif ($question->type === QuestionType::Address && $value) {
                 try {
-                    $normalized = $this->addresses->validate($value, data_get($question->configuration, 'region'));
+                    $normalized = $this->addresses->validate(
+                        $value,
+                        data_get($question->configuration, 'region'),
+                        $type->organization,
+                    );
                     if (data_get($question->configuration, 'distance_pricing.enabled', false)) {
                         $meters = $this->drivingDistances->between(
                             (string) data_get($question->configuration, 'distance_pricing.origin_address', ''),
                             trim((string) $value),
+                            $type->organization,
                         );
                         $distanceMeters[$question->uuid] = $meters;
                         $unit = (string) data_get($question->configuration, 'distance_pricing.unit', 'kilometer');

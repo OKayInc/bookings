@@ -93,6 +93,9 @@ class CalendarSyncService
         $type = $appointment->appointmentType; $organization = $type->organization;
         $summary = $type->name;
         $description = "Managed by Appointment Software\nOrganization: {$organization->name}\nAppointment UUID: {$appointment->uuid}";
+        if ($appointment->meeting_status === 'ready' && filled($appointment->meeting_join_url)) {
+            $description .= "\nOnline meeting: {$appointment->meeting_join_url}";
+        }
         if ($provider === 'google') {
             return [
                 'summary' => $summary, 'description' => $description,

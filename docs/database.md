@@ -1,4 +1,4 @@
-# Database — M7-R16
+# Database — M7-R17
 
 ## Core M1 tables retained
 
@@ -12,6 +12,12 @@
 - `appointment_contract_templates`
 
 All entity primary keys continue to use UUIDv7 encoded as `BINARY(16)`.
+
+## M7-R17 online conference settings
+
+Migration `2026_08_30_000056_add_online_conference_settings.php` creates one optional `organization_conference_settings` row per organization. Google questionnaire API keys, provider secrets, refresh tokens, and the reusable custom URL use Laravel encrypted casts, while non-secret provider identifiers remain queryable. The row cascades when its organization is deleted.
+
+`appointment_types.is_online` and `meeting_provider` define future meeting behavior. `appointments` snapshot the chosen provider and store the external meeting ID, encrypted attendee/host URLs, provisioning status, and a staff-visible error. Editing an appointment type or rotating organization credentials therefore does not silently switch the provider on an existing scheduled appointment.
 
 ## M7-R14 multi-day availability evaluation
 
@@ -83,6 +89,11 @@ M2 extends `appointment_types` with configuration fields rather than creating a 
 
 - `attendance_mode`: `single` or `group`
 - `capacity`: maximum total attendees in one scheduled session; `1` for single mode
+
+### Online meeting
+
+- `is_online`: whether new appointments require an online meeting;
+- `meeting_provider`: `google_meet`, `microsoft_teams`, `zoom`, `webex`, `jitsi`, or `custom` when online; otherwise `NULL`.
 
 ### Duration
 

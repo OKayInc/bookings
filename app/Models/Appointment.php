@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\AppointmentStatus;
+use App\Enums\ConferenceProvider;
 use App\Models\Concerns\HasBinaryUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,9 +19,11 @@ class Appointment extends Model
         'organization_id', 'appointment_type_id', 'starts_at_utc', 'ends_at_utc',
         'blocked_starts_at_utc', 'blocked_ends_at_utc', 'scheduling_timezone',
         'duration_value', 'capacity', 'status',
+        'meeting_provider', 'meeting_external_id', 'meeting_join_url', 'meeting_host_url',
+        'meeting_status', 'meeting_error',
     ];
 
-    protected $hidden = ['id', 'organization_id', 'appointment_type_id'];
+    protected $hidden = ['id', 'organization_id', 'appointment_type_id', 'meeting_join_url', 'meeting_host_url'];
     protected $appends = ['uuid'];
 
     protected function casts(): array
@@ -33,6 +36,9 @@ class Appointment extends Model
             'duration_value' => 'integer',
             'capacity' => 'integer',
             'status' => AppointmentStatus::class,
+            'meeting_provider' => ConferenceProvider::class,
+            'meeting_join_url' => 'encrypted',
+            'meeting_host_url' => 'encrypted',
         ];
     }
 

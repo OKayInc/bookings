@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Storage;
 
 class Organization extends Model
@@ -93,6 +94,11 @@ class Organization extends Model
     public function appointmentTypes(): HasMany
     {
         return $this->hasMany(AppointmentType::class);
+    }
+
+    public function conferenceSettings(): HasOne
+    {
+        return $this->hasOne(OrganizationConferenceSetting::class);
     }
 
     public function reusableQuestions(): HasMany

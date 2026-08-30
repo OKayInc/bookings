@@ -8,6 +8,7 @@ use App\Domain\Questionnaires\QuestionnairePricingService;
 use App\Domain\Questionnaires\QuestionnaireSubmission;
 use App\Domain\Calendars\CalendarSyncService;
 use App\Domain\Calendars\CalendarAvailabilityService;
+use App\Domain\Conferences\ConferenceMeetingService;
 use App\Domain\Availability\AvailabilityInterval;
 use App\Domain\Availability\OrganizationHolidayService;
 use App\Domain\Availability\ResourceHolidayService;
@@ -35,6 +36,7 @@ class BookingCreationService
         private readonly QuestionnairePricingService $questionnairePricing,
         private readonly QuestionnairePersistenceService $questionnairePersistence,
         private readonly CalendarSyncService $calendarSync,
+        private readonly ConferenceMeetingService $conferenceMeetings,
         private readonly CalendarAvailabilityService $externalCalendars,
         private readonly BookingResourceNotificationService $resourceNotifications,
         private readonly OrganizationHolidayService $holidays,
@@ -260,6 +262,7 @@ class BookingCreationService
             return $booking->fresh(['appointment', 'appointmentType', 'organization', 'contact', 'attendees', 'answers.files', 'priceLines', 'contractSubmissions.files']);
         }, 3);
 
+        $this->conferenceMeetings->safeSync($booking->appointment);
         $this->calendarSync->safeSyncAppointment($booking->appointment);
         $this->resourceNotifications->safeNotifyBookingCreated($booking);
 
@@ -283,6 +286,8 @@ class BookingCreationService
             'duration_value' => $hold->duration_value,
             'capacity' => $capacity,
             'status' => AppointmentStatus::Scheduled->value,
+            'meeting_provider' => $hold->appointmentType->is_online ? $hold->appointmentType->meeting_provider?->value : null,
+            'meeting_status' => $hold->appointmentType->is_online ? 'pending' : null,
         ]);
         $appointment->resources()->sync(
             $hold->resources->mapWithKeys(fn ($resource) => [

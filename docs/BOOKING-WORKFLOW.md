@@ -29,6 +29,17 @@ A one-to-one appointment has capacity 1. A group/class appointment can have seve
 9. Final booking transaction creates or joins an appointment/session, creates the booking/contact/attendees, snapshots price/currency, consumes the hold, and records invitation usage.
 10. Email verification, contract review, staff confirmation and future payment requirements determine booking status.
 
+## Online meetings
+
+When an appointment type is online, creating a new appointment/session snapshots its selected provider and provisions one meeting for the shared appointment—not one meeting per attendee booking. Group bookings that join the same appointment reuse its existing meeting URL.
+
+- Jitsi creates a unique, hard-to-guess room without provider credentials.
+- A custom provider snapshots the organization's reusable URL onto the appointment.
+- Google Meet, Microsoft Teams, Zoom, and Webex exchange the organization's encrypted credentials for short-lived access and call the provider meeting API.
+- Attendee and host URLs are encrypted at rest. Only the passwordless booking-management page exposes the attendee URL; the host URL remains backend-only.
+- Provider failure does not roll back an otherwise valid booking. Staff see the sanitized error and may retry after correcting organization settings.
+- Rescheduling to a new appointment provisions that appointment's own snapshotted provider meeting.
+
 ## Replacement resources
 
 An appointment type may assign two or more resources to the same named replacement group. Each group is a 1-of-N requirement:
