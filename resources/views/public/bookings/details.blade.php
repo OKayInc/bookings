@@ -10,6 +10,7 @@
         <p class="muted">Organization time: {{ $hold->starts_at_utc->setTimezone($organization->timezone)->format('l, F j, Y · g:i A') }} – {{ $hold->ends_at_utc->setTimezone($organization->timezone)->format('g:i A') }} · {{ $organization->timezone }}</p>
     @endif
     <p class="muted">This time is temporarily held until {{ $hold->expires_at_utc->setTimezone($hold->booking_timezone)->format('g:i A') }}.</p>
+    <p>{{ $hold->attendee_count }} attendee(s) reserved for this booking, including the primary client.</p>
 </div>
 
 @if($hold->contractTemplate)
@@ -67,7 +68,7 @@
 
     <div class="actions"><button class="btn btn-primary" type="submit">Submit booking</button><a class="btn" href="javascript:history.back()">Choose another time</a></div>
 </form>
-@if($type->questions->where('is_active',true)->isNotEmpty() || $type->shortNoticeFeeRules->where('is_active',true)->isNotEmpty())
+@if($type->questions->where('is_active',true)->isNotEmpty() || $type->shortNoticeFeeRules->where('is_active',true)->isNotEmpty() || $type->pricing_mode->value === 'per_attendee')
 <script>
 (function(){
  const form=document.querySelector('form.form-stack'); const total=document.getElementById('questionnaire-total'); const lines=document.getElementById('questionnaire-price-lines'); const questionElements=Array.from(document.querySelectorAll('.questionnaire-question')); let timer;

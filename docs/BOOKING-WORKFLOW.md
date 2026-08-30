@@ -1,5 +1,11 @@
 # M4 booking workflow
 
+## M7-R19 attendee pricing
+
+Per-attendee pricing is optional and restricted to group appointment types. Flat, absolute-range, and accumulative-range calculations use the attendee count of the individual booking, including its primary client. Other bookings in the same session do not move a client into a different price range. Group sessions remain shared: multiple clients may book remaining seats, subject to capacity and holds.
+
+The slots response includes the base price for the selected count. Changing booking filters invalidates that preview. After a hold is acquired, both checkout quotes and booking creation use its stored count, never a client-submitted replacement count or total. Percentage questionnaire extras use the calculated attendee base or subtotal, fixed extras retain their existing once/per-unit rules, and short-notice fees apply after extras. Saved base-price lines include the unit rate and quantity for each charged portion. Existing bookings retain their price when appointment-type pricing changes.
+
 ## M7-R18 seasonal gate
 
 An appointment type may define an inclusive one-time or yearly booking season in its organization's timezone. The season gate runs before a slot is offered and again during hold acquisition, final booking, and rescheduling. Existing group sessions are not offered for additional capacity after their date falls outside the current season configuration. Staff schedule-change proposals use the same availability/hold/reschedule services and therefore cannot bypass it.

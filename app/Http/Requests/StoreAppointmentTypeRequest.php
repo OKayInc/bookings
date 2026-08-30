@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Domain\Appointments\AttendeePricingService;
+use App\Enums\AttendeePricingMode;
 use App\Enums\AppointmentVisibility;
 use App\Enums\AttendanceMode;
 use App\Enums\BookingNoticeUnit;
@@ -36,6 +38,8 @@ class StoreAppointmentTypeRequest extends FormRequest
     public function rules(): array
     {
         $currency = app(OrganizationContext::class)->organization()->currency;
+        $usesAttendeeRanges = fn (): bool => $this->input('pricing_mode') === PricingMode::PerAttendee->value
+            && in_array($this->input('attendee_pricing_mode'), [AttendeePricingMode::Absolute->value, AttendeePricingMode::Accumulative->value], true);
 
         return [
             'name' => ['required', 'string', 'max:180'],
@@ -122,6 +126,23 @@ class StoreAppointmentTypeRequest extends FormRequest
                 Rule::requiredIf(fn (): bool => $this->input('pricing_mode') === PricingMode::Fixed->value),
                 'nullable', new MoneyAmount($currency),
             ],
+            'attendee_price' => [
+                Rule::requiredIf(fn (): bool => $this->input('pricing_mode') === PricingMode::PerAttendee->value
+                    && $this->input('attendee_pricing_mode') === AttendeePricingMode::Flat->value),
+                'nullable', new MoneyAmount($currency),
+            ],
+            'attendee_pricing_mode' => [
+                Rule::requiredIf(fn (): bool => $this->input('pricing_mode') === PricingMode::PerAttendee->value),
+                'nullable', Rule::enum(AttendeePricingMode::class),
+            ],
+            'attendee_price_ranges' => [
+                Rule::excludeIf(fn (): bool => ! $usesAttendeeRanges()),
+                Rule::requiredIf($usesAttendeeRanges),
+                'array', 'min:1', 'max:50',
+            ],
+            'attendee_price_ranges.*.min_attendees' => ['required', 'integer', 'min:1', 'max:'.config('appointment-types.max_capacity', 100000)],
+            'attendee_price_ranges.*.max_attendees' => ['required', 'integer', 'min:1', 'max:'.config('appointment-types.max_capacity', 100000)],
+            'attendee_price_ranges.*.unit_price' => ['required', new MoneyAmount($currency)],
             'rate_amount' => [
                 Rule::requiredIf(fn (): bool => $this->input('pricing_mode') === PricingMode::Rate->value),
                 'nullable', new MoneyAmount($currency),
@@ -182,6 +203,12 @@ class StoreAppointmentTypeRequest extends FormRequest
     {
         $validator->after(function (Validator $validator): void {
             $this->validateSeason($validator);
+            $this->validateAttendeePricing($validator);
+
+            if ($this->input('pricing_mode') === PricingMode::PerAttendee->value
+                && $this->input('attendance_mode') !== AttendanceMode::Group->value) {
+                $validator->errors()->add('pricing_mode', 'Per-attendee pricing is only available for group appointment types.');
+            }
 
             if ($this->boolean('is_online')) {
                 $provider = ConferenceProvider::tryFrom((string) $this->input('meeting_provider', ''));
@@ -402,6 +429,40 @@ class StoreAppointmentTypeRequest extends FormRequest
                 }
             }
         });
+    }
+
+    private function validateAttendeePricing(Validator $validator): void
+    {
+        if ($this->input('pricing_mode') !== PricingMode::PerAttendee->value
+            || array_filter($validator->errors()->keys(), fn (string $key): bool =>
+                str_starts_with($key, 'attendee_') || in_array($key, ['attendance_mode', 'capacity'], true)) !== []) {
+            return;
+        }
+
+        $mode = AttendeePricingMode::tryFrom((string) $this->input('attendee_pricing_mode'));
+        if ($mode === null) {
+            return;
+        }
+
+        $money = app(MoneyService::class);
+        $currency = app(OrganizationContext::class)->organization()->currency;
+        try {
+            $ranges = $mode === AttendeePricingMode::Flat ? [] : array_map(fn (array $range): array => [
+                'min_attendees' => (int) $range['min_attendees'],
+                'max_attendees' => (int) $range['max_attendees'],
+                'unit_amount_minor' => $money->parse($range['unit_price'], $currency),
+            ], $this->input('attendee_price_ranges', []));
+            $type = new \App\Models\AppointmentType([
+                'attendance_mode' => $this->input('attendance_mode'),
+                'capacity' => (int) $this->input('capacity'),
+                'attendee_pricing_mode' => $mode,
+                'attendee_price_minor' => $mode === AttendeePricingMode::Flat ? $money->parse($this->input('attendee_price'), $currency) : null,
+                'attendee_price_ranges' => $ranges,
+            ]);
+            app(AttendeePricingService::class)->breakdown($type, (int) $type->capacity);
+        } catch (\InvalidArgumentException $exception) {
+            $validator->errors()->add($mode === AttendeePricingMode::Flat ? 'attendee_price' : 'attendee_price_ranges', $exception->getMessage());
+        }
     }
 
     private function validateSeason(Validator $validator): void

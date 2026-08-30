@@ -1,4 +1,4 @@
-# Database — M7-R18
+# Database — M7-R19
 
 ## Core M1 tables retained
 
@@ -12,6 +12,12 @@
 - `appointment_contract_templates`
 
 All entity primary keys continue to use UUIDv7 encoded as `BINARY(16)`.
+
+## M7-R19 per-attendee pricing
+
+Migration `2026_08_30_000058_add_attendee_pricing_to_appointment_types.php` adds nullable `attendee_price_minor BIGINT UNSIGNED`, `attendee_pricing_mode VARCHAR(16)` defaulting to `flat`, and nullable `attendee_price_ranges JSON`. The existing `pricing_mode` string accepts `per_attendee` only for group attendance.
+
+The attendee calculation is `flat`, `absolute`, or `accumulative`. Range JSON contains integer `min_attendees`, `max_attendees`, and `unit_amount_minor` values. Inclusive ranges must start at 1, be contiguous without overlaps, and cover at least the session capacity. Existing `booking_price_lines` snapshot each charged portion, its quantity, unit price, and range metadata; no historical prices are rewritten.
 
 ## M7-R18 appointment-type booking seasons
 

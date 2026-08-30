@@ -170,13 +170,17 @@ class BookingCreationService
             $appointment = $this->appointmentForHold($hold, $type->capacity);
             $this->assertCapacity($appointment, (int) $hold->attendee_count);
 
-            $basePriceMinor = $this->pricing->priceForDuration($type, (int) $hold->duration_value, $type->duration_unit);
+            $basePriceMinor = $this->pricing->priceForBooking($type, (int) $hold->duration_value, $type->duration_unit, (int) $hold->attendee_count);
             $questionnaire ??= new QuestionnaireSubmission([], $this->questionnairePricing->quote(
                 $type,
                 (int) $hold->duration_value,
                 [],
                 CarbonImmutable::instance($hold->starts_at_utc)->utc(),
+                attendeeCount: (int) $hold->attendee_count,
             ));
+            if ($questionnaire->quote->basePriceMinor !== $basePriceMinor) {
+                throw new RuntimeException('The appointment price has changed. Please review the price and submit the booking again.');
+            }
             $priceMinor = $questionnaire->quote->totalMinor;
             $requiresVerification = $type->email_verification_mode !== EmailVerificationMode::None
                 && $contact->email_verified_at === null;

@@ -67,7 +67,7 @@ class PublicBookingController extends Controller
                 $timezone,
                 (int) $data['attendee_count'],
             );
-            $price = $pricing->priceForDuration($appointmentType, $duration, $appointmentType->duration_unit);
+            $price = $pricing->priceForBooking($appointmentType, $duration, $appointmentType->duration_unit, (int) $data['attendee_count']);
         } catch (\InvalidArgumentException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
@@ -160,6 +160,7 @@ class PublicBookingController extends Controller
                 (int) $hold->duration_value,
                 $answers,
                 CarbonImmutable::instance($hold->starts_at_utc)->utc(),
+                attendeeCount: (int) $hold->attendee_count,
             );
         } catch (\InvalidArgumentException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
@@ -212,6 +213,7 @@ class PublicBookingController extends Controller
             $hold->appointmentType,
             (int) $hold->duration_value,
             CarbonImmutable::instance($hold->starts_at_utc)->utc(),
+            attendeeCount: (int) $hold->attendee_count,
         );
         $files = array_values($request->file('contract_files', []));
         $this->validateContractSet($files);

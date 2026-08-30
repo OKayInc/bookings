@@ -9,15 +9,29 @@ use InvalidArgumentException;
 
 class AppointmentTypePricingService
 {
+    public function __construct(private readonly AttendeePricingService $attendees)
+    {
+    }
+
     public function priceForDuration(
         AppointmentType $appointmentType,
         ?int $durationValue = null,
         DurationUnit|string|null $durationUnit = null,
     ): int {
+        return $this->priceForBooking($appointmentType, $durationValue, $durationUnit);
+    }
+
+    public function priceForBooking(
+        AppointmentType $appointmentType,
+        ?int $durationValue = null,
+        DurationUnit|string|null $durationUnit = null,
+        int $attendeeCount = 1,
+    ): int {
         return match ($appointmentType->pricing_mode) {
             PricingMode::Free => 0,
             PricingMode::Fixed => (int) ($appointmentType->fixed_price_minor ?? 0),
             PricingMode::Rate => $this->ratePrice($appointmentType, $durationValue, $durationUnit),
+            PricingMode::PerAttendee => $this->attendees->total($this->attendees->breakdown($appointmentType, $attendeeCount)),
         };
     }
 

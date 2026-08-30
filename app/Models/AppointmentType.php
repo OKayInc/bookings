@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\AppointmentVisibility;
 use App\Enums\AttendanceMode;
+use App\Enums\AttendeePricingMode;
 use App\Enums\BookingNoticeUnit;
 use App\Enums\DurationMode;
 use App\Enums\DurationUnit;
@@ -56,6 +57,9 @@ class AppointmentType extends Model
         'buffer_after_minutes',
         'pricing_mode',
         'fixed_price_minor',
+        'attendee_price_minor',
+        'attendee_pricing_mode',
+        'attendee_price_ranges',
         'rate_amount_minor',
         'rate_unit',
         'requires_resource_confirmation',
@@ -99,6 +103,9 @@ class AppointmentType extends Model
             'buffer_after_minutes' => 'integer',
             'pricing_mode' => PricingMode::class,
             'fixed_price_minor' => 'integer',
+            'attendee_price_minor' => 'integer',
+            'attendee_pricing_mode' => AttendeePricingMode::class,
+            'attendee_price_ranges' => 'array',
             'rate_amount_minor' => 'integer',
             'rate_unit' => DurationUnit::class,
             'requires_resource_confirmation' => 'boolean',

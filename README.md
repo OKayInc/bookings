@@ -207,3 +207,7 @@ Organization settings now store encrypted Google questionnaire API keys plus Goo
 ## M7-R18: recurring booking seasons
 
 Appointment types can now be restricted to an inclusive one-time or yearly recurring date window in the organization's timezone, including seasons that cross New Year. Off-season types are hidden from the public organization catalog, complete appointments must fit inside the season, and holds/bookings/reschedules are revalidated server-side. Existing appointment types remain year-round. See `docs/CHANGES-M7-R18.md` and `docs/UPGRADE-M7-R17-TO-M7-R18.md`.
+
+## M7-R19: group per-attendee pricing
+
+Group appointment types can charge a flat rate per attendee, use absolute ranges (the matching unit price applies to every attendee), or accumulative ranges (each portion uses its own unit price). Each booking is priced only for its own attendees. Public previews, checkout quotes, and saved booking price lines use the authoritative held attendee count. See `docs/CHANGES-M7-R19.md` and `docs/UPGRADE-M7-R18-TO-M7-R19.md`.

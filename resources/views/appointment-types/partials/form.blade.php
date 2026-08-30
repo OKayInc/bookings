@@ -367,10 +367,11 @@
     <h2>Pricing</h2>
     <div class="field">
         <label for="pricing_mode">Pricing mode</label>
-        <select name="pricing_mode" id="pricing_mode">
+        <select name="pricing_mode" id="pricing_mode" required>
+            <option value="" disabled>Choose a pricing mode</option>
             @foreach($pricingModes as $mode)
-                <option value="{{ $mode->value }}" @selected(old('pricing_mode', $appointmentType?->pricing_mode?->value ?? 'free') === $mode->value)>
-                    {{ ucfirst($mode->value) }}
+                <option value="{{ $mode->value }}" @selected(old('pricing_mode', $appointmentType?->pricing_mode?->value ?? 'free') === $mode->value) @disabled($mode->value === 'per_attendee' && old('attendance_mode', $appointmentType?->attendance_mode?->value ?? 'single') !== 'group') @if($mode->value === 'per_attendee' && old('attendance_mode', $appointmentType?->attendance_mode?->value ?? 'single') !== 'group') hidden @endif>
+                    {{ $mode->label() }}
                 </option>
             @endforeach
         </select>
@@ -380,6 +381,35 @@
     <div class="field" id="fixed-price-fields">
         <label for="fixed_price">Fixed total price ({{ $organization->currency }})</label>
         <input id="fixed_price" inputmode="decimal" name="fixed_price" value="{{ old('fixed_price', $fixedPriceInput) }}" placeholder="150.00">
+    </div>
+
+    <div id="attendee-price-fields">
+        <div class="field">
+            <label for="attendee_pricing_mode">Per-attendee calculation</label>
+            <select id="attendee_pricing_mode" name="attendee_pricing_mode">
+                @foreach($attendeePricingModes as $mode)
+                    <option value="{{ $mode->value }}" @selected(old('attendee_pricing_mode', $appointmentType?->attendee_pricing_mode?->value ?? 'flat') === $mode->value)>{{ $mode->label() }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div id="attendee-flat-fields" class="field">
+            <label for="attendee_price">Price per attendee ({{ $organization->currency }})</label>
+            <input id="attendee_price" inputmode="decimal" name="attendee_price" value="{{ old('attendee_price', $attendeePriceInput) }}" placeholder="25.00">
+        </div>
+        <div id="attendee-range-fields">
+            <p class="muted">For rates 1–10 at $2 and 11–20 at $1.50: <strong>Absolute</strong> charges 12 × $1.50 = $18 for 12 attendees; <strong>Accumulative</strong> charges 10 × $2 + 2 × $1.50 = $23.</p>
+            <div id="attendee-price-range-list">
+                @foreach(old('attendee_price_ranges', $attendeePriceRangeInputs) as $rangeIndex => $range)
+                    @include('appointment-types.partials.attendee-price-range', ['rangeIndex' => $rangeIndex, 'range' => $range])
+                @endforeach
+            </div>
+            <button type="button" class="btn" id="add-attendee-price-range">Add attendee range</button>
+            <p class="muted">Bounds are inclusive whole numbers. Cover every attendee count from 1 through the session capacity, without gaps or overlaps. Every rate must be greater than zero.</p>
+            <template id="attendee-price-range-template">
+                @include('appointment-types.partials.attendee-price-range', ['rangeIndex' => '__INDEX__', 'range' => []])
+            </template>
+        </div>
+        <p class="muted">Each booking is priced using only its own attendee count, including the primary client—not the total seats booked by other clients. Questionnaire extras retain their configured rules. Group sessions allow other clients to book remaining seats.</p>
     </div>
 
     <div id="rate-price-fields">
@@ -623,11 +653,31 @@
     const pricingMode = document.getElementById('pricing_mode');
     const fixedPrice = document.getElementById('fixed-price-fields');
     const ratePrice = document.getElementById('rate-price-fields');
+    const attendeePrice = document.getElementById('attendee-price-fields');
+    const attendeePricingMode = document.getElementById('attendee_pricing_mode');
+    const attendeeFlatFields = document.getElementById('attendee-flat-fields');
+    const attendeeRangeFields = document.getElementById('attendee-range-fields');
+    const attendeeRangeList = document.getElementById('attendee-price-range-list');
+    const attendeeRangeTemplate = document.getElementById('attendee-price-range-template');
+    const addAttendeeRange = document.getElementById('add-attendee-price-range');
+    const perAttendeeOption = pricingMode.querySelector('option[value="per_attendee"]');
+    let nextAttendeeRange = Array.from(attendeeRangeList.children).reduce((max, row) => Math.max(max, Number(row.dataset.index) || 0), -1) + 1;
+
+    function addRange() {
+        const previous = attendeeRangeList.lastElementChild;
+        const nextMin = previous ? Number(previous.querySelector('[data-range-max]').value) + 1 : 1;
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = attendeeRangeTemplate.innerHTML.replaceAll('__INDEX__', String(nextAttendeeRange++));
+        const row = wrapper.firstElementChild;
+        row.querySelector('[data-range-min]').value = nextMin;
+        row.querySelector('[data-range-max]').value = Math.max(nextMin, Number(document.getElementById('capacity').value) || 1);
+        attendeeRangeList.appendChild(row);
+    }
 
     function setSectionState(section, enabled) {
         section.style.display = enabled ? 'block' : 'none';
 
-        section.querySelectorAll('input, select, textarea').forEach((control) => {
+        section.querySelectorAll('input, select, textarea, button').forEach((control) => {
             control.disabled = !enabled;
         });
     }
@@ -646,8 +696,15 @@
         const onlineAppointment = online.checked;
         const seasonalAppointment = seasonalAvailability.checked;
         const fixedDurationMode = durationMode.value === 'fixed';
+        perAttendeeOption.hidden = !groupAttendance;
+        perAttendeeOption.disabled = !groupAttendance;
+        if (!groupAttendance && pricingMode.value === 'per_attendee') pricingMode.value = '';
         const fixedPricingMode = pricingMode.value === 'fixed';
         const ratePricingMode = pricingMode.value === 'rate';
+        const attendeePricing = groupAttendance && pricingMode.value === 'per_attendee';
+        const flatAttendeePricing = attendeePricing && attendeePricingMode.value === 'flat';
+        const rangedAttendeePricing = attendeePricing && !flatAttendeePricing;
+        if (rangedAttendeePricing && attendeeRangeList.children.length === 0) addRange();
 
         setSectionState(passwordField, passwordProtected);
         setSectionState(capacityField, groupAttendance);
@@ -657,6 +714,11 @@
         setSectionState(variableDuration, !fixedDurationMode);
         setSectionState(fixedPrice, fixedPricingMode);
         setSectionState(ratePrice, ratePricingMode);
+        setSectionState(attendeePrice, attendeePricing);
+        setSectionState(attendeeFlatFields, flatAttendeePricing);
+        setSectionState(attendeeRangeFields, rangedAttendeePricing);
+        attendeeRangeList.querySelectorAll('input').forEach((input) => { input.required = rangedAttendeePricing; });
+        addAttendeeRange.disabled = !rangedAttendeePricing || attendeeRangeList.children.length >= 50;
 
         setRequired(document.getElementById('capacity'), groupAttendance);
         setRequired(document.getElementById('meeting_provider'), onlineAppointment);
@@ -670,9 +732,16 @@
         setRequired(document.getElementById('fixed_price'), fixedPricingMode);
         setRequired(document.getElementById('rate_amount'), ratePricingMode);
         setRequired(document.getElementById('rate_unit'), ratePricingMode);
+        setRequired(attendeePricingMode, attendeePricing);
+        setRequired(document.getElementById('attendee_price'), flatAttendeePricing);
     }
 
-    [visibility, attendanceMode, online, seasonalAvailability, durationMode, pricingMode].forEach((element) => element.addEventListener('change', sync));
+    [visibility, attendanceMode, online, seasonalAvailability, durationMode, pricingMode, attendeePricingMode].forEach((element) => element.addEventListener('change', sync));
+    addAttendeeRange.addEventListener('click', () => { addRange(); sync(); });
+    attendeeRangeList.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-remove-attendee-range]');
+        if (button) { button.closest('[data-index]').remove(); sync(); }
+    });
     sync();
 })();
 </script>

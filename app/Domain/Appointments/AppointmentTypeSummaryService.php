@@ -5,6 +5,7 @@ namespace App\Domain\Appointments;
 use App\Domain\Bookings\BookingNoticeService;
 use App\Domain\Money\MoneyService;
 use App\Enums\AttendanceMode;
+use App\Enums\AttendeePricingMode;
 use App\Enums\DurationMode;
 use App\Enums\PricingMode;
 use App\Enums\SeasonRecurrence;
@@ -44,6 +45,11 @@ class AppointmentTypeSummaryService
         return match ($type->pricing_mode) {
             PricingMode::Free => 'Free',
             PricingMode::Fixed => $this->money->format((int) $type->fixed_price_minor, $currency),
+            PricingMode::PerAttendee => match ($type->attendee_pricing_mode ?? AttendeePricingMode::Flat) {
+                AttendeePricingMode::Flat => $this->money->format((int) $type->attendee_price_minor, $currency).' / attendee',
+                AttendeePricingMode::Absolute => 'Per attendee · absolute ranges',
+                AttendeePricingMode::Accumulative => 'Per attendee · accumulative ranges',
+            },
             PricingMode::Rate => sprintf(
                 '%s / %s',
                 $this->money->format((int) $type->rate_amount_minor, $currency),

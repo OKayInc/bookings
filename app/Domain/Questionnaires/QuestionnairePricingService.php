@@ -1,8 +1,12 @@
 <?php
 namespace App\Domain\Questionnaires;
 use App\Domain\Appointments\AppointmentTypePricingService;
+use App\Domain\Appointments\AttendeePricingService;
+use App\Domain\Money\MoneyService;
 use App\Domain\Bookings\ShortNoticeFeeService;
 use App\Enums\PricingAdjustmentType;
+use App\Enums\PricingMode;
+use App\Enums\AttendeePricingMode;
 use App\Enums\PricingPercentageBasis;
 use App\Enums\QuestionType;
 use App\Models\AppointmentType;
@@ -13,6 +17,8 @@ class QuestionnairePricingService {
    private DrivingDistancePricingService $drivingDistancePricing,
    private ShortNoticeFeeService $shortNoticeFees,
    private QuestionVisibilityService $visibility,
+   private AttendeePricingService $attendeePricing,
+   private MoneyService $money,
  ) {}
  public function quote(
    AppointmentType $type,
@@ -21,10 +27,24 @@ class QuestionnairePricingService {
    ?CarbonImmutable $startsAtUtc = null,
    ?CarbonImmutable $nowUtc = null,
    array $drivingDistancesMeters = [],
+   int $attendeeCount = 1,
  ): QuestionnaireQuote {
    $visibleQuestions=$this->visibility->visibleQuestions($type,$answers);
-   $base=$this->basePricing->priceForDuration($type,$durationValue,$type->duration_unit); $total=$base;
+   $base=$this->basePricing->priceForBooking($type,$durationValue,$type->duration_unit,$attendeeCount); $total=$base;
    $lines=[new QuestionnairePriceLine('appointment_type',$type->uuid,'Base appointment price','base','1',$base)];
+   if ($type->pricing_mode===PricingMode::PerAttendee) {
+     $mode=$type->attendee_pricing_mode??AttendeePricingMode::Flat;
+     $lines=[];
+     foreach ($this->attendeePricing->breakdown($type,$attendeeCount) as $line) {
+       $label=$mode===AttendeePricingMode::Flat?'Per-attendee price':
+         ($mode===AttendeePricingMode::Absolute?'Absolute range ':'Attendees ').$line['min_attendees'].'–'.$line['max_attendees'];
+       $label.=' ('.$this->money->format($line['unit_amount_minor'],$type->organization->currency).' each)';
+       $lines[]=new QuestionnairePriceLine('appointment_type',$type->uuid,$label,'base',(string)$line['quantity'],$line['amount_minor'],[
+         'pricing_mode'=>'per_attendee','attendee_pricing_mode'=>$mode->value,'attendee_count'=>$attendeeCount,
+         'unit_amount_minor'=>$line['unit_amount_minor'],'min_attendees'=>$line['min_attendees'],'max_attendees'=>$line['max_attendees'],
+       ]);
+     }
+   }
    foreach ($visibleQuestions as $q) {
      $raw=$answers[$q->uuid] ?? null;
      if ($q->type->hasOptions()) {

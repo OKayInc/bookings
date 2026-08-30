@@ -15,7 +15,23 @@
 
 <div class="grid">
     <div class="card"><h3>Duration</h3><p>{{ $summary->duration($type) }}</p></div>
-    <div class="card"><h3>Price</h3><p>{{ $summary->pricing($type) }}</p>@if($type->pricing_mode->value === 'rate')<p class="muted">Example: {{ $examplePrice }}</p>@endif @if($type->shortNoticeFeeRules->where('is_active', true)->isNotEmpty())<p class="muted">An additional short-notice fee may apply after you select a start time.</p>@endif</div>
+    <div class="card">
+        <h3>Price</h3><p>{{ $summary->pricing($type) }}</p>
+        @if($type->pricing_mode->value === 'rate')<p class="muted">Example: {{ $examplePrice }}</p>@endif
+        @if($type->pricing_mode->value === 'per_attendee')
+            @if(($type->attendee_pricing_mode?->value ?? 'flat') !== 'flat')
+                <table class="table">
+                    <thead><tr><th>Attendees</th><th>Price per attendee</th></tr></thead>
+                    <tbody>@foreach($type->attendee_price_ranges ?? [] as $range)
+                        <tr><td>{{ $range['min_attendees'] }}–{{ $range['max_attendees'] }}</td><td>{{ app(\App\Domain\Money\MoneyService::class)->format($range['unit_amount_minor'], $organization->currency) }}</td></tr>
+                    @endforeach</tbody>
+                </table>
+                <p class="muted">{{ $type->attendee_pricing_mode->value === 'absolute' ? 'The range matching your booking’s attendee count sets the rate for every attendee in your booking.' : 'Each portion of your booking’s attendees is charged at its range’s rate, then the portions are added together.' }}</p>
+            @endif
+            <p class="muted">Your base total uses the number of attendees in your booking, including you.</p>
+        @endif
+        @if($type->shortNoticeFeeRules->where('is_active', true)->isNotEmpty())<p class="muted">An additional short-notice fee may apply after you select a start time.</p>@endif
+    </div>
     <div class="card"><h3>Attendance</h3><p>{{ $summary->attendance($type) }}</p></div>
     <div class="card"><h3>Location</h3><p>{{ $summary->location($type) }}</p></div>
     <div class="card"><h3>Season</h3><p>{{ $summary->season($type) }}</p></div>
@@ -65,7 +81,7 @@
             <div class="field">
                 <label for="attendee_count">Number of attendees</label>
                 <input id="attendee_count" type="number" min="1" max="{{ $type->capacity }}" value="1" required>
-                <div class="muted">Maximum {{ $type->capacity }} attendees per booking.</div>
+                <div class="muted">Session capacity: {{ $type->capacity }} attendees. Other clients may book remaining seats.</div>
             </div>
         @else
             <input id="attendee_count" type="hidden" value="1">
@@ -104,6 +120,7 @@
     const list = document.getElementById('slot-list');
     const message = document.getElementById('slot-message');
     const price = document.getElementById('price-preview');
+    let slotRequestVersion = 0;
 
     const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (detected && [...timezone.options].some(option => option.value === detected)) timezone.value = detected;
@@ -112,20 +129,23 @@
     date.value = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
 
     async function loadSlots() {
+        const requestVersion = ++slotRequestVersion;
         list.innerHTML = '';
+        price.textContent = '';
         message.textContent = 'Checking availability…';
-        const params = new URLSearchParams({
-            access_mode: accessMode,
+        const selection = {
             timezone: timezone.value,
             date: date.value,
             duration_value: duration.value,
             attendee_count: attendees.value,
-        });
+        };
+        const params = new URLSearchParams({access_mode: accessMode, ...selection});
         if (accessToken) params.set('access_token', accessToken);
 
         try {
             const response = await fetch(`${slotsUrl}?${params}`, {headers: {'Accept': 'application/json'}});
             const data = await response.json();
+            if (requestVersion !== slotRequestVersion) return;
             if (!response.ok) throw new Error(data.message || 'Unable to load availability.');
             price.textContent = `Base total before questionnaire extras or applicable short-notice fees: ${data.price_display}`;
             message.textContent = data.slots.length ? '' : 'No available times were found for this date.';
@@ -137,15 +157,15 @@
                 const alt = data.timezone === organizationTimezone ? '' : `<small>${slot.organization_label} · ${organizationTimezone}</small>`;
                 const capacity = slot.remaining_capacity > 1 ? `<small>${slot.remaining_capacity} spaces currently available</small>` : '';
                 button.innerHTML = `<strong>${slot.client_label}</strong><small>${data.timezone}</small>${alt}${capacity}`;
-                button.addEventListener('click', () => reserve(slot.starts_at_utc, button));
+                button.addEventListener('click', () => reserve(slot.starts_at_utc, button, selection));
                 list.appendChild(button);
             });
         } catch (error) {
-            message.textContent = error.message;
+            if (requestVersion === slotRequestVersion) message.textContent = error.message;
         }
     }
 
-    async function reserve(startsAtUtc, button) {
+    async function reserve(startsAtUtc, button, selection) {
         [...list.querySelectorAll('button')].forEach(item => item.disabled = true);
         button.textContent = 'Reserving…';
         try {
@@ -155,10 +175,10 @@
                 body: JSON.stringify({
                     access_mode: accessMode,
                     access_token: accessToken,
-                    timezone: timezone.value,
+                    timezone: selection.timezone,
                     starts_at_utc: startsAtUtc,
-                    duration_value: Number(duration.value),
-                    attendee_count: Number(attendees.value),
+                    duration_value: Number(selection.duration_value),
+                    attendee_count: Number(selection.attendee_count),
                 }),
             });
             const data = await response.json();
@@ -171,6 +191,12 @@
     }
 
     document.getElementById('load-slots').addEventListener('click', loadSlots);
+    [timezone, date, duration, attendees].forEach(control => control.addEventListener('input', () => {
+        slotRequestVersion++;
+        list.innerHTML = '';
+        price.textContent = '';
+        message.textContent = 'Selection changed. Show available times again to update availability and pricing.';
+    }));
 })();
 </script>
 @endsection

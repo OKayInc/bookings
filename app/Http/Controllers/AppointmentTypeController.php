@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Domain\Appointments\AppointmentTypeDeletionService;
 use App\Domain\Appointments\AppointmentTypeLogoService;
 use App\Domain\Appointments\AppointmentTypeSummaryService;
+use App\Domain\Appointments\AttendeePricingService;
 use App\Domain\Contracts\ContractTemplateService;
 use App\Domain\Bookings\ShortNoticeFeeRuleService;
 use App\Domain\Conferences\ConferenceProviderCatalog;
@@ -12,6 +13,7 @@ use App\Domain\Money\MoneyService;
 use App\Domain\Questionnaires\PercentageService;
 use App\Enums\AppointmentVisibility;
 use App\Enums\AttendanceMode;
+use App\Enums\AttendeePricingMode;
 use App\Enums\BookingNoticeUnit;
 use App\Enums\DurationMode;
 use App\Enums\DurationUnit;
@@ -51,6 +53,8 @@ class AppointmentTypeController extends Controller
 
         return view('appointment-types.create', array_merge($this->formData($context), [
             'fixedPriceInput' => '',
+            'attendeePriceInput' => '',
+            'attendeePriceRangeInputs' => [],
             'rateAmountInput' => '',
             'shortNoticeFeeInputs' => [],
         ]));
@@ -133,6 +137,14 @@ class AppointmentTypeController extends Controller
                 'rateAmountInput' => $appointmentType->rate_amount_minor === null
                     ? ''
                     : $money->decimal((int) $appointmentType->rate_amount_minor, $context->organization()->currency),
+                'attendeePriceInput' => $appointmentType->attendee_price_minor === null
+                    ? ''
+                    : $money->decimal((int) $appointmentType->attendee_price_minor, $context->organization()->currency),
+                'attendeePriceRangeInputs' => array_map(fn (array $range): array => [
+                    'min_attendees' => $range['min_attendees'],
+                    'max_attendees' => $range['max_attendees'],
+                    'unit_price' => $money->decimal($range['unit_amount_minor'], $context->organization()->currency),
+                ], $appointmentType->attendee_price_ranges ?? []),
                 'shortNoticeFeeInputs' => $appointmentType->shortNoticeFeeRules->map(fn ($rule): array => [
                     'threshold_value' => $rule->threshold_value,
                     'threshold_unit' => $rule->threshold_unit->value,
@@ -270,6 +282,7 @@ class AppointmentTypeController extends Controller
             'bookingNoticeUnits' => BookingNoticeUnit::cases(),
             'emailVerificationModes' => EmailVerificationMode::cases(),
             'pricingModes' => PricingMode::cases(),
+            'attendeePricingModes' => AttendeePricingMode::cases(),
             'shortNoticeAdjustmentTypes' => [PricingAdjustmentType::Fixed, PricingAdjustmentType::Percentage],
             'resourceRequirementModes' => ResourceRequirementMode::cases(),
             'reminderThresholdBases' => ReminderThresholdBasis::cases(),
@@ -283,6 +296,15 @@ class AppointmentTypeController extends Controller
         $isFixedDuration = $data['duration_mode'] === DurationMode::Fixed->value;
         $isFixedPrice = $data['pricing_mode'] === PricingMode::Fixed->value;
         $isRatePrice = $data['pricing_mode'] === PricingMode::Rate->value;
+        $isPerAttendee = $data['pricing_mode'] === PricingMode::PerAttendee->value;
+        $attendeeMode = $isPerAttendee ? AttendeePricingMode::from($data['attendee_pricing_mode']) : AttendeePricingMode::Flat;
+        $attendeeRanges = $isPerAttendee && $attendeeMode !== AttendeePricingMode::Flat
+            ? app(AttendeePricingService::class)->validateRanges(array_map(fn (array $range): array => [
+                'min_attendees' => (int) $range['min_attendees'],
+                'max_attendees' => (int) $range['max_attendees'],
+                'unit_amount_minor' => $money->parse($range['unit_price'], $currency),
+            ], $data['attendee_price_ranges']), (int) $data['capacity'])
+            : null;
 
         return [
             'attendance_mode' => $data['attendance_mode'],
@@ -308,6 +330,11 @@ class AppointmentTypeController extends Controller
             'buffer_after_minutes' => (int) $data['buffer_after_minutes'],
             'pricing_mode' => $data['pricing_mode'],
             'fixed_price_minor' => $isFixedPrice ? $money->parse($data['fixed_price'], $currency) : null,
+            'attendee_price_minor' => $isPerAttendee && $attendeeMode === AttendeePricingMode::Flat
+                ? $money->parse($data['attendee_price'], $currency)
+                : null,
+            'attendee_pricing_mode' => $attendeeMode,
+            'attendee_price_ranges' => $attendeeRanges,
             'rate_amount_minor' => $isRatePrice ? $money->parse($data['rate_amount'], $currency) : null,
             'rate_unit' => $isRatePrice ? $data['rate_unit'] : null,
             'requires_resource_confirmation' => $request->boolean('requires_resource_confirmation'),
