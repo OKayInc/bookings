@@ -52,13 +52,22 @@
         }
     }
 
-    function evaluate(value, constraints, readAnswer) {
+    function attendeeValue(count) {
+        if (typeof count !== 'string' && typeof count !== 'number') return null;
+        const text = String(count).trim();
+        return /^[1-9]\d*$/.test(text) && Number.isSafeInteger(Number(text)) ? text : null;
+    }
+
+    function evaluate(value, constraints, readAnswer, attendeeCount = null) {
         if (!constraints.length) return true;
         let completed = false, current = null;
         constraints.forEach(constraint => {
-            const right = constraint.operand_type === 'question'
-                ? readAnswer(constraint.source_question_uuid)
-                : constraint.comparison_value;
+            let right = null;
+            switch (constraint.operand_type) {
+                case 'question': right = readAnswer(constraint.source_question_uuid); break;
+                case 'value': right = constraint.comparison_value; break;
+                case 'attendee_count': right = attendeeValue(attendeeCount); break;
+            }
             const result = matches(value, constraint.comparison_operator, right);
             if (current === null) current = result;
             else if (constraint.boolean_operator === 'or') { completed = completed || current; current = result; }

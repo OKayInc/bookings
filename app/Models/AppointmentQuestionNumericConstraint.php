@@ -12,7 +12,7 @@ class AppointmentQuestionNumericConstraint extends Model
 
     protected $fillable = [
         'appointment_question_id', 'source_question_id', 'comparison_operator',
-        'comparison_value', 'boolean_operator', 'position',
+        'comparison_value', 'boolean_operator', 'position', 'operand_type',
     ];
 
     protected $hidden = ['id', 'appointment_question_id', 'source_question_id'];
@@ -32,5 +32,10 @@ class AppointmentQuestionNumericConstraint extends Model
     public function sourceQuestion(): BelongsTo
     {
         return $this->belongsTo(AppointmentQuestion::class, 'source_question_id');
+    }
+
+    public function resolvedOperandType(): string
+    {
+        return $this->operand_type ?? ($this->source_question_id === null ? 'value' : 'question');
     }
 }

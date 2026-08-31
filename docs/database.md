@@ -1,4 +1,4 @@
-# Database — M7-R20
+# Database — M7-R21
 
 ## Core M1 tables retained
 
@@ -12,6 +12,10 @@
 - `appointment_contract_templates`
 
 All entity primary keys continue to use UUIDv7 encoded as `BINARY(16)`.
+
+## M7-R21 attendee-count operands
+
+Migration `2026_08_31_000060_add_numeric_constraint_operand_type.php` adds nullable `operand_type VARCHAR(16)` to `appointment_question_numeric_constraints`. New rules explicitly store `question`, `value`, or `attendee_count`. An attendee-count rule has both `source_question_id` and `comparison_value` NULL; its comparison value is resolved from the booking hold at runtime, never stored as a fixed count. Existing NULL operand types retain M7-R20's inference: a non-NULL source means `question`, otherwise `value`. No backfill or historical booking rewrite is needed.
 
 ## M7-R20 numeric question constraints
 

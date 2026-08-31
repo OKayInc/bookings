@@ -35,7 +35,7 @@ class QuestionnaireSubmissionService
     ): QuestionnaireQuote {
         $visibleQuestions = $this->visibility->visibleQuestions($type, $answers);
         $visibleAnswers = $this->visibleAnswers($visibleQuestions, $answers);
-        $errors = $this->numericConstraints->errors($type, $visibleQuestions, $visibleAnswers);
+        $errors = $this->numericConstraints->errors($type, $visibleQuestions, $visibleAnswers, $attendeeCount);
         if ($errors !== []) {
             throw new \InvalidArgumentException(reset($errors));
         }
@@ -123,7 +123,7 @@ class QuestionnaireSubmissionService
 
         $validated = Validator::make($request->all(), $rules)->validate();
         $raw = (array) ($validated['answers'] ?? []);
-        $errors = $this->numericConstraints->errors($type, $visibleQuestions, $raw);
+        $errors = $this->numericConstraints->errors($type, $visibleQuestions, $raw, $attendeeCount);
         if ($errors !== []) {
             throw ValidationException::withMessages($errors);
         }

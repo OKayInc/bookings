@@ -17,6 +17,37 @@ class QuestionnaireBookingFlowTest extends TestCase {
  use RefreshDatabase;
  protected function setUp(): void { parent::setUp(); CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-24 14:00:00','UTC')); Cache::flush(); config(['questionnaire.email_dns_validation'=>false]); }
  protected function tearDown(): void { CarbonImmutable::setTestNow(); parent::tearDown(); }
+ public function test_attendee_constraint_uses_each_bookings_held_seats_and_ignores_forged_counts(): void {
+  [, $type]=$this->type();
+  $type->update(['attendance_mode'=>'group','capacity'=>10]);
+  $question=$type->questions()->create(['type'=>'number','label'=>'Confirm your party size','is_required'=>true,'is_active'=>true,'position'=>1]);
+  $question->numericConstraints()->create(['operand_type'=>'attendee_count','comparison_operator'=>'=','boolean_operator'=>'and','position'=>1]);
+  $slots=$this->getJson(route('public.booking.slots',$type).'?'.http_build_query(['access_mode'=>'direct','timezone'=>'America/Toronto','date'=>'2026-08-31','duration_value'=>60,'attendee_count'=>3]))->assertOk();
+  $start=$slots->json('slots.0.starts_at_utc');
+  $appointmentId=null;
+  foreach ([2,3] as $count) {
+   $hold=$this->postJson(route('public.booking.holds.store',$type),['access_mode'=>'direct','timezone'=>'America/Toronto','starts_at_utc'=>$start,'duration_value'=>60,'attendee_count'=>$count])->assertOk();
+   $token=basename((string)parse_url($hold->json('continue_url'),PHP_URL_PATH));
+   $this->get(route('public.booking-holds.edit',$token))->assertOk()->assertSee('data-attendee-count="'.$count.'"',false)->assertSee('number of attendees');
+   $client=['first_name'=>'Attendee','last_name'=>'Count','email'=>'count'.$count.'@example.test'];
+   // Neither a top-level replacement count nor a fake answer changes the reserved count.
+   $invalid=['attendee_count'=>9,'answers'=>[$question->uuid=>'9','attendee_count'=>'9']];
+   $this->postJson(route('public.booking-holds.quote',$token),$invalid)->assertUnprocessable()->assertSee('number of attendees');
+   $this->postJson(route('public.booking-holds.store',$token),[...$client,...$invalid])->assertUnprocessable()->assertJsonValidationErrors('answers.'.$question->uuid);
+   $this->assertDatabaseCount('bookings',$count===2?0:1);
+   $this->assertDatabaseCount('booking_answers',$count===2?0:1);
+   $valid=['attendee_count'=>9,'answers'=>[$question->uuid=>(string)$count,'attendee_count'=>'9']];
+   $this->postJson(route('public.booking-holds.quote',$token),$valid)->assertOk();
+   $response=$this->post(route('public.booking-holds.store',$token),[...$client,...$valid]);
+   $booking=Booking::query()->where('email',$client['email'])->firstOrFail();
+   $response->assertRedirect(route('public.bookings.received',$booking->reference));
+   $this->assertSame($count,$booking->attendee_count);
+   if ($appointmentId!==null) $this->assertSame($appointmentId,$booking->appointment_id);
+   $appointmentId=$booking->appointment_id;
+  }
+  $this->assertDatabaseCount('bookings',2);
+  $this->assertDatabaseCount('booking_answers',2);
+ }
  public function test_numeric_constraints_are_enforced_on_quote_and_final_booking_without_javascript(): void {
   [, $type]=$this->type();
   $source=$type->questions()->create(['type'=>'number','label'=>'Q1 minimum','is_required'=>true,'is_active'=>true,'position'=>1]);

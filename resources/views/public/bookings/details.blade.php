@@ -21,7 +21,7 @@
 </div>
 @endif
 
-<form method="post" action="{{ route('public.booking-holds.store', $holdToken) }}" enctype="multipart/form-data" class="form-stack">
+<form method="post" action="{{ route('public.booking-holds.store', $holdToken) }}" enctype="multipart/form-data" class="form-stack" data-attendee-count="{{ (int) $hold->attendee_count }}">
     @csrf
     <div class="section-card">
         <h2>Your information</h2>
@@ -69,7 +69,7 @@
     <div class="actions"><button class="btn btn-primary" type="submit">Submit booking</button><a class="btn" href="javascript:history.back()">Choose another time</a></div>
 </form>
 @if($type->questions->where('is_active',true)->isNotEmpty() || $type->shortNoticeFeeRules->where('is_active',true)->isNotEmpty() || $type->pricing_mode->value === 'per_attendee')
-<script src="{{ asset('js/numeric-question-constraints.js') }}"></script>
+<script src="{{ asset('js/numeric-question-constraints.js') }}?v=m7-r21"></script>
 <script>
 (function(){
  const form=document.querySelector('form.form-stack'); const total=document.getElementById('questionnaire-total'); const lines=document.getElementById('questionnaire-price-lines'); const questionElements=Array.from(document.querySelectorAll('.questionnaire-question')); let timer;
@@ -81,7 +81,7 @@
    questionElements.forEach(element=>{
      if(!element._numericConstraints.length)return;
      const control=element.querySelector('input[type="number"]');if(!control)return;
-     const valid=element.hidden||control.value===''||NumericQuestionConstraints.evaluate(control.value,element._numericConstraints,readNumericAnswer);
+     const valid=element.hidden||control.value===''||NumericQuestionConstraints.evaluate(control.value,element._numericConstraints,readNumericAnswer,form.dataset.attendeeCount);
      const message=valid?'':element.dataset.numericMessage;
      control.setCustomValidity(message);
      control.setAttribute('aria-describedby',`numeric_help_${element.dataset.questionUuid} numeric_error_${element.dataset.questionUuid}`);

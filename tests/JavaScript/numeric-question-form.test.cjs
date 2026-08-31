@@ -7,7 +7,7 @@ const engine = require('../../public/js/numeric-question-constraints.js');
 
 // Exercise the actual checkout event handlers with a small DOM stub. This is
 // deliberately not a replacement for a rendered-browser accessibility test.
-function checkout({ sourceConditional = false, targetConditional = false } = {}) {
+function checkout({ sourceConditional = false, targetConditional = false, attendeeCount = '1', attendeeRule = false } = {}) {
     const makeControl = (uuid, value, type = 'number') => ({
         type, name: `answers[${uuid}]`, value, checked: false, disabled: false, required: false,
         dataset: {}, attributes: {}, validationMessage: '',
@@ -31,9 +31,9 @@ function checkout({ sourceConditional = false, targetConditional = false } = {})
     };
     const choice = makeQuestion('choice', 'yes', [], false, 'radio');
     const source = makeQuestion('q1', '5', [], sourceConditional);
-    const target = makeQuestion('q2', '4', [{ boolean_operator: 'and', comparison_operator: '>=', operand_type: 'question', source_question_uuid: 'q1' }], targetConditional);
+    const target = makeQuestion('q2', '4', [{ boolean_operator: 'and', comparison_operator: '>=', operand_type: attendeeRule ? 'attendee_count' : 'question', source_question_uuid: 'q1' }], targetConditional);
     const elements = [choice, source, target], handlers = {};
-    const form = { addEventListener(name, fn) { handlers[name] = fn; } };
+    const form = { dataset: { attendeeCount }, addEventListener(name, fn) { handlers[name] = fn; } };
     const total = {}, lines = {};
     const document = {
         querySelector() { return form; }, querySelectorAll() { return elements; },
@@ -96,4 +96,26 @@ test('hiding a constrained target clears its custom error and prevents submissio
     assert.equal(target.control.value, '');
     assert.equal(target.control.validationMessage, '');
     assert.equal(target.error.textContent, '');
+});
+
+test('checkout uses the rendered held attendee count instead of another answer', () => {
+    const { source, target, event } = checkout({ attendeeCount: '3', attendeeRule: true });
+    assert.equal(target.control.validationMessage, ''); // 4 >= 3, even though Q1 is 5.
+    source.control.value = '100'; event('input', source.control);
+    assert.equal(target.control.validationMessage, '');
+    target.control.value = '2'; event('input', target.control);
+    assert.notEqual(target.control.validationMessage, '');
+    target.control.value = '3'; event('input', target.control);
+    assert.equal(target.control.validationMessage, '');
+});
+
+test('hidden attendee-constrained target clears validity errors', () => {
+    const { choice, target, event } = checkout({ attendeeCount: '3', attendeeRule: true, targetConditional: true });
+    assert.equal(target.control.validationMessage, '');
+    choice.control.checked = true; event('change', choice.control);
+    target.control.value = '2'; event('input', target.control);
+    assert.notEqual(target.control.validationMessage, '');
+    choice.control.checked = false; event('change', choice.control);
+    assert.equal(target.control.validationMessage, '');
+    assert.equal(target.control.disabled, true);
 });

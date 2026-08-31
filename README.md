@@ -215,3 +215,7 @@ Group appointment types can charge a flat rate per attendee, use absolute ranges
 ## M7-R20: numeric answer constraints
 
 Numeric questionnaire answers can be compared with an earlier numeric answer or a fixed number using `>`, `>=`, `=`, `<=`, `<`, or different-from (`!=`, `<>`, `!`). Ordered AND/OR rules include a grouped editor preview, live form feedback, and authoritative quote/booking validation. Rules belong to the appointment-type attachment, independently of display dependencies and reusable templates. See `docs/CHANGES-M7-R20.md` and `docs/UPGRADE-M7-R19-TO-M7-R20.md`.
+
+## M7-R21: attendee-count numeric constraints
+
+The numeric constraint editor now offers **Number of attendees** as a comparison operand. It uses the seats reserved for the individual booking, including the primary client, with all existing operators and AND/OR rules. Browser feedback, live quotes, and final booking validation use the held count; other clients' seats and submitted replacement counts do not affect it. See `docs/CHANGES-M7-R21.md` and `docs/UPGRADE-M7-R20-TO-M7-R21.md`.

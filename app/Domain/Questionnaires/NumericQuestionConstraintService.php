@@ -44,11 +44,12 @@ class NumericQuestionConstraintService
                         throw new InvalidArgumentException('Enter a valid comparison number (up to 255 characters; exponent from -1000 to 1000).');
                     }
                     $value = trim((string) $raw);
-                } else {
-                    throw new InvalidArgumentException('Compare this answer with a numeric question or a fixed number.');
+                } elseif ($operand !== 'attendee_count') {
+                    throw new InvalidArgumentException('Compare this answer with a numeric question, a fixed number, or the number of attendees.');
                 }
 
                 $target->numericConstraints()->create([
+                    'operand_type' => $operand,
                     'source_question_id' => $source?->getKey(),
                     'comparison_value' => $value,
                     'comparison_operator' => NumericComparisonOperator::normalize((string) ($row['comparison_operator'] ?? ''))->value,
@@ -75,7 +76,20 @@ class NumericQuestionConstraintService
                 if (! in_array($constraint->boolean_operator, ['and', 'or'], true)) {
                     throw new InvalidArgumentException('Numeric constraint connectors must be AND or OR.');
                 }
-                if ($constraint->source_question_id === null) {
+                $operand = $constraint->resolvedOperandType();
+                if (! in_array($operand, ['question', 'value', 'attendee_count'], true)) {
+                    throw new InvalidArgumentException('Choose a supported numeric comparison operand.');
+                }
+                if ($operand === 'attendee_count') {
+                    if ($constraint->source_question_id !== null || $constraint->comparison_value !== null) {
+                        throw new InvalidArgumentException('An attendee-count constraint cannot also specify a question or fixed number.');
+                    }
+                    continue;
+                }
+                if ($operand === 'value') {
+                    if ($constraint->source_question_id !== null) {
+                        throw new InvalidArgumentException('A fixed numeric constraint cannot also specify a source question.');
+                    }
                     if (NumericComparison::compare($constraint->comparison_value, $constraint->comparison_value) === null) {
                         throw new InvalidArgumentException('Every fixed numeric constraint must have a valid comparison number.');
                     }
@@ -100,7 +114,7 @@ class NumericQuestionConstraintService
     }
 
     /** Missing or hidden source answers fail their predicate, including not-equal. */
-    public function errors(AppointmentType $type, Collection $visibleQuestions, array $answers): array
+    public function errors(AppointmentType $type, Collection $visibleQuestions, array $answers, ?int $attendeeCount = null): array
     {
         $type->loadMissing('questions.numericConstraints.sourceQuestion');
         $visible = $visibleQuestions->keyBy('uuid');
@@ -117,8 +131,13 @@ class NumericQuestionConstraintService
             $completed = false;
             $current = null;
             foreach ($target->numericConstraints as $constraint) {
-                $right = $constraint->comparison_value;
-                if ($constraint->source_question_id !== null) {
+                $operand = $constraint->resolvedOperandType();
+                $right = match ($operand) {
+                    'value' => $constraint->comparison_value,
+                    'attendee_count' => $attendeeCount !== null && $attendeeCount > 0 ? $attendeeCount : null,
+                    default => null,
+                };
+                if ($operand === 'question') {
                     $source = $constraint->sourceQuestion;
                     $right = $source !== null && $visible->has($source->uuid)
                         && $source->type === QuestionType::Number
@@ -154,17 +173,24 @@ class NumericQuestionConstraintService
                 $groups[] = '('.implode(' AND ', $group).')';
                 $group = [];
             }
-            $right = $constraint->source_question_id === null
-                ? $constraint->comparison_value
-                : '“'.($constraint->sourceQuestion?->label ?? 'unavailable question').'”';
+            $right = match ($constraint->resolvedOperandType()) {
+                'value' => $constraint->comparison_value,
+                'attendee_count' => 'number of attendees',
+                default => '“'.($constraint->sourceQuestion?->label ?? 'unavailable question').'”',
+            };
             $group[] = 'this answer '.$constraint->comparison_operator.' '.$right;
         }
         if ($group !== []) {
             $groups[] = '('.implode(' AND ', $group).')';
         }
 
-        return 'The answer to “'.$question->label.'” must satisfy: '.implode(' OR ', $groups)
+        $message = 'The answer to “'.$question->label.'” must satisfy: '.implode(' OR ', $groups)
             .'. Referenced questions must have visible numeric answers.';
+        if ($question->numericConstraints->contains(fn ($constraint): bool => $constraint->resolvedOperandType() === 'attendee_count')) {
+            $message .= ' Number of attendees is the count reserved for this booking, including the primary client.';
+        }
+
+        return $message;
     }
 
     public function publicRules(AppointmentQuestion $question): array
@@ -174,7 +200,7 @@ class NumericQuestionConstraintService
         return $question->numericConstraints->map(fn (AppointmentQuestionNumericConstraint $constraint): array => [
             'boolean_operator' => $constraint->boolean_operator,
             'comparison_operator' => $constraint->comparison_operator,
-            'operand_type' => $constraint->source_question_id === null ? 'value' : 'question',
+            'operand_type' => $constraint->resolvedOperandType(),
             'source_question_uuid' => $constraint->sourceQuestion?->uuid,
             'comparison_value' => $constraint->comparison_value,
         ])->values()->all();

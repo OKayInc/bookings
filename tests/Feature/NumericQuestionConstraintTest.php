@@ -21,6 +21,112 @@ class NumericQuestionConstraintTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_owner_can_save_attendee_count_and_switch_between_all_operand_types(): void
+    {
+        [$user, $organization, $type] = $this->context();
+        $source = $this->number($type, 'Q1', 1);
+        $this->actingAs($user)->withSession(['active_organization_uuid' => $organization->uuid]);
+        $this->get(route('appointment-types.questions.create', $type))->assertOk()->assertSee('Number of attendees');
+        $this->post(route('appointment-types.questions.store', $type), [
+            ...$this->payload('Meals needed', 2), 'numeric_constraints' => [$this->attendeeRule('<=')],
+        ])->assertSessionHasNoErrors();
+        $target = $type->questions()->where('label', 'Meals needed')->firstOrFail();
+        $service = app(NumericQuestionConstraintService::class);
+        $constraint = $target->numericConstraints->sole();
+        $this->assertSame('attendee_count', $constraint->operand_type);
+        $this->assertNull($constraint->source_question_id);
+        $this->assertNull($constraint->comparison_value);
+        $this->assertSame('attendee_count', $service->publicRules($target)[0]['operand_type']);
+        $this->assertStringContainsString('number of attendees', $service->message($target));
+        $this->get(route('appointment-types.questions.edit', [$type, $target]))->assertOk()->assertSee('Number of attendees');
+
+        foreach ([$this->valueRule('<=', '10'), $this->questionRule($source, '>='), $this->attendeeRule('=')] as $row) {
+            $this->put(route('appointment-types.questions.update', [$type, $target]), [
+                ...$this->payload('Meals needed', 2), 'numeric_constraints' => [$row],
+            ])->assertSessionHasNoErrors();
+            $saved = $target->fresh()->numericConstraints->sole();
+            $this->assertSame($row['operand_type'], $saved->resolvedOperandType());
+            $this->assertSame($row['operand_type'] === 'question' ? $source->getKey() : null, $saved->source_question_id);
+            $this->assertSame($row['operand_type'] === 'value' ? '10' : null, $saved->comparison_value);
+        }
+    }
+
+    public function test_attendee_count_cannot_be_combined_with_a_supplied_question_or_fixed_value(): void
+    {
+        [$user, $organization, $type] = $this->context();
+        $source = $this->number($type, 'Q1', 1);
+        $this->actingAs($user)->withSession(['active_organization_uuid' => $organization->uuid]);
+        foreach (['source_question_uuid' => $source->uuid, 'comparison_value' => '3'] as $key => $value) {
+            $this->post(route('appointment-types.questions.store', $type), [
+                ...$this->payload('Invalid attendee rule', 2),
+                'numeric_constraints' => [[...$this->attendeeRule('='), $key => $value]],
+            ])->assertSessionHasErrors('numeric_constraints.0.'.$key);
+        }
+        $this->assertDatabaseMissing('appointment_questions', ['label' => 'Invalid attendee rule']);
+    }
+
+    public function test_all_operators_compare_against_attendee_count_without_needing_an_earlier_question(): void
+    {
+        [, , $type] = $this->context();
+        $type->update(['attendance_mode' => 'group', 'capacity' => 10]);
+        $target = $this->number($type, 'Meals', 1);
+        foreach ([
+            ['>', '4', '3'], ['>=', '3.0', '2'], ['=', '3', '4'], ['<=', '3', '4'],
+            ['<', '2', '3'], ['!=', '2', '3.0'], ['<>', '2', '3'], ['!', '4', '3'],
+        ] as [$operator, $valid, $invalid]) {
+            app(NumericQuestionConstraintService::class)->sync($type, $target, [$this->attendeeRule($operator)]);
+            $this->submission($type->fresh(), [$target->uuid => $valid], 3);
+            $this->assertInvalidAnswer($type->fresh(), [$target->uuid => $invalid], $target, 3);
+        }
+        // Single attendance uses the normal one-seat count.
+        $type->update(['attendance_mode' => 'single', 'capacity' => 1]);
+        app(NumericQuestionConstraintService::class)->sync($type, $target, [$this->attendeeRule('=')]);
+        $this->submission($type->fresh(), [$target->uuid => '1']);
+        $this->assertInvalidAnswer($type->fresh(), [$target->uuid => '2'], $target);
+    }
+
+    public function test_attendee_count_combines_with_questions_and_fixed_values_using_and_or(): void
+    {
+        [, , $type] = $this->context();
+        $type->update(['attendance_mode' => 'group', 'capacity' => 10]);
+        $source = $this->number($type, 'Minimum meals', 1);
+        $target = $this->number($type, 'Meals needed', 2);
+        app(NumericQuestionConstraintService::class)->sync($type, $target, [
+            $this->questionRule($source, '>='), $this->attendeeRule('<='), $this->valueRule('=', '0', 'or'),
+        ]);
+        foreach (['0', '2', '3'] as $value) $this->submission($type->fresh(), [$source->uuid => '2', $target->uuid => $value], 3);
+        foreach (['1', '4'] as $value) $this->assertInvalidAnswer($type->fresh(), [$source->uuid => '2', $target->uuid => $value], $target, 3);
+        $this->submission($type->fresh(), [$source->uuid => '2'], 3); // Optional target.
+    }
+
+    public function test_missing_or_invalid_attendee_context_never_satisfies_different_from(): void
+    {
+        [, , $type] = $this->context();
+        $target = $this->number($type, 'Meals', 1);
+        $service = app(NumericQuestionConstraintService::class);
+        $service->sync($type, $target, [$this->attendeeRule('!=')]);
+        foreach ([null, 0, -1] as $count) {
+            $errors = $service->errors($type->fresh(), collect([$target]), [$target->uuid => '1'], $count);
+            $this->assertArrayHasKey('answers.'.$target->uuid, $errors);
+        }
+    }
+
+    public function test_legacy_constraints_with_no_operand_type_keep_their_question_and_value_meanings(): void
+    {
+        [, , $type] = $this->context();
+        $source = $this->number($type, 'Q1', 1);
+        $target = $this->number($type, 'Q2', 2);
+        $target->numericConstraints()->create(['source_question_id' => $source->getKey(), 'comparison_operator' => '>=', 'boolean_operator' => 'and', 'position' => 1]);
+        $target->numericConstraints()->create(['comparison_value' => '10', 'comparison_operator' => '<', 'boolean_operator' => 'and', 'position' => 2]);
+        $this->assertNull($target->fresh()->numericConstraints[0]->operand_type);
+        $this->assertNull($target->fresh()->numericConstraints[1]->operand_type);
+        $service = app(NumericQuestionConstraintService::class);
+        $service->assertValidConfiguration($type->fresh());
+        $this->assertSame(['question', 'value'], array_column($service->publicRules($target), 'operand_type'));
+        $this->submission($type->fresh(), [$source->uuid => '5', $target->uuid => '6']);
+        $this->assertInvalidAnswer($type->fresh(), [$source->uuid => '5', $target->uuid => '10'], $target);
+    }
+
     public function test_owner_can_configure_edit_and_remove_mixed_numeric_constraints(): void
     {
         [$user, $organization, $type] = $this->context();
@@ -266,15 +372,20 @@ class NumericQuestionConstraintTest extends TestCase
         return ['operand_type' => 'value', 'comparison_value' => $value, 'comparison_operator' => $operator, 'boolean_operator' => $join];
     }
 
-    private function submission(AppointmentType $type, array $answers): \App\Domain\Questionnaires\QuestionnaireSubmission
+    private function attendeeRule(string $operator, string $join = 'and'): array
     {
-        return app(QuestionnaireSubmissionService::class)->validateForBooking(Request::create('/', 'POST', ['answers' => $answers]), $type, 60);
+        return ['operand_type' => 'attendee_count', 'comparison_operator' => $operator, 'boolean_operator' => $join];
     }
 
-    private function assertInvalidAnswer(AppointmentType $type, array $answers, AppointmentQuestion $target): void
+    private function submission(AppointmentType $type, array $answers, int $attendeeCount = 1): \App\Domain\Questionnaires\QuestionnaireSubmission
+    {
+        return app(QuestionnaireSubmissionService::class)->validateForBooking(Request::create('/', 'POST', ['answers' => $answers]), $type, 60, attendeeCount: $attendeeCount);
+    }
+
+    private function assertInvalidAnswer(AppointmentType $type, array $answers, AppointmentQuestion $target, int $attendeeCount = 1): void
     {
         try {
-            $this->submission($type, $answers);
+            $this->submission($type, $answers, $attendeeCount);
             $this->fail('A numeric answer violating a constraint was accepted.');
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('answers.'.$target->uuid, $exception->errors());

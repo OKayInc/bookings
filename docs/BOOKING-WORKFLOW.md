@@ -1,5 +1,9 @@
 # M4 booking workflow
 
+## M7-R21 attendee-count comparisons
+
+Numeric constraints may compare the submitted answer with the booking's reserved attendee count, including its primary client. The checkout page renders this count from the hold for browser feedback. Live quotes and final validation receive the count directly from the server-side hold, not request fields or answers. Other bookings in the same session, session capacity, and optional attendee-name entries do not change the operand. Existing AND/OR, hidden-question, and optional-answer behavior remains unchanged.
+
 ## M7-R20 numeric answer constraints
 
 After resolving visible questions, the live quote checks any supplied constrained numeric answers. Final submission first runs ordinary required/type/min/max validation, then evaluates numeric constraints before distance lookups, pricing, or booking persistence. AND binds within each group; OR separates alternatives. An unanswered optional target is allowed, while a missing or hidden source fails its predicate rather than becoming zero. Hidden targets are ignored even if a client submits stale values. Client-side feedback uses the same decimal comparison semantics, but the server remains authoritative.
