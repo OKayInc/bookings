@@ -17,6 +17,34 @@ class QuestionnaireBookingFlowTest extends TestCase {
  use RefreshDatabase;
  protected function setUp(): void { parent::setUp(); CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-24 14:00:00','UTC')); Cache::flush(); config(['questionnaire.email_dns_validation'=>false]); }
  protected function tearDown(): void { CarbonImmutable::setTestNow(); parent::tearDown(); }
+ public function test_numeric_constraints_are_enforced_on_quote_and_final_booking_without_javascript(): void {
+  [, $type]=$this->type();
+  $source=$type->questions()->create(['type'=>'number','label'=>'Q1 minimum','is_required'=>true,'is_active'=>true,'position'=>1]);
+  $target=$type->questions()->create(['type'=>'number','label'=>'Q2 answer','is_required'=>true,'is_active'=>true,'position'=>2]);
+  $constraint=$target->numericConstraints()->create(['source_question_id'=>$source->getKey(),'comparison_operator'=>'>=','boolean_operator'=>'and','position'=>1]);
+  $slots=$this->getJson(route('public.booking.slots',$type).'?'.http_build_query(['access_mode'=>'direct','timezone'=>'America/Toronto','date'=>'2026-08-31','duration_value'=>60,'attendee_count'=>1]))->assertOk();
+  $hold=$this->postJson(route('public.booking.holds.store',$type),['access_mode'=>'direct','timezone'=>'America/Toronto','starts_at_utc'=>$slots->json('slots.0.starts_at_utc'),'duration_value'=>60,'attendee_count'=>1])->assertOk();
+  $token=basename((string)parse_url($hold->json('continue_url'),PHP_URL_PATH));
+  $this->get(route('public.booking-holds.edit',$token))->assertOk()->assertSee('numeric-question-constraints.js',false)->assertSee('Q1 minimum')->assertSee('data-numeric-constraints',false);
+  $invalid=[$source->uuid=>'5',$target->uuid=>'4'];
+  $this->postJson(route('public.booking-holds.quote',$token),['answers'=>$invalid])->assertUnprocessable()->assertSee('Q2 answer');
+  $client=['first_name'=>'Numeric','last_name'=>'Client','email'=>'numeric@example.test'];
+  $this->postJson(route('public.booking-holds.store',$token),[...$client,'answers'=>$invalid])->assertUnprocessable()->assertJsonValidationErrors('answers.'.$target->uuid);
+  $this->assertDatabaseCount('bookings',0);
+  $this->assertDatabaseCount('booking_answers',0);
+
+  $equal=[$source->uuid=>'5',$target->uuid=>'5.0'];
+  $this->postJson(route('public.booking-holds.quote',$token),['answers'=>$equal])->assertOk()->assertJsonPath('total_minor',10000);
+  // Current configuration is authoritative, even if the guest already received a quote.
+  $constraint->update(['comparison_operator'=>'>']);
+  $this->postJson(route('public.booking-holds.store',$token),[...$client,'answers'=>$equal])->assertUnprocessable()->assertJsonValidationErrors('answers.'.$target->uuid);
+  $this->assertDatabaseCount('bookings',0);
+  $response=$this->post(route('public.booking-holds.store',$token),[...$client,'answers'=>[$source->uuid=>'5',$target->uuid=>'6']]);
+  $booking=Booking::firstOrFail();
+  $response->assertRedirect(route('public.bookings.received',$booking->reference));
+  $this->assertDatabaseCount('booking_answers',2);
+  $this->assertSame(10000,$booking->price_minor);
+ }
  public function test_guest_answers_questionnaire_and_server_calculates_option_and_number_charges(): void {
   [$org,$type]=$this->type();
   $choice=$type->questions()->create(['type'=>'checkboxes','label'=>'Extras','is_required'=>false,'is_active'=>true,'position'=>1]);

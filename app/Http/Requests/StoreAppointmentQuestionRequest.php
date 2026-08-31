@@ -31,6 +31,13 @@ class StoreAppointmentQuestionRequest extends FormRequest
             'number_min' => ['nullable', 'numeric'],
             'number_max' => ['nullable', 'numeric'],
             'number_step' => ['nullable', 'numeric', 'gt:0'],
+            'numeric_constraints' => ['nullable', 'array', 'max:100'],
+            'numeric_constraints.*' => ['array'],
+            'numeric_constraints.*.boolean_operator' => ['required_with:numeric_constraints', Rule::in(['and', 'or'])],
+            'numeric_constraints.*.comparison_operator' => ['required_with:numeric_constraints', Rule::in(['>', '>=', '=', '<=', '<', '<>', '!=', '!'])],
+            'numeric_constraints.*.operand_type' => ['required_with:numeric_constraints', Rule::in(['question', 'value'])],
+            'numeric_constraints.*.source_question_uuid' => ['nullable', 'uuid', 'required_if:numeric_constraints.*.operand_type,question', 'prohibited_if:numeric_constraints.*.operand_type,value'],
+            'numeric_constraints.*.comparison_value' => ['nullable', 'numeric', 'required_if:numeric_constraints.*.operand_type,value', 'prohibited_if:numeric_constraints.*.operand_type,question'],
             'file_extensions' => ['nullable', 'string', 'max:255'],
             'file_max_count' => ['nullable', 'integer', 'min:1', 'max:100'],
             'file_max_kilobytes' => ['nullable', 'integer', 'min:1', 'max:102400'],
@@ -72,6 +79,10 @@ class StoreAppointmentQuestionRequest extends FormRequest
     {
         $validator->after(function (Validator $validator): void {
             $type = QuestionType::tryFrom((string) $this->input('type'));
+
+            if ($type !== QuestionType::Number && $this->input('numeric_constraints', []) !== [] && $this->input('numeric_constraints') !== null) {
+                $validator->errors()->add('numeric_constraints', 'Numeric answer constraints can only be used on number questions.');
+            }
 
             if ($type?->hasOptions()) {
                 $rows = (array) $this->input('options', []);

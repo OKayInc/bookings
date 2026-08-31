@@ -32,4 +32,6 @@ class AppointmentQuestion extends Model
     public function answers(): HasMany { return $this->hasMany(BookingAnswer::class); }
     public function visibilityConditions(): HasMany { return $this->hasMany(AppointmentQuestionVisibilityCondition::class)->orderBy('position'); }
     public function dependentVisibilityConditions(): HasMany { return $this->hasMany(AppointmentQuestionVisibilityCondition::class, 'source_question_id'); }
+    public function numericConstraints(): HasMany { return $this->hasMany(AppointmentQuestionNumericConstraint::class)->orderBy('position'); }
+    public function dependentNumericConstraints(): HasMany { return $this->hasMany(AppointmentQuestionNumericConstraint::class, 'source_question_id'); }
 }

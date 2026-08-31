@@ -1,5 +1,9 @@
 # M4 booking workflow
 
+## M7-R20 numeric answer constraints
+
+After resolving visible questions, the live quote checks any supplied constrained numeric answers. Final submission first runs ordinary required/type/min/max validation, then evaluates numeric constraints before distance lookups, pricing, or booking persistence. AND binds within each group; OR separates alternatives. An unanswered optional target is allowed, while a missing or hidden source fails its predicate rather than becoming zero. Hidden targets are ignored even if a client submits stale values. Client-side feedback uses the same decimal comparison semantics, but the server remains authoritative.
+
 ## M7-R19 attendee pricing
 
 Per-attendee pricing is optional and restricted to group appointment types. Flat, absolute-range, and accumulative-range calculations use the attendee count of the individual booking, including its primary client. Other bookings in the same session do not move a client into a different price range. Group sessions remain shared: multiple clients may book remaining seats, subject to capacity and holds.

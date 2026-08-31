@@ -211,3 +211,7 @@ Appointment types can now be restricted to an inclusive one-time or yearly recur
 ## M7-R19: group per-attendee pricing
 
 Group appointment types can charge a flat rate per attendee, use absolute ranges (the matching unit price applies to every attendee), or accumulative ranges (each portion uses its own unit price). Each booking is priced only for its own attendees. Public previews, checkout quotes, and saved booking price lines use the authoritative held attendee count. See `docs/CHANGES-M7-R19.md` and `docs/UPGRADE-M7-R18-TO-M7-R19.md`.
+
+## M7-R20: numeric answer constraints
+
+Numeric questionnaire answers can be compared with an earlier numeric answer or a fixed number using `>`, `>=`, `=`, `<=`, `<`, or different-from (`!=`, `<>`, `!`). Ordered AND/OR rules include a grouped editor preview, live form feedback, and authoritative quote/booking validation. Rules belong to the appointment-type attachment, independently of display dependencies and reusable templates. See `docs/CHANGES-M7-R20.md` and `docs/UPGRADE-M7-R19-TO-M7-R20.md`.

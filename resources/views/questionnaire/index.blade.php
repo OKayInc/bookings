@@ -10,7 +10,7 @@
 @forelse($appointmentType->questions as $question)
 <tr>
  <td>{{ $question->position }}</td><td><strong>{{ $question->label }}</strong>@if($question->reusableQuestion)<div class="muted">Reusable question</div>@endif @if($question->visibilityConditions->isNotEmpty())<div class="muted">Conditional · {{ $question->visibilityConditions->count() }} rule(s)</div>@endif @if($question->description)<div class="muted">{{ \Illuminate\Support\Str::limit($question->description,90) }}</div>@endif</td>
- <td>{{ $question->type->label() }}@if($question->type->hasOptions())<div class="muted">{{ $question->options->count() }} option(s)</div>@endif</td>
+ <td>{{ $question->type->label() }}@if($question->type->hasOptions())<div class="muted">{{ $question->options->count() }} option(s)</div>@endif @if($question->numericConstraints->isNotEmpty())<div class="muted">{{ $question->numericConstraints->count() }} numeric constraint(s)</div>@endif</td>
  <td>{{ $question->is_required ? 'Yes' : 'No' }}</td>
  <td>
  @if($question->pricing_adjustment_type->value !== 'none'){{ ucfirst(str_replace('_',' ',$question->pricing_adjustment_type->value)) }} {{ str_replace('_',' ',$question->pricing_application_mode->value) }}

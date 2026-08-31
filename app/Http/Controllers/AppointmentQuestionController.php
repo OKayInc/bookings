@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Money\MoneyService;
+use App\Domain\Questionnaires\NumericQuestionConstraintService;
 use App\Domain\Questionnaires\PercentageService;
 use App\Domain\Questionnaires\PhoneValidationService;
 use App\Domain\Questionnaires\QuestionVisibilityService;
@@ -28,7 +29,7 @@ class AppointmentQuestionController extends Controller
     public function index(AppointmentType $appointmentType, OrganizationContext $context): View
     {
         $this->guard($appointmentType, $context);
-        $appointmentType->load(['questions.options', 'questions.reusableQuestion', 'questions.visibilityConditions']);
+        $appointmentType->load(['questions.options', 'questions.reusableQuestion', 'questions.visibilityConditions', 'questions.numericConstraints']);
 
         return view('questionnaire.index', compact('appointmentType'));
     }
@@ -54,17 +55,20 @@ class AppointmentQuestionController extends Controller
         PercentageService $percent,
         ReusableQuestionService $reusableQuestions,
         QuestionVisibilityService $visibility,
+        NumericQuestionConstraintService $numericConstraints,
     ): RedirectResponse {
         $this->guard($appointmentType, $context);
         $data = $request->validated();
 
         try {
-            DB::transaction(function () use ($appointmentType, $data, $request, $context, $money, $percent, $reusableQuestions, $visibility): void {
+            DB::transaction(function () use ($appointmentType, $data, $request, $context, $money, $percent, $reusableQuestions, $visibility, $numericConstraints): void {
+                AppointmentType::query()->whereKey($appointmentType->getKey())->lockForUpdate()->firstOrFail();
                 $question = $appointmentType->questions()->create(
                     $this->questionData($data, $request, $context, $money, $percent, $appointmentType),
                 );
                 $this->syncOptions($question, $data, $context, $money, $percent);
                 $visibility->sync($appointmentType, $question, (array) ($data['visibility_conditions'] ?? []));
+                $numericConstraints->sync($appointmentType, $question, (array) ($data['numeric_constraints'] ?? []));
                 $reusableQuestions->createFromAttachment($question, $context->organization());
             });
         } catch (InvalidArgumentException $exception) {
@@ -106,7 +110,7 @@ class AppointmentQuestionController extends Controller
         PhoneValidationService $phones,
     ): View {
         $this->guardQuestion($appointmentType, $question, $context);
-        $question->load(['options', 'reusableQuestion', 'visibilityConditions.sourceQuestion', 'visibilityConditions.expectedOption']);
+        $question->load(['options', 'reusableQuestion', 'visibilityConditions.sourceQuestion', 'visibilityConditions.expectedOption', 'numericConstraints.sourceQuestion']);
 
         return view('questionnaire.edit', $this->formData($appointmentType, $question, $context, $phones));
     }
@@ -120,15 +124,18 @@ class AppointmentQuestionController extends Controller
         PercentageService $percent,
         ReusableQuestionService $reusableQuestions,
         QuestionVisibilityService $visibility,
+        NumericQuestionConstraintService $numericConstraints,
     ): RedirectResponse {
         $this->guardQuestion($appointmentType, $question, $context);
         $data = $request->validated();
 
         try {
-            DB::transaction(function () use ($question, $data, $request, $context, $money, $percent, $appointmentType, $reusableQuestions, $visibility): void {
+            DB::transaction(function () use ($question, $data, $request, $context, $money, $percent, $appointmentType, $reusableQuestions, $visibility, $numericConstraints): void {
+                AppointmentType::query()->whereKey($appointmentType->getKey())->lockForUpdate()->firstOrFail();
                 $question->update($this->questionData($data, $request, $context, $money, $percent, $appointmentType));
                 $this->syncOptions($question, $data, $context, $money, $percent);
                 $visibility->sync($appointmentType, $question, (array) ($data['visibility_conditions'] ?? []));
+                $numericConstraints->sync($appointmentType, $question, (array) ($data['numeric_constraints'] ?? []));
 
                 if ($request->boolean('update_reusable_question')) {
                     $reusableQuestions->updateFromAttachment($question);
@@ -155,27 +162,30 @@ class AppointmentQuestionController extends Controller
     ): RedirectResponse {
         $this->guardQuestion($appointmentType, $question, $context);
 
-        if ($question->dependentVisibilityConditions()->exists()) {
-            return back()->withErrors([
-                'question' => 'Remove this question from every dependent question before disabling or deleting it.',
-            ]);
-        }
+        return DB::transaction(function () use ($appointmentType, $question): RedirectResponse {
+            AppointmentType::query()->whereKey($appointmentType->getKey())->lockForUpdate()->firstOrFail();
+            if ($question->dependentVisibilityConditions()->exists() || $question->dependentNumericConstraints()->exists()) {
+                return back()->withErrors([
+                    'question' => 'Remove this question from every display dependency and numeric constraint before disabling or deleting it.',
+                ]);
+            }
 
-        if ($question->answers()->exists()) {
-            $question->update(['is_active' => false]);
+            if ($question->answers()->exists()) {
+                $question->update(['is_active' => false]);
 
-            return back()->with('success', 'Question disabled because historical booking answers exist.');
-        }
+                return back()->with('success', 'Question disabled because historical booking answers exist.');
+            }
 
-        $wasReusable = $question->reusable_question_id !== null;
-        $question->delete();
+            $wasReusable = $question->reusable_question_id !== null;
+            $question->delete();
 
-        return back()->with(
-            'success',
-            $wasReusable
-                ? 'Question removed. Its reusable template remains available.'
-                : 'Question removed.',
-        );
+            return back()->with(
+                'success',
+                $wasReusable
+                    ? 'Question removed. Its reusable template remains available.'
+                    : 'Question removed.',
+            );
+        });
     }
 
     private function questionData(
@@ -392,6 +402,13 @@ class AppointmentQuestionController extends Controller
             'organization' => $context->organization(),
             'phoneRegions' => $phones->supportedRegions(),
             'dependencyQuestions' => $dependencyQuestions,
+            'numericSourceQuestions' => $appointmentType->questions()
+                ->where('is_active', true)
+                ->where('type', QuestionType::Number->value)
+                ->get()
+                ->filter(fn (AppointmentQuestion $candidate): bool => $question === null
+                    || ($candidate->position < $question->position && ! hash_equals($candidate->getKey(), $question->getKey())))
+                ->values(),
         ];
     }
 

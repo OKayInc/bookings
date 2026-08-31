@@ -1,5 +1,7 @@
 @php
 $money=app(\App\Domain\Money\MoneyService::class);
+$numericService=app(\App\Domain\Questionnaires\NumericQuestionConstraintService::class);
+$type->loadMissing('questions.numericConstraints.sourceQuestion');
 $hasQuestions=$type->questions->where('is_active',true)->isNotEmpty();
 $hasShortNoticeFees=$type->shortNoticeFeeRules->where('is_active',true)->isNotEmpty();
 @endphp
@@ -15,8 +17,10 @@ $visibilityConditions=$question->visibilityConditions->sortBy('position')->map(f
  'source_question_uuid'=>$condition->sourceQuestion?->uuid,
  'question_option_uuid'=>$condition->expectedOption?->uuid,
 ])->values()->all();
+$numericConstraints=$numericService->publicRules($question);
+$numericMessage=$numericConstraints !== [] ? $numericService->message($question) : '';
 @endphp
-<div class="field questionnaire-question" data-question-uuid="{{ $question->uuid }}" data-question-type="{{ $question->type->value }}" data-visibility-conditions='@json($visibilityConditions)'>
+<div class="field questionnaire-question" data-question-uuid="{{ $question->uuid }}" data-question-type="{{ $question->type->value }}" data-visibility-conditions='@json($visibilityConditions)' data-numeric-constraints='@json($numericConstraints)' data-numeric-message="{{ $numericMessage }}">
 <label for="q_{{ $question->uuid }}">{{ $question->label }} @if($question->is_required)<span aria-label="required">*</span>@endif</label>
 @if($question->description)<div class="muted">{{ $question->description }}</div>@endif
 @switch($question->type->value)
@@ -35,6 +39,11 @@ $visibilityConditions=$question->visibilityConditions->sortBy('position')->map(f
 @case('checkboxes') @foreach($question->options->where('is_active',true) as $option)<label class="inline-check"><input type="checkbox" name="answers[{{ $question->uuid }}][]" value="{{ $option->uuid }}" @checked(in_array($option->uuid,(array)old($oldKey,[]),true))> {{ $option->label }}{{ $optionCharge($option) }}</label>@endforeach @break
 @case('file') @php $ext=(array)data_get($cfg,'extensions',config('questionnaire.file_extensions')); @endphp <input id="q_{{ $question->uuid }}" type="file" name="answer_files[{{ $question->uuid }}][]" accept="{{ collect($ext)->map(fn($x)=>'.'.$x)->implode(',') }}" multiple @required($question->is_required)><div class="muted">Up to {{ data_get($cfg,'max_count',config('questionnaire.max_files_per_question')) }} file(s).</div> @break
 @endswitch
+@if($numericConstraints !== [])
+<div class="muted" id="numeric_help_{{ $question->uuid }}">{{ $numericMessage }}</div>
+<div class="text-danger numeric-constraint-error" id="numeric_error_{{ $question->uuid }}" aria-live="polite"></div>
+@endif
+@error($oldKey)<div class="text-danger">{{ $message }}</div>@enderror
 </div>
 @endforeach
 </div>

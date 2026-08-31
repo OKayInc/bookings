@@ -1,4 +1,4 @@
-# Database — M7-R19
+# Database — M7-R20
 
 ## Core M1 tables retained
 
@@ -12,6 +12,12 @@
 - `appointment_contract_templates`
 
 All entity primary keys continue to use UUIDv7 encoded as `BINARY(16)`.
+
+## M7-R20 numeric question constraints
+
+Migration `2026_08_31_000059_create_appointment_question_numeric_constraints.php` adds ordered attachment-specific validation predicates. `appointment_question_id` is the numeric target; nullable `source_question_id` identifies an earlier active numeric question from the same appointment type. Alternatively, nullable `comparison_value VARCHAR(255)` stores a fixed decimal as text without float rounding. Exactly one operand is required by application validation. `comparison_operator VARCHAR(2)` stores `>`, `>=`, `=`, `<=`, `<`, or canonical `!=`. `boolean_operator VARCHAR(8)` stores `and`/`or`, and target/position is unique.
+
+The UUID primary key and both question relationships are `BINARY(16)`. Foreign keys cascade when an appointment type or organization is deleted; individual referenced-source removal is blocked by application validation. Questionnaire writes lock the appointment-type row, validate the full configuration, and roll back invalid changes. Rules are not copied to reusable templates, and no existing answers/bookings are rewritten.
 
 ## M7-R19 per-attendee pricing
 

@@ -114,6 +114,8 @@ $qType=old('type',$question?->type?->value ?? 'text');
 </div>
 </div>
 
+@include('questionnaire.partials.numeric-constraints')
+
 <div class="section-card conditional" data-types="number"><h2>Number-field extra charge</h2>
 <div class="row three"><div class="field"><label>Charge type</label><select id="question-pricing-type" name="pricing_adjustment_type">@foreach($pricingTypes as $pt)<option value="{{ $pt->value }}" @selected(old('pricing_adjustment_type',$question?->pricing_adjustment_type?->value ?? 'none')===$pt->value)>{{ ucfirst($pt->value) }}</option>@endforeach</select></div><div class="field"><label>Apply</label><select name="pricing_application_mode">@foreach($pricingModes as $pm)<option value="{{ $pm->value }}" @selected(old('pricing_application_mode',$question?->pricing_application_mode?->value ?? 'per_unit')===$pm->value)>{{ ucwords(str_replace('_',' ',$pm->value)) }}</option>@endforeach</select></div><div class="field"><label>Included units</label><input type="number" min="0" name="pricing_included_units" value="{{ old('pricing_included_units',$question?->pricing_included_units ?? 0) }}"></div></div>
 <div class="row"><div class="field price-fixed"><label>Fixed charge ({{ $organization->currency }})</label><input name="pricing_amount" value="{{ old('pricing_amount',$question?->pricing_amount_minor===null?'':$money->decimal($question->pricing_amount_minor,$organization->currency)) }}"></div><div class="field price-percent"><label>Percentage</label><input name="pricing_percentage" value="{{ old('pricing_percentage',$pct->display($question?->pricing_percentage_bps)) }}" placeholder="25"><label>Basis</label><select name="pricing_percentage_basis">@foreach($percentageBases as $pb)<option value="{{ $pb->value }}" @selected(old('pricing_percentage_basis',$question?->pricing_percentage_basis?->value ?? 'base_price')===$pb->value)>{{ ucwords(str_replace('_',' ',$pb->value)) }}</option>@endforeach</select></div></div>
@@ -138,7 +140,7 @@ $qType=old('type',$question?->type?->value ?? 'text');
    if(enabled){distanceFixed.querySelectorAll('input,select,textarea').forEach(c=>{c.disabled=rangeMode;});distanceRanges.querySelectorAll('input,select,textarea').forEach(c=>{c.disabled=!rangeMode;});}
  }
  function updateDistanceUnitLabels(){document.querySelectorAll('[data-distance-unit-short]').forEach(label=>{label.textContent=distanceUnit?.value==='mile'?'mi':'km';});}
- function toggle(){ document.querySelectorAll('.conditional').forEach(s=>{const show=s.dataset.types.split(',').includes(type.value);s.style.display=show?'block':'none';s.querySelectorAll('input,select,textarea').forEach(c=>c.disabled=!show);}); toggleDistancePricing(); }
+ function toggle(){ document.querySelectorAll('.conditional').forEach(s=>{const show=s.dataset.types.split(',').includes(type.value);s.style.display=show?'block':'none';s.querySelectorAll('input,select,textarea').forEach(c=>c.disabled=!show);}); toggleDistancePricing(); document.dispatchEvent(new Event('question-type-toggled')); }
  type.addEventListener('change',toggle); toggle();
  if(distanceEnabled) distanceEnabled.addEventListener('change',toggleDistancePricing); if(distanceMode) distanceMode.addEventListener('change',toggleDistancePricing); if(distanceUnit) distanceUnit.addEventListener('change',updateDistanceUnitLabels); updateDistanceUnitLabels();
  let index=document.querySelectorAll('.option-row').length;

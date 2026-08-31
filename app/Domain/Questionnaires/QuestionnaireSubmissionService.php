@@ -17,6 +17,7 @@ class QuestionnaireSubmissionService
     public function __construct(
         private QuestionnairePricingService $pricing,
         private QuestionVisibilityService $visibility,
+        private NumericQuestionConstraintService $numericConstraints,
         private EmailDomainValidator $emails,
         private PhoneValidationService $phones,
         private AddressValidationService $addresses,
@@ -34,6 +35,10 @@ class QuestionnaireSubmissionService
     ): QuestionnaireQuote {
         $visibleQuestions = $this->visibility->visibleQuestions($type, $answers);
         $visibleAnswers = $this->visibleAnswers($visibleQuestions, $answers);
+        $errors = $this->numericConstraints->errors($type, $visibleQuestions, $visibleAnswers);
+        if ($errors !== []) {
+            throw new \InvalidArgumentException(reset($errors));
+        }
         $distanceMeters = [];
 
         foreach ($visibleQuestions as $question) {
@@ -118,6 +123,10 @@ class QuestionnaireSubmissionService
 
         $validated = Validator::make($request->all(), $rules)->validate();
         $raw = (array) ($validated['answers'] ?? []);
+        $errors = $this->numericConstraints->errors($type, $visibleQuestions, $raw);
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
         $fileBag = $request->file('answer_files', []);
         $answers = [];
         $distanceMeters = [];

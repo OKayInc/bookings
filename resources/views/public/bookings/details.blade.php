@@ -69,11 +69,26 @@
     <div class="actions"><button class="btn btn-primary" type="submit">Submit booking</button><a class="btn" href="javascript:history.back()">Choose another time</a></div>
 </form>
 @if($type->questions->where('is_active',true)->isNotEmpty() || $type->shortNoticeFeeRules->where('is_active',true)->isNotEmpty() || $type->pricing_mode->value === 'per_attendee')
+<script src="{{ asset('js/numeric-question-constraints.js') }}"></script>
 <script>
 (function(){
  const form=document.querySelector('form.form-stack'); const total=document.getElementById('questionnaire-total'); const lines=document.getElementById('questionnaire-price-lines'); const questionElements=Array.from(document.querySelectorAll('.questionnaire-question')); let timer;
  const questions=new Map(questionElements.map(element=>[element.dataset.questionUuid,element]));
  questionElements.forEach(element=>{element._visibilityConditions=JSON.parse(element.dataset.visibilityConditions||'[]');element.querySelectorAll('input,select,textarea').forEach(control=>{control.dataset.visibilityRequired=control.required?'1':'0';});});
+ questionElements.forEach(element=>{element._numericConstraints=JSON.parse(element.dataset.numericConstraints||'[]');});
+ function readNumericAnswer(uuid){const element=questions.get(uuid);if(!element||element.hidden||element.dataset.questionType!=='number')return null;const control=element.querySelector('input[type="number"]');return control&&!control.disabled?control.value:null;}
+ function refreshNumericConstraints(){
+   questionElements.forEach(element=>{
+     if(!element._numericConstraints.length)return;
+     const control=element.querySelector('input[type="number"]');if(!control)return;
+     const valid=element.hidden||control.value===''||NumericQuestionConstraints.evaluate(control.value,element._numericConstraints,readNumericAnswer);
+     const message=valid?'':element.dataset.numericMessage;
+     control.setCustomValidity(message);
+     control.setAttribute('aria-describedby',`numeric_help_${element.dataset.questionUuid} numeric_error_${element.dataset.questionUuid}`);
+     if(valid)control.removeAttribute('aria-invalid');else control.setAttribute('aria-invalid','true');
+     element.querySelector('.numeric-constraint-error').textContent=message;
+   });
+ }
  function hasAnswer(questionUuid,optionUuid){const source=questions.get(questionUuid);if(!source||source.hidden)return false;return Array.from(source.querySelectorAll('input,select,textarea')).some(control=>!control.disabled&&control.value===optionUuid&&(!['checkbox','radio'].includes(control.type)||control.checked));}
  function expressionMatches(conditions){if(conditions.length===0)return true;let completed=false,current=null;conditions.forEach((condition,index)=>{const matches=hasAnswer(condition.source_question_uuid,condition.question_option_uuid);if(index===0)current=matches;else if(condition.boolean_operator==='or'){completed=completed||current;current=matches;}else current=current&&matches;});return completed||Boolean(current);}
  function clearControl(control){if(control.type==='checkbox'||control.type==='radio')control.checked=false;else if(control.type==='file')control.value='';else control.value='';}
@@ -84,7 +99,7 @@
    try { const response=await fetch(@json(route('public.booking-holds.quote',$holdToken)),{method:'POST',headers:{'Accept':'application/json'},body}); const data=await response.json(); if(!response.ok) throw new Error(data.message||'Unable to calculate price.'); total.textContent=data.total_display; lines.innerHTML=data.lines.map(l=>`<div class="price-line"><span>${escapeHtml(l.label)}${l.quantity !== '1.0000' && l.quantity !== '1' ? ' × '+escapeHtml(l.quantity) : ''}</span><strong>${escapeHtml(l.amount_display)}</strong></div>`).join(''); } catch(e){ total.textContent=e.message; }
  }
  function escapeHtml(v){const d=document.createElement('div');d.textContent=String(v);return d.innerHTML;}
- form.addEventListener('change',e=>{if(e.target.name?.startsWith('answers[')){refreshVisibility();clearTimeout(timer);timer=setTimeout(updateQuote,100);}}); form.addEventListener('input',e=>{if(e.target.type==='number' && e.target.name?.startsWith('answers[')){clearTimeout(timer);timer=setTimeout(updateQuote,250);}}); refreshVisibility(); updateQuote();
+ form.addEventListener('change',e=>{if(e.target.name?.startsWith('answers[')){refreshVisibility();refreshNumericConstraints();clearTimeout(timer);timer=setTimeout(updateQuote,100);}}); form.addEventListener('input',e=>{if(e.target.type==='number' && e.target.name?.startsWith('answers[')){refreshNumericConstraints();clearTimeout(timer);timer=setTimeout(updateQuote,250);}}); refreshVisibility(); refreshNumericConstraints(); updateQuote();
 })();
 </script>
 @endif
