@@ -187,6 +187,68 @@
 </div>
 
 <div class="section-card">
+    <h2>Event tickets</h2>
+    <input type="hidden" name="ticketing_enabled" value="0">
+    <label class="inline-check">
+        <input id="ticketing_enabled" type="checkbox" name="ticketing_enabled" value="1" @checked((bool) old('ticketing_enabled', $appointmentType?->ticketing_enabled ?? false))>
+        Issue one admission ticket per attendee
+    </label>
+    <p class="muted">Ticketed events use group attendance and a fixed duration. The selected booking start is <strong>doors open</strong>; resources remain busy for the complete booking range.</p>
+
+    <div id="ticketing-fields" style="margin-top:1rem">
+        <div class="row">
+            <div class="field">
+                <label for="show_start_offset_minutes">Show starts after doors open</label>
+                <div class="input-group">
+                    <input id="show_start_offset_minutes" class="form-control" type="number" min="0" name="show_start_offset_minutes" value="{{ old('show_start_offset_minutes', $appointmentType?->show_start_offset_minutes ?? 60) }}">
+                    <span class="input-group-text">minutes</span>
+                </div>
+            </div>
+            <div class="field">
+                <label for="show_end_offset_minutes">Show ends after doors open <span class="muted">optional</span></label>
+                <div class="input-group">
+                    <input id="show_end_offset_minutes" class="form-control" type="number" min="0" name="show_end_offset_minutes" value="{{ old('show_end_offset_minutes', $appointmentType?->show_end_offset_minutes) }}">
+                    <span class="input-group-text">minutes</span>
+                </div>
+            </div>
+        </div>
+        <p class="muted">Show start and show end must both fall inside the doors-open-to-booking-end range. Show end may be omitted when it is not advertised.</p>
+
+        <div class="field">
+            <label for="ticket_seating_scheme">Seat numbering</label>
+            <select id="ticket_seating_scheme" name="ticket_seating_scheme">
+                @foreach($ticketSeatingSchemes as $scheme)
+                    <option value="{{ $scheme->value }}" @selected(old('ticket_seating_scheme', $appointmentType?->ticket_seating_scheme?->value ?? 'none') === $scheme->value)>{{ $scheme->label() }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        <div id="ticket-seat-optional-field">
+            <input type="hidden" name="ticket_seat_optional" value="0">
+            <label class="inline-check">
+                <input id="ticket_seat_optional" type="checkbox" name="ticket_seat_optional" value="1" @checked((bool) old('ticket_seat_optional', $appointmentType?->ticket_seat_optional ?? false))>
+                Allow the seat number to be omitted for a section or row
+            </label>
+            <p class="muted">When a block has no first/last seat, enter how many general-admission tickets belong to that section or row.</p>
+        </div>
+
+        <div id="ticket-seat-block-fields">
+            <p class="muted">Blocks are allocated in the order shown. Their numbered ranges or unnumbered quantities must add up exactly to session capacity.</p>
+            <div id="ticket-seat-block-list">
+                @foreach(old('ticket_seat_blocks', $ticketSeatBlockInputs ?? []) as $blockIndex => $block)
+                    @include('appointment-types.partials.ticket-seat-block', compact('blockIndex', 'block'))
+                @endforeach
+            </div>
+            <button class="btn" id="add-ticket-seat-block" type="button">Add seating block</button>
+            <template id="ticket-seat-block-template">
+                @include('appointment-types.partials.ticket-seat-block', ['blockIndex' => '__INDEX__', 'block' => []])
+            </template>
+        </div>
+        <p class="muted" id="ticket-consecutive-help">Consecutive numbering automatically uses seat 1 through the configured session capacity.</p>
+    </div>
+</div>
+
+<div class="section-card">
     <h2>Booking notice</h2>
     <div class="row">
         <div class="field">
@@ -375,7 +437,7 @@
                 </option>
             @endforeach
         </select>
-        <div class="muted">Currency: {{ $organization->currency }}. Payment collection/retainers will be implemented in M8.</div>
+        <div class="muted">Currency: {{ $organization->currency }}. Payment collection/retainers will be implemented in M9.</div>
     </div>
 
     <div class="field" id="fixed-price-fields">
@@ -534,7 +596,7 @@
         <label for="cancellation_policy_text">Policy shown to clients (optional)</label>
         <textarea id="cancellation_policy_text" name="cancellation_policy_text">{{ old('cancellation_policy_text', $appointmentType?->cancellation_policy_text) }}</textarea>
     </div>
-    <div class="muted">A deadline of 0 allows cancellation until the appointment starts. Payment/refund consequences will be connected in M8.</div>
+    <div class="muted">A deadline of 0 allows cancellation until the appointment starts. Payment/refund consequences will be connected in M9.</div>
 </div>
 
 <div class="section-card">
@@ -742,6 +804,97 @@
         const button = event.target.closest('[data-remove-attendee-range]');
         if (button) { button.closest('[data-index]').remove(); sync(); }
     });
+    sync();
+})();
+</script>
+
+<script>
+(() => {
+    const enabled = document.getElementById('ticketing_enabled');
+    const fields = document.getElementById('ticketing-fields');
+    const scheme = document.getElementById('ticket_seating_scheme');
+    const optionalField = document.getElementById('ticket-seat-optional-field');
+    const optional = document.getElementById('ticket_seat_optional');
+    const blockFields = document.getElementById('ticket-seat-block-fields');
+    const consecutiveHelp = document.getElementById('ticket-consecutive-help');
+    const list = document.getElementById('ticket-seat-block-list');
+    const template = document.getElementById('ticket-seat-block-template');
+    const add = document.getElementById('add-ticket-seat-block');
+    const attendance = document.getElementById('attendance_mode');
+    const duration = document.getElementById('duration_mode');
+    let nextIndex = Array.from(list.querySelectorAll('[data-index]')).reduce(
+        (highest, row) => Math.max(highest, Number.parseInt(row.dataset.index, 10) || 0),
+        -1,
+    ) + 1;
+
+    function sectionState(section, active) {
+        section.style.display = active ? 'block' : 'none';
+        section.querySelectorAll('input, select, button').forEach(control => { control.disabled = !active; });
+    }
+
+    function prepare(row) {
+        row.querySelector('[data-remove-ticket-seat-block]').addEventListener('click', () => row.remove());
+    }
+
+    function syncRow(row, selected, seatsOptional) {
+        const usesSection = selected === 'section_seat' || selected === 'section_row_seat';
+        const usesRow = selected === 'row_seat' || selected === 'section_row_seat';
+        sectionState(row.querySelector('[data-ticket-section-field]'), usesSection);
+        sectionState(row.querySelector('[data-ticket-row-field]'), usesRow);
+        sectionState(row.querySelector('[data-ticket-quantity-field]'), seatsOptional);
+
+        const first = row.querySelector('[data-ticket-first-seat-field] input');
+        const last = row.querySelector('[data-ticket-last-seat-field] input');
+        first.disabled = false;
+        last.disabled = false;
+        first.required = !seatsOptional;
+        last.required = !seatsOptional;
+        row.querySelector('[data-ticket-section-field] input').required = usesSection;
+        row.querySelector('[data-ticket-row-field] input').required = usesRow;
+    }
+
+    function sync() {
+        const active = enabled.checked;
+        sectionState(fields, active);
+        if (!active) return;
+
+        if (attendance.value !== 'group') {
+            attendance.value = 'group';
+            attendance.dispatchEvent(new Event('change'));
+        }
+        if (duration.value !== 'fixed') {
+            duration.value = 'fixed';
+            duration.dispatchEvent(new Event('change'));
+        }
+
+        const selected = scheme.value;
+        const usesBlocks = ['section_seat', 'row_seat', 'section_row_seat'].includes(selected);
+        const supportsOptional = ['section_seat', 'row_seat'].includes(selected);
+        if (!supportsOptional) optional.checked = false;
+        sectionState(optionalField, supportsOptional);
+        sectionState(blockFields, usesBlocks);
+        consecutiveHelp.style.display = selected === 'consecutive' ? 'block' : 'none';
+
+        if (usesBlocks && list.children.length === 0) {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = template.innerHTML.replaceAll('__INDEX__', String(nextIndex++));
+            const row = wrapper.firstElementChild;
+            list.appendChild(row);
+            prepare(row);
+        }
+        list.querySelectorAll('[data-ticket-seat-block]').forEach(row => syncRow(row, selected, supportsOptional && optional.checked));
+    }
+
+    list.querySelectorAll('[data-ticket-seat-block]').forEach(prepare);
+    add.addEventListener('click', () => {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = template.innerHTML.replaceAll('__INDEX__', String(nextIndex++));
+        const row = wrapper.firstElementChild;
+        list.appendChild(row);
+        prepare(row);
+        sync();
+    });
+    [enabled, scheme, optional, attendance, duration].forEach(control => control.addEventListener('change', sync));
     sync();
 })();
 </script>

@@ -43,6 +43,8 @@ For yearly recurrence, the reference years distinguish an ordinary same-year win
 
 Migration `2026_08_30_000056_add_online_conference_settings.php` creates one optional `organization_conference_settings` row per organization. Google questionnaire API keys, provider secrets, refresh tokens, and the reusable custom URL use Laravel encrypted casts, while non-secret provider identifiers remain queryable. The row cascades when its organization is deleted.
 
+Migration `2026_09_01_000061_add_ticketing_capabilities.php` adds ticket configuration to `appointment_types`, immutable event timing/seating snapshots to `appointments`, and `tickets`. Each ticket belongs to one booking attendee, uses a globally unique printed code, and may hold one appointment-scoped `seat_key`; voiding clears only the allocation key so the historical section/row/seat labels remain visible while inventory becomes reusable.
+
 `appointment_types.is_online` and `meeting_provider` define future meeting behavior. `appointments` snapshot the chosen provider and store the external meeting ID, encrypted attendee/host URLs, provisioning status, and a staff-visible error. Editing an appointment type or rotating organization credentials therefore does not silently switch the provider on an existing scheduled appointment.
 
 ## M7-R14 multi-day availability evaluation

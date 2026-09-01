@@ -16,10 +16,13 @@ use App\Enums\PricingAdjustmentType;
 use App\Enums\ReminderThresholdBasis;
 use App\Enums\ResourceRequirementMode;
 use App\Enums\SeasonRecurrence;
+use App\Enums\TicketSeatingScheme;
 use App\Models\Resource;
+use App\Models\AppointmentType;
 use App\Domain\Money\MoneyService;
 use App\Domain\Conferences\ConferenceProviderCatalog;
 use App\Domain\Questionnaires\PercentageService;
+use App\Domain\Tickets\TicketSeatingService;
 use App\Rules\MoneyAmount;
 use App\Support\Organizations\OrganizationContext;
 use Illuminate\Foundation\Http\FormRequest;
@@ -60,6 +63,30 @@ class StoreAppointmentTypeRequest extends FormRequest
             ],
 
             'attendance_mode' => ['required', Rule::enum(AttendanceMode::class)],
+            'ticketing_enabled' => ['nullable', 'boolean'],
+            'show_start_offset_minutes' => [
+                Rule::requiredIf(fn (): bool => $this->boolean('ticketing_enabled')),
+                'nullable', 'integer', 'min:0',
+            ],
+            'show_end_offset_minutes' => ['nullable', 'integer', 'min:0'],
+            'ticket_seating_scheme' => [
+                Rule::requiredIf(fn (): bool => $this->boolean('ticketing_enabled')),
+                'nullable', Rule::enum(TicketSeatingScheme::class),
+            ],
+            'ticket_seat_optional' => ['nullable', 'boolean'],
+            'ticket_seat_blocks' => [
+                Rule::requiredIf(function (): bool {
+                    $scheme = TicketSeatingScheme::tryFrom((string) $this->input('ticket_seating_scheme'));
+
+                    return $this->boolean('ticketing_enabled') && $scheme?->usesBlocks();
+                }),
+                'nullable', 'array', 'max:1000',
+            ],
+            'ticket_seat_blocks.*.section' => ['nullable', 'string', 'max:80'],
+            'ticket_seat_blocks.*.row' => ['nullable', 'string', 'max:80'],
+            'ticket_seat_blocks.*.first_seat' => ['nullable', 'integer', 'min:1', 'max:1000000'],
+            'ticket_seat_blocks.*.last_seat' => ['nullable', 'integer', 'min:1', 'max:1000000'],
+            'ticket_seat_blocks.*.quantity' => ['nullable', 'integer', 'min:1', 'max:'.config('appointment-types.max_capacity', 100000)],
             'is_online' => ['nullable', 'boolean'],
             'meeting_provider' => [
                 Rule::requiredIf(fn (): bool => $this->boolean('is_online')),
@@ -204,6 +231,7 @@ class StoreAppointmentTypeRequest extends FormRequest
         $validator->after(function (Validator $validator): void {
             $this->validateSeason($validator);
             $this->validateAttendeePricing($validator);
+            $this->validateTicketing($validator);
 
             if ($this->input('pricing_mode') === PricingMode::PerAttendee->value
                 && $this->input('attendance_mode') !== AttendanceMode::Group->value) {
@@ -462,6 +490,109 @@ class StoreAppointmentTypeRequest extends FormRequest
             app(AttendeePricingService::class)->breakdown($type, (int) $type->capacity);
         } catch (\InvalidArgumentException $exception) {
             $validator->errors()->add($mode === AttendeePricingMode::Flat ? 'attendee_price' : 'attendee_price_ranges', $exception->getMessage());
+        }
+    }
+
+    private function validateTicketing(Validator $validator): void
+    {
+        $this->validateTicketingSnapshotLock($validator);
+
+        if (! $this->boolean('ticketing_enabled')) {
+            return;
+        }
+
+        if ($this->input('attendance_mode') !== AttendanceMode::Group->value) {
+            $validator->errors()->add('attendance_mode', 'Ticketed events must use group attendance so separate clients share event capacity.');
+        }
+        if ($this->input('duration_mode') !== DurationMode::Fixed->value) {
+            $validator->errors()->add('duration_mode', 'Ticketed events require one fixed doors-open-to-booking-end duration.');
+        }
+
+        $duration = filter_var($this->input('duration_value'), FILTER_VALIDATE_INT);
+        $unit = DurationUnit::tryFrom((string) $this->input('duration_unit'));
+        $showStart = filter_var($this->input('show_start_offset_minutes'), FILTER_VALIDATE_INT);
+        $showEndInput = $this->input('show_end_offset_minutes');
+        $showEnd = $showEndInput === null || $showEndInput === ''
+            ? null
+            : filter_var($showEndInput, FILTER_VALIDATE_INT);
+
+        if ($duration !== false && $duration > 0 && $unit !== null) {
+            $durationMinutes = $duration * $unit->minutes();
+            if ($showStart !== false && ($showStart < 0 || $showStart > $durationMinutes)) {
+                $validator->errors()->add('show_start_offset_minutes', 'Show start must fall between doors open and the booking end.');
+            }
+            if ($showEnd !== null && $showEnd !== false) {
+                if ($showEnd < 0 || $showEnd > $durationMinutes) {
+                    $validator->errors()->add('show_end_offset_minutes', 'Show end must fall between doors open and the booking end.');
+                } elseif ($showStart !== false && $showEnd < $showStart) {
+                    $validator->errors()->add('show_end_offset_minutes', 'Show end must be at or after show start.');
+                }
+            }
+        }
+
+        $scheme = TicketSeatingScheme::tryFrom((string) $this->input('ticket_seating_scheme'));
+        $capacity = filter_var($this->input('capacity'), FILTER_VALIDATE_INT);
+        if ($scheme === null || $capacity === false || $capacity < 1) {
+            return;
+        }
+
+        try {
+            app(TicketSeatingService::class)->normalize(
+                $scheme,
+                $this->boolean('ticket_seat_optional'),
+                (array) $this->input('ticket_seat_blocks', []),
+                $capacity,
+            );
+        } catch (InvalidArgumentException $exception) {
+            $validator->errors()->add('ticket_seat_blocks', $exception->getMessage());
+        }
+    }
+
+    private function validateTicketingSnapshotLock(Validator $validator): void
+    {
+        $type = $this->route('appointment_type');
+        if (! $type instanceof AppointmentType
+            || ! $type->appointments()->where('status', 'scheduled')->where('ends_at_utc', '>', now('UTC'))->exists()) {
+            return;
+        }
+
+        $enabled = $this->boolean('ticketing_enabled');
+        $changed = $enabled !== (bool) $type->ticketing_enabled;
+        if ($enabled && $type->ticketing_enabled) {
+            $scheme = TicketSeatingScheme::tryFrom((string) $this->input('ticket_seating_scheme'));
+            $capacity = filter_var($this->input('capacity'), FILTER_VALIDATE_INT);
+            $optional = $scheme?->supportsOptionalSeat() && $this->boolean('ticket_seat_optional');
+            $blocks = null;
+            if ($scheme !== null && $capacity !== false && $capacity > 0) {
+                try {
+                    $blocks = app(TicketSeatingService::class)->normalize(
+                        $scheme,
+                        $optional,
+                        (array) $this->input('ticket_seat_blocks', []),
+                        $capacity,
+                    );
+                } catch (InvalidArgumentException) {
+                    return;
+                }
+            }
+
+            $showEnd = $this->input('show_end_offset_minutes');
+            $changed = $changed
+                || (int) $this->input('capacity') !== (int) $type->capacity
+                || (string) $this->input('duration_unit') !== $type->duration_unit->value
+                || (int) $this->input('duration_value') !== (int) $type->duration_value
+                || (int) $this->input('show_start_offset_minutes') !== (int) $type->show_start_offset_minutes
+                || ($showEnd === null || $showEnd === '' ? null : (int) $showEnd) !== $type->show_end_offset_minutes
+                || $scheme !== $type->ticket_seating_scheme
+                || $optional !== (bool) $type->ticket_seat_optional
+                || $blocks !== ($type->ticket_seat_blocks ?? []);
+        }
+
+        if ($changed) {
+            $validator->errors()->add(
+                'ticketing_enabled',
+                'Ticket timing and seating cannot be changed while this appointment type has a future booked event. Existing event snapshots must remain consistent for every buyer.',
+            );
         }
     }
 

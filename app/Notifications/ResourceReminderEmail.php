@@ -25,8 +25,16 @@ class ResourceReminderEmail extends Notification
         $message = (new MailMessage)
             ->subject('Resource appointment reminder')
             ->greeting('Hello,')
-            ->line('This is a reminder that '.$this->resource->name.' is assigned to '.$this->booking->appointmentType->name.'.')
-            ->line('Scheduled: '.$start);
+            ->line('This is a reminder that '.$this->resource->name.' is assigned to '.$this->booking->appointmentType->name.'.');
+        if ($this->booking->appointment->ticketing_enabled) {
+            $timezone = $this->resource->timezone ?: $this->booking->organization->timezone;
+            $message
+                ->line('Doors open: '.$start)
+                ->line('Show starts: '.$this->booking->appointment->show_starts_at_utc->setTimezone($timezone)->format('D, M j Y · g:i A'))
+                ->line('Resource booking ends: '.$this->booking->appointment->ends_at_utc->setTimezone($timezone)->format('D, M j Y · g:i A'));
+        } else {
+            $message->line('Scheduled: '.$start);
+        }
         if ($warning !== null) {
             $message->line('IMPORTANT: A staff availability warning is active for this booking because the client kept the original time or a proposed change expired.');
         }

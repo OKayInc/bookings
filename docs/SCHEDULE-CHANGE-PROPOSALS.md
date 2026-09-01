@@ -50,7 +50,7 @@ The client can respond either from the existing passwordless Manage Booking page
 - cancellation is allowed even if the normal client cancellation deadline has passed or client cancellation is disabled, because the cancellation was caused by a staff availability issue;
 - the booking records `cancellation_origin = staff_schedule_change`;
 - the proposal becomes `cancelled` and the alternative hold is released;
-- M8 can use the cancellation origin/proposal history when deciding the applicable refund.
+- M9 can use the cancellation origin/proposal history when deciding the applicable refund.
 
 M6-R2 does not process payments/refunds yet.
 

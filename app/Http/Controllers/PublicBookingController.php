@@ -9,6 +9,7 @@ use App\Domain\Bookings\PublicBookingAvailabilityService;
 use App\Domain\Bookings\PublicBookingHoldService;
 use App\Domain\Money\MoneyService;
 use App\Domain\Questionnaires\QuestionnaireSubmissionService;
+use App\Domain\Tickets\TicketEventService;
 use App\Enums\AttendanceMode;
 use App\Models\AppointmentType;
 use App\Models\BookingHold;
@@ -36,6 +37,7 @@ class PublicBookingController extends Controller
         PublicBookingAvailabilityService $availability,
         AppointmentTypePricingService $pricing,
         MoneyService $money,
+        TicketEventService $ticketEvents,
     ): JsonResponse {
         $data = $request->validate([
             'access_mode' => ['required', Rule::in(['direct', 'unlisted', 'invitation'])],
@@ -68,7 +70,12 @@ class PublicBookingController extends Controller
                 (int) $data['attendee_count'],
             );
             $price = $pricing->priceForBooking($appointmentType, $duration, $appointmentType->duration_unit, (int) $data['attendee_count']);
-        } catch (\InvalidArgumentException $exception) {
+            if ($appointmentType->ticketing_enabled) {
+                foreach ($slots as $slot) {
+                    $ticketEvents->appointmentAttributes($appointmentType, $slot->startsAtUtc, $slot->endsAtUtc);
+                }
+            }
+        } catch (RuntimeException|\InvalidArgumentException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
@@ -77,17 +84,27 @@ class PublicBookingController extends Controller
             'organization_timezone' => $appointmentType->organization->timezone,
             'price_minor' => $price,
             'price_display' => $money->format($price, $appointmentType->organization->currency),
-            'slots' => array_map(function ($slot) use ($timezone, $appointmentType): array {
+            'ticketed_event' => (bool) $appointmentType->ticketing_enabled,
+            'slots' => array_map(function ($slot) use ($timezone, $appointmentType, $ticketEvents): array {
                 $clientStart = $slot->startsAtUtc->setTimezone($timezone);
                 $clientEnd = $slot->endsAtUtc->setTimezone($timezone);
                 $orgStart = $slot->startsAtUtc->setTimezone($appointmentType->organization->timezone);
                 $orgEnd = $slot->endsAtUtc->setTimezone($appointmentType->organization->timezone);
+                $event = $appointmentType->ticketing_enabled
+                    ? $ticketEvents->appointmentAttributes($appointmentType, $slot->startsAtUtc, $slot->endsAtUtc)
+                    : null;
+                $clientShowStart = $event === null ? null : $event['show_starts_at_utc']->setTimezone($timezone);
+                $clientShowEnd = $event === null || $event['show_ends_at_utc'] === null ? null : $event['show_ends_at_utc']->setTimezone($timezone);
+                $orgShowStart = $event === null ? null : $event['show_starts_at_utc']->setTimezone($appointmentType->organization->timezone);
+                $orgShowEnd = $event === null || $event['show_ends_at_utc'] === null ? null : $event['show_ends_at_utc']->setTimezone($appointmentType->organization->timezone);
 
                 return [
                     'starts_at_utc' => $slot->startsAtUtc->toIso8601String(),
                     'ends_at_utc' => $slot->endsAtUtc->toIso8601String(),
                     'client_label' => $clientStart->format('g:i A').' – '.$clientEnd->format('g:i A'),
                     'organization_label' => $orgStart->format('g:i A').' – '.$orgEnd->format('g:i A'),
+                    'client_event_label' => $event === null ? null : 'Doors '.$clientStart->format('g:i A').' · Show '.$clientShowStart->format('g:i A').($clientShowEnd ? ' – '.$clientShowEnd->format('g:i A') : ''),
+                    'organization_event_label' => $event === null ? null : 'Doors '.$orgStart->format('g:i A').' · Show '.$orgShowStart->format('g:i A').($orgShowEnd ? ' – '.$orgShowEnd->format('g:i A') : ''),
                     'remaining_capacity' => $slot->remainingCapacity,
                     'join_existing' => $slot->appointment !== null,
                 ];
@@ -132,7 +149,7 @@ class PublicBookingController extends Controller
         ]);
     }
 
-    public function editHold(string $token): View
+    public function editHold(string $token, TicketEventService $ticketEvents): View
     {
         $hold = $this->holdByToken($token);
         $hold->load(['organization', 'appointmentType.organization', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
@@ -142,6 +159,13 @@ class PublicBookingController extends Controller
             'type' => $hold->appointmentType,
             'hold' => $hold,
             'holdToken' => $token,
+            'eventTiming' => $hold->appointmentType->ticketing_enabled
+                ? $ticketEvents->appointmentAttributes(
+                    $hold->appointmentType,
+                    CarbonImmutable::instance($hold->starts_at_utc)->utc(),
+                    CarbonImmutable::instance($hold->ends_at_utc)->utc(),
+                )
+                : null,
         ]);
     }
 

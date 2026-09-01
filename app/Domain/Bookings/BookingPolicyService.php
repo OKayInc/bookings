@@ -28,6 +28,10 @@ class BookingPolicyService
             return false;
         }
 
+        if ($booking->tickets()->where('status', 'checked_in')->exists()) {
+            return false;
+        }
+
         $maximum = (int) $booking->rescheduling_max_count;
         if ($maximum > 0 && (int) $booking->reschedule_count >= $maximum) {
             return false;
@@ -63,6 +67,9 @@ class BookingPolicyService
         }
         if (in_array($booking->status->value, ['cancelled', 'declined'], true)) {
             return 'This booking is no longer active.';
+        }
+        if ($booking->tickets()->where('status', 'checked_in')->exists()) {
+            return 'A booking with checked-in tickets cannot be rescheduled.';
         }
         $maximum = (int) $booking->rescheduling_max_count;
         if ($maximum > 0 && (int) $booking->reschedule_count >= $maximum) {

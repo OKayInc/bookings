@@ -82,7 +82,7 @@ The database stores only SHA-256 hashes of booking-management and email-verifica
 - `pending_email_verification`
 - `pending_contract_review`
 - `pending_staff_confirmation` (the staff approval UI is M6)
-- `pending_payment` (payment collection is M8)
+- `pending_payment` (payment collection is M9)
 - `confirmed`
 - `cancelled`
 - `declined`

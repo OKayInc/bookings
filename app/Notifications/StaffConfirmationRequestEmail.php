@@ -31,12 +31,21 @@ class StaffConfirmationRequestEmail extends Notification
             ? 'One confirmation from the “'.$this->confirmation->replacement_group.'” replacement group is required'
             : ($this->confirmation->is_required ? 'Your confirmation is required' : 'You are an optional resource');
 
-        return (new MailMessage)
+        $message = (new MailMessage)
             ->subject(($this->reminder ? 'Reminder: ' : '').'Appointment confirmation required')
             ->greeting('Hello,')
             ->line($requirement.' for '.$booking->appointmentType->name.'.')
-            ->line('Booking reference: '.$booking->reference)
-            ->line('Scheduled: '.$start.' ('.$booking->appointment->scheduling_timezone.')')
+            ->line('Booking reference: '.$booking->reference);
+        if ($booking->appointment->ticketing_enabled) {
+            $message
+                ->line('Doors open: '.$start.' ('.$booking->appointment->scheduling_timezone.')')
+                ->line('Show starts: '.$booking->appointment->show_starts_at_utc->setTimezone($booking->appointment->scheduling_timezone)->format('D, M j Y · g:i A'))
+                ->line('Resource booking ends: '.$booking->appointment->ends_at_utc->setTimezone($booking->appointment->scheduling_timezone)->format('D, M j Y · g:i A'));
+        } else {
+            $message->line('Scheduled: '.$start.' ('.$booking->appointment->scheduling_timezone.')');
+        }
+
+        return $message
             ->action('Accept or decline', $url)
             ->line('The response link is private and can be used without logging in.');
     }

@@ -13,6 +13,8 @@ use App\Domain\Availability\AvailabilityInterval;
 use App\Domain\Availability\AppointmentTypeSeasonService;
 use App\Domain\Availability\OrganizationHolidayService;
 use App\Domain\Availability\ResourceHolidayService;
+use App\Domain\Tickets\TicketAllocationService;
+use App\Domain\Tickets\TicketEventService;
 use App\Enums\AppointmentStatus;
 use App\Enums\BookingHoldStatus;
 use App\Enums\BookingStatus;
@@ -43,6 +45,8 @@ class BookingCreationService
         private readonly OrganizationHolidayService $holidays,
         private readonly ResourceHolidayService $resourceHolidays,
         private readonly AppointmentTypeSeasonService $seasons,
+        private readonly TicketAllocationService $ticketAllocation,
+        private readonly TicketEventService $ticketEvents,
     ) {
     }
 
@@ -249,6 +253,8 @@ class BookingCreationService
                 ]);
             }
 
+            $this->ticketAllocation->createForBooking($booking->load(['appointment', 'attendees']));
+
             $this->questionnairePersistence->persist($booking->load('organization'), $questionnaire);
 
             if ($hold->appointment_type_invitation_id !== null) {
@@ -288,6 +294,8 @@ class BookingCreationService
             return Appointment::query()->whereKey($hold->appointment_id)->lockForUpdate()->firstOrFail();
         }
 
+        $startsAtUtc = CarbonImmutable::instance($hold->starts_at_utc)->utc();
+        $endsAtUtc = CarbonImmutable::instance($hold->ends_at_utc)->utc();
         $appointment = Appointment::create([
             'organization_id' => $hold->organization_id,
             'appointment_type_id' => $hold->appointment_type_id,
@@ -301,6 +309,7 @@ class BookingCreationService
             'status' => AppointmentStatus::Scheduled->value,
             'meeting_provider' => $hold->appointmentType->is_online ? $hold->appointmentType->meeting_provider?->value : null,
             'meeting_status' => $hold->appointmentType->is_online ? 'pending' : null,
+            ...$this->ticketEvents->appointmentAttributes($hold->appointmentType, $startsAtUtc, $endsAtUtc),
         ]);
         $appointment->resources()->sync(
             $hold->resources->mapWithKeys(fn ($resource) => [

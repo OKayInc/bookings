@@ -93,6 +93,15 @@ class CalendarSyncService
         $type = $appointment->appointmentType; $organization = $type->organization;
         $summary = $type->name;
         $description = "Managed by Appointment Software\nOrganization: {$organization->name}\nAppointment UUID: {$appointment->uuid}";
+        if ($appointment->ticketing_enabled) {
+            $timezone = $organization->timezone;
+            $description .= "\nDoors open: ".$appointment->starts_at_utc->setTimezone($timezone)->format('D, M j Y · g:i A')." ({$timezone})";
+            $description .= "\nShow starts: ".$appointment->show_starts_at_utc->setTimezone($timezone)->format('D, M j Y · g:i A')." ({$timezone})";
+            if ($appointment->show_ends_at_utc !== null) {
+                $description .= "\nShow ends: ".$appointment->show_ends_at_utc->setTimezone($timezone)->format('D, M j Y · g:i A')." ({$timezone})";
+            }
+            $description .= "\nResource booking ends: ".$appointment->ends_at_utc->setTimezone($timezone)->format('D, M j Y · g:i A')." ({$timezone})";
+        }
         if ($appointment->meeting_status === 'ready' && filled($appointment->meeting_join_url)) {
             $description .= "\nOnline meeting: {$appointment->meeting_join_url}";
         }

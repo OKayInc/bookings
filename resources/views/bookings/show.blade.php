@@ -5,9 +5,28 @@
 
 <div class="grid">
     <div class="card"><h3>Client</h3><p>{{ $booking->first_name }} {{ $booking->last_name }}</p><p>{{ $booking->email }} @if($booking->phone)<br>{{ $booking->phone }}@endif</p></div>
-    <div class="card"><h3>Schedule</h3><p>{{ $booking->appointment->starts_at_utc->setTimezone($booking->booking_timezone)->format('D, M j Y · g:i A') }} – {{ $booking->appointment->ends_at_utc->setTimezone($booking->booking_timezone)->format('g:i A') }}</p><p class="muted">Client: {{ $booking->booking_timezone }}</p></div>
+    <div class="card"><h3>{{ $booking->appointment->ticketing_enabled ? 'Event schedule' : 'Schedule' }}</h3>@if($booking->appointment->ticketing_enabled)<p><strong>Doors open:</strong> {{ $booking->appointment->starts_at_utc->setTimezone($booking->booking_timezone)->format('D, M j Y · g:i A') }}<br><strong>Show starts:</strong> {{ $booking->appointment->show_starts_at_utc->setTimezone($booking->booking_timezone)->format('D, M j Y · g:i A') }}@if($booking->appointment->show_ends_at_utc)<br><strong>Show ends:</strong> {{ $booking->appointment->show_ends_at_utc->setTimezone($booking->booking_timezone)->format('D, M j Y · g:i A') }}@endif<br><span class="muted">Resource booking ends {{ $booking->appointment->ends_at_utc->setTimezone($booking->booking_timezone)->format('g:i A') }}</span></p>@else<p>{{ $booking->appointment->starts_at_utc->setTimezone($booking->booking_timezone)->format('D, M j Y · g:i A') }} – {{ $booking->appointment->ends_at_utc->setTimezone($booking->booking_timezone)->format('g:i A') }}</p>@endif<p class="muted">Client: {{ $booking->booking_timezone }}</p></div>
     <div class="card"><h3>Price</h3><p>{{ app(\App\Domain\Money\MoneyService::class)->format($booking->price_minor, $booking->currency) }}</p><p>{{ $booking->attendee_count }} attendee(s)</p></div>
 </div>
+
+@if($booking->tickets->isNotEmpty())
+<div class="card table-scroll">
+    <h2>Tickets</h2>
+    <table class="table table-hover align-middle">
+        <thead><tr><th>Code</th><th>Attendee</th><th>Admission</th><th>Status</th><th>Check-in</th><th></th></tr></thead>
+        <tbody>@foreach($booking->tickets as $ticket)
+            <tr>
+                <td class="font-monospace">{{ $ticket->code }}</td>
+                <td>{{ trim(($ticket->attendee?->first_name ?? '').' '.($ticket->attendee?->last_name ?? '')) ?: 'Unnamed attendee' }}</td>
+                <td>{{ $ticket->seat_display }}</td>
+                <td><span class="badge">{{ $ticket->status->label() }}</span></td>
+                <td>@if($ticket->checked_in_at_utc){{ $ticket->checked_in_at_utc->setTimezone($booking->organization->timezone)->format('Y-m-d g:i A') }}<div class="muted">{{ $ticket->checkedInBy?->full_name ?? 'Unknown staff' }}</div>@else—@endif</td>
+                <td><a class="btn btn-sm" target="_blank" rel="noopener" href="{{ route('tickets.show', [$booking, $ticket]) }}">View / print</a></td>
+            </tr>
+        @endforeach</tbody>
+    </table>
+</div>
+@endif
 
 @if($booking->appointment->meeting_provider)
 <div class="card">
@@ -195,7 +214,7 @@
 @if($canManage && !in_array($booking->status->value, ['cancelled','declined'], true))
 <div class="card">
     <h2>Administrative cancellation</h2>
-    <p class="muted">Staff cancellation overrides the client cancellation deadline. Payment/refund handling will be connected in M8.</p>
+    <p class="muted">Staff cancellation overrides the client cancellation deadline. Payment/refund handling will be connected in M9.</p>
     <form method="post" action="{{ route('bookings.cancel', $booking) }}" onsubmit="return confirm('Cancel this booking?');">
         @csrf
         <div class="field"><label for="admin_cancel_reason">Reason (optional)</label><textarea id="admin_cancel_reason" name="reason"></textarea></div>

@@ -1,11 +1,12 @@
+# Appointment Software — M8
+
+M8 adds optional ticketed events with doors-open/show timing, seating schemes, one printable ticket per attendee, lifecycle-safe seat allocation, and organization-scoped check-in. See `docs/TICKETING.md` and `docs/UPGRADE-M7-R21-TO-M8.md`.
 
 ## M7 calendar synchronization
 
 M7 adds Google Calendar and Microsoft Outlook/Microsoft 365 connections per resource, appointment-type calendar selection for availability, and outbound appointment event synchronization. See `docs/CALENDAR-INTEGRATIONS.md` and `docs/UPGRADE-M6-R2-R3-TO-M7.md`.
 
-# Appointment Software — M7
-
-# Appointment Software — M6-R2-R3
+## M6-R2-R3 baseline
 
 M6-R2 builds on M6-R1 and adds staff-initiated schedule-change proposals to the operational staff confirmation, policy, reminder and guest-booking workflows while preserving the Laravel + Blade modular-monolith architecture.
 
@@ -56,7 +57,7 @@ Staff/managers can propose a different appointment time without immediately chan
 
 - **Accept proposed time** — moves the booking and resets required staff confirmation for the new time.
 - **Keep original time** — leaves the original booking in place with an active staff-availability warning.
-- **Cancel booking** — records the cancellation as caused by a staff schedule issue so M8 can apply the appropriate refund logic.
+- **Cancel booking** — records the cancellation as caused by a staff schedule issue so M9 can apply the appropriate refund logic.
 
 Proposal acceptance does not consume the client's reschedule quota. Proposal creation may bypass normal new-booking advance-notice limits, but it still enforces real resource availability, buffers, capacity and concurrency locks.
 
@@ -97,7 +98,7 @@ Only person-resources receive confirmation emails.
 
 Cancellation and rescheduling policies are copied from the appointment type into the booking when it is created. Later changes to the appointment type do not retroactively modify an existing client's policy.
 
-M8 will connect cancellation/payment/refund consequences. M6 enforces whether and when the booking may be cancelled or rescheduled.
+M9 will connect cancellation/payment/refund consequences. M6 enforces whether and when the booking may be cancelled or rescheduled.
 
 ## Reminders
 
@@ -219,3 +220,7 @@ Numeric questionnaire answers can be compared with an earlier numeric answer or 
 ## M7-R21: attendee-count numeric constraints
 
 The numeric constraint editor now offers **Number of attendees** as a comparison operand. It uses the seats reserved for the individual booking, including the primary client, with all existing operators and AND/OR rules. Browser feedback, live quotes, and final booking validation use the held count; other clients' seats and submitted replacement counts do not affect it. See `docs/CHANGES-M7-R21.md` and `docs/UPGRADE-M7-R20-TO-M7-R21.md`.
+
+## M8: ticketed events
+
+Appointment types can now issue one ticket per attendee. The selected appointment start is displayed as **doors open**, show start and optional show end are constrained inside the resource-busy booking range, and those times are snapshotted on the shared event session. Seating may be unassigned, consecutive, section + seat, row + seat, or section + row + seat; section/row schemes can intentionally omit the seat component and use a configured quantity. Tickets receive unique printable Code 128 barcodes, remain reserved until the booking is confirmed, are voided on cancellation/decline, retain their historical printed seat, and can be admitted once from the organization ticket check-in desk. See `docs/TICKETING.md`, `docs/CHANGES-M8.md`, and `docs/UPGRADE-M7-R21-TO-M8.md`.

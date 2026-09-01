@@ -15,7 +15,7 @@
             <div><dt>Location</dt><dd>{{ $summary->location($type) }}</dd></div>
             <div><dt>Season</dt><dd>{{ $summary->season($type) }}</dd></div>
         </dl>
-        <a class="btn btn-primary" href="{{ route('public.appointment-types.show', ['organizationSlug' => $organization->slug, 'appointmentSlug' => $type->slug]) }}">View appointment</a>
+        <a class="btn btn-primary" href="{{ route('public.appointment-types.show', ['organizationSlug' => $organization->slug, 'appointmentSlug' => $type->slug]) }}">View {{ $type->ticketing_enabled ? 'event' : 'appointment' }}</a>
     </div>
 @empty
     <div class="card">No public appointment types are currently available.</div>

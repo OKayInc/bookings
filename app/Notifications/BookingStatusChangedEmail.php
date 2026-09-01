@@ -17,12 +17,18 @@ class BookingStatusChangedEmail extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
+        $mail = (new MailMessage)
             ->subject('Booking update '.$this->booking->reference)
             ->greeting('Hello '.$this->booking->first_name.',')
             ->line($this->message)
             ->line('Appointment: '.$this->booking->appointmentType->name)
             ->line('Status: '.$this->booking->status->label())
             ->line('Reference: '.$this->booking->reference);
+
+        if ($this->booking->appointment?->ticketing_enabled && $this->booking->status->value === 'confirmed') {
+            $mail->line('Your tickets are now valid and are available from the private booking-management link previously emailed to you.');
+        }
+
+        return $mail;
     }
 }

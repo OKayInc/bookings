@@ -23,6 +23,8 @@ use App\Enums\PricingAdjustmentType;
 use App\Enums\ResourceRequirementMode;
 use App\Enums\ReminderThresholdBasis;
 use App\Enums\SeasonRecurrence;
+use App\Enums\TicketSeatingScheme;
+use App\Domain\Tickets\TicketSeatingService;
 use App\Http\Requests\StoreAppointmentTypeRequest;
 use App\Models\AppointmentType;
 use App\Models\Organization;
@@ -57,6 +59,7 @@ class AppointmentTypeController extends Controller
             'attendeePriceRangeInputs' => [],
             'rateAmountInput' => '',
             'shortNoticeFeeInputs' => [],
+            'ticketSeatBlockInputs' => [],
         ]));
     }
 
@@ -154,6 +157,7 @@ class AppointmentTypeController extends Controller
                         : $money->decimal((int) $rule->fixed_amount_minor, $context->organization()->currency),
                     'percentage' => $percentages->display($rule->percentage_bps),
                 ])->values()->all(),
+                'ticketSeatBlockInputs' => $appointmentType->ticket_seat_blocks ?? [],
             ],
         ));
     }
@@ -287,6 +291,7 @@ class AppointmentTypeController extends Controller
             'resourceRequirementModes' => ResourceRequirementMode::cases(),
             'reminderThresholdBases' => ReminderThresholdBasis::cases(),
             'seasonRecurrences' => SeasonRecurrence::cases(),
+            'ticketSeatingSchemes' => TicketSeatingScheme::cases(),
             'organization' => $context->organization(),
         ];
     }
@@ -305,9 +310,32 @@ class AppointmentTypeController extends Controller
                 'unit_amount_minor' => $money->parse($range['unit_price'], $currency),
             ], $data['attendee_price_ranges']), (int) $data['capacity'])
             : null;
+        $ticketingEnabled = $request->boolean('ticketing_enabled');
+        $ticketScheme = $ticketingEnabled
+            ? TicketSeatingScheme::from($data['ticket_seating_scheme'])
+            : TicketSeatingScheme::None;
+        $ticketSeatOptional = $ticketingEnabled
+            && $ticketScheme->supportsOptionalSeat()
+            && $request->boolean('ticket_seat_optional');
+        $ticketSeatBlocks = $ticketingEnabled
+            ? app(TicketSeatingService::class)->normalize(
+                $ticketScheme,
+                $ticketSeatOptional,
+                $data['ticket_seat_blocks'] ?? [],
+                (int) $data['capacity'],
+            )
+            : null;
 
         return [
             'attendance_mode' => $data['attendance_mode'],
+            'ticketing_enabled' => $ticketingEnabled,
+            'show_start_offset_minutes' => $ticketingEnabled ? (int) $data['show_start_offset_minutes'] : null,
+            'show_end_offset_minutes' => $ticketingEnabled && ($data['show_end_offset_minutes'] ?? '') !== ''
+                ? (int) $data['show_end_offset_minutes']
+                : null,
+            'ticket_seating_scheme' => $ticketScheme->value,
+            'ticket_seat_optional' => $ticketSeatOptional,
+            'ticket_seat_blocks' => $ticketSeatBlocks,
             'is_online' => $request->boolean('is_online'),
             'meeting_provider' => $request->boolean('is_online') ? $data['meeting_provider'] : null,
             'capacity' => $data['attendance_mode'] === AttendanceMode::Single->value ? 1 : (int) $data['capacity'],

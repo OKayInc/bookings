@@ -24,8 +24,14 @@ class BookingReminderEmail extends Notification
         $message = (new MailMessage)
             ->subject('Appointment reminder '.$this->booking->reference)
             ->greeting('Hello '.$this->booking->first_name.',')
-            ->line('This is a reminder for '.$this->booking->appointmentType->name.'.')
-            ->line('Scheduled: '.$start.' ('.$this->booking->booking_timezone.')');
+            ->line('This is a reminder for '.$this->booking->appointmentType->name.'.');
+        if ($this->booking->appointment->ticketing_enabled) {
+            $message
+                ->line('Doors open: '.$start.' ('.$this->booking->booking_timezone.')')
+                ->line('Show starts: '.$this->booking->appointment->show_starts_at_utc->setTimezone($this->booking->booking_timezone)->format('D, M j Y · g:i A'));
+        } else {
+            $message->line('Scheduled: '.$start.' ('.$this->booking->booking_timezone.')');
+        }
         if ($warning !== null) {
             $message->line('IMPORTANT: Staff previously reported an availability issue for this appointment. The original time remains scheduled. Please review your booking-management page for details.');
         }

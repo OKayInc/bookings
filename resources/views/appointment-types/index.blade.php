@@ -13,6 +13,7 @@
             <td>
                 <strong>{{ $type->name }}</strong><div class="muted">/{{ $type->slug }}</div>
                 @if($type->requires_resource_confirmation)<span class="badge">staff confirmation</span>@endif
+                @if($type->ticketing_enabled)<span class="badge text-bg-primary">ticketed event</span>@endif
             </td>
             <td>
                 {{ ucwords(str_replace('_', ' ', $type->visibility->value)) }}

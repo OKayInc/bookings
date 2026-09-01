@@ -12,6 +12,9 @@ class BladeCompilationTest extends TestCase
             'questionnaire/partials/numeric-constraints.blade.php',
             'public/bookings/partials/questionnaire.blade.php',
             'public/bookings/details.blade.php',
+            'tickets/index.blade.php',
+            'tickets/show.blade.php',
+            'appointment-types/partials/ticket-seat-block.blade.php',
         ] as $view) {
             $path = resource_path('views/'.$view);
             $compiled = app('blade.compiler')->compileString(file_get_contents($path));

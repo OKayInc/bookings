@@ -122,6 +122,11 @@ class Booking extends Model
         return $this->hasMany(BookingScheduleProposal::class)->latest();
     }
 
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class)->orderBy('created_at');
+    }
+
     public function cancellationScheduleProposal(): BelongsTo
     {
         return $this->belongsTo(BookingScheduleProposal::class);

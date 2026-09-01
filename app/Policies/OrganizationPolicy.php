@@ -39,4 +39,17 @@ class OrganizationPolicy
             ])->exists();
     }
 
+    public function checkInTickets(User $user, Organization $organization): bool
+    {
+        return $organization->memberships()
+            ->where('person_id', $user->person_id)
+            ->where('status', MembershipStatus::Active->value)
+            ->whereIn('role', [
+                MembershipRole::Owner->value,
+                MembershipRole::Administrator->value,
+                MembershipRole::Manager->value,
+                MembershipRole::Employee->value,
+            ])->exists();
+    }
+
 }

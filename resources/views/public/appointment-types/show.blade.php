@@ -14,7 +14,7 @@
 </div>
 
 <div class="grid">
-    <div class="card"><h3>Duration</h3><p>{{ $summary->duration($type) }}</p></div>
+    <div class="card"><h3>{{ $type->ticketing_enabled ? 'Resource booking range' : 'Duration' }}</h3><p>{{ $summary->duration($type) }}</p>@if($type->ticketing_enabled)<p class="muted">Starts when doors open and ends when resources become available again.</p>@endif</div>
     <div class="card">
         <h3>Price</h3><p>{{ $summary->pricing($type) }}</p>
         @if($type->pricing_mode->value === 'rate')<p class="muted">Example: {{ $examplePrice }}</p>@endif
@@ -36,6 +36,10 @@
     <div class="card"><h3>Location</h3><p>{{ $summary->location($type) }}</p></div>
     <div class="card"><h3>Season</h3><p>{{ $summary->season($type) }}</p></div>
     <div class="card"><h3>Booking notice</h3><p>{{ $summary->bookingNotice($type) }}</p></div>
+    @if($type->ticketing_enabled)
+        <div class="card"><h3>Event timing</h3><p>Doors open at the selected start time.<br>Show starts {{ $type->show_start_offset_minutes === 0 ? 'when doors open' : $type->show_start_offset_minutes.' minutes later' }}.@if($type->show_end_offset_minutes !== null)<br>Show ends {{ $type->show_end_offset_minutes }} minutes after doors open.@endif</p></div>
+        <div class="card"><h3>Admission</h3><p>{{ $summary->seating($type) }}</p></div>
+    @endif
 </div>
 
 <div class="grid">
@@ -44,7 +48,7 @@
 </div>
 
 <div class="card booking-scheduler" id="booking-scheduler">
-    <h2>Choose a time</h2>
+    <h2>{{ $type->ticketing_enabled ? 'Choose an event' : 'Choose a time' }}</h2>
     <p><strong>No account or registration is required for clients.</strong> Times are shown in your selected timezone, with {{ $organization->timezone }} shown underneath when different.</p>
 
     <div class="row">
@@ -79,9 +83,9 @@
 
         @if($type->attendance_mode->value === 'group')
             <div class="field">
-                <label for="attendee_count">Number of attendees</label>
+                <label for="attendee_count">{{ $type->ticketing_enabled ? 'Number of tickets' : 'Number of attendees' }}</label>
                 <input id="attendee_count" type="number" min="1" max="{{ $type->capacity }}" value="1" required>
-                <div class="muted">Session capacity: {{ $type->capacity }} attendees. Other clients may book remaining seats.</div>
+                <div class="muted">{{ $type->ticketing_enabled ? 'Event' : 'Session' }} capacity: {{ $type->capacity }} {{ $type->ticketing_enabled ? 'tickets' : 'attendees' }}. Other clients may book the remaining capacity.</div>
             </div>
         @else
             <input id="attendee_count" type="hidden" value="1">
@@ -110,6 +114,7 @@
     const accessMode = @json($accessMode);
     const accessToken = @json($accessToken);
     const organizationTimezone = @json($organization->timezone);
+    const ticketedEvent = @json((bool) $type->ticketing_enabled);
     const slotsUrl = @json(route('public.booking.slots', $type));
     const holdUrl = @json(route('public.booking.holds.store', $type));
     const csrf = document.querySelector('meta[name="csrf-token"]').content;
@@ -154,9 +159,12 @@
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = 'slot-button';
-                const alt = data.timezone === organizationTimezone ? '' : `<small>${slot.organization_label} · ${organizationTimezone}</small>`;
-                const capacity = slot.remaining_capacity > 1 ? `<small>${slot.remaining_capacity} spaces currently available</small>` : '';
-                button.innerHTML = `<strong>${slot.client_label}</strong><small>${data.timezone}</small>${alt}${capacity}`;
+                const primaryLabel = ticketedEvent ? slot.client_event_label : slot.client_label;
+                const organizationLabel = ticketedEvent ? slot.organization_event_label : slot.organization_label;
+                const alt = data.timezone === organizationTimezone ? '' : `<small>${organizationLabel} · ${organizationTimezone}</small>`;
+                const capacityLabel = ticketedEvent ? 'tickets' : 'spaces';
+                const capacity = slot.remaining_capacity > 1 ? `<small>${slot.remaining_capacity} ${capacityLabel} currently available</small>` : '';
+                button.innerHTML = `<strong>${primaryLabel}</strong><small>${data.timezone}</small>${alt}${capacity}`;
                 button.addEventListener('click', () => reserve(slot.starts_at_utc, button, selection));
                 list.appendChild(button);
             });

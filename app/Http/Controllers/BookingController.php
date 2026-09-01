@@ -9,6 +9,7 @@ use App\Domain\Bookings\ContractSubmissionService;
 use App\Domain\Bookings\BookingScheduleProposalService;
 use App\Domain\Bookings\PublicBookingAvailabilityService;
 use App\Domain\Conferences\ConferenceMeetingService;
+use App\Domain\Tickets\TicketEventService;
 use App\Enums\ContractReviewStatus;
 use App\Enums\ResourceConfirmationStatus;
 use App\Models\Booking;
@@ -54,7 +55,7 @@ class BookingController extends Controller
         $isAssignedStaff = $this->isAssignedStaff($booking, $request);
         abort_unless($canManage || $isAssignedStaff, 403);
         $canProposeScheduleChange = $canManage || $isAssignedStaff;
-        $booking->load(['appointmentType', 'appointment.resources.person', 'contact', 'attendees', 'contractTemplate', 'contractSubmissions.files', 'contractSubmissions.reviewedBy', 'answers.files', 'priceLines', 'resourceConfirmations.resource', 'resourceConfirmations.person', 'resourceConfirmations.respondedBy', 'reschedules', 'scheduleProposals.proposedBy', 'scheduleProposals.hold', 'appointment.externalEvents.calendar.connection.resource']);
+        $booking->load(['appointmentType', 'appointment.resources.person', 'contact', 'attendees', 'tickets.attendee', 'tickets.checkedInBy', 'contractTemplate', 'contractSubmissions.files', 'contractSubmissions.reviewedBy', 'answers.files', 'priceLines', 'resourceConfirmations.resource', 'resourceConfirmations.person', 'resourceConfirmations.respondedBy', 'reschedules', 'scheduleProposals.proposedBy', 'scheduleProposals.hold', 'appointment.externalEvents.calendar.connection.resource']);
         app(BookingScheduleProposalService::class)->expireForBooking($booking);
         $booking->load('scheduleProposals.proposedBy', 'scheduleProposals.hold');
 
@@ -195,6 +196,7 @@ class BookingController extends Controller
         Booking $booking,
         OrganizationContext $context,
         PublicBookingAvailabilityService $availability,
+        TicketEventService $ticketEvents,
     ): JsonResponse {
         $this->sameOrganization($booking, $context);
         $this->assertCanPropose($request, $booking, $context);
@@ -219,15 +221,26 @@ class BookingController extends Controller
         ), fn ($slot): bool => $slot->startsAtUtc->isFuture()
             && ! $slot->startsAtUtc->equalTo($booking->appointment->starts_at_utc)));
 
-        return response()->json(['slots' => array_map(function ($slot) use ($booking, $data): array {
+        return response()->json(['slots' => array_map(function ($slot) use ($booking, $data, $ticketEvents): array {
             $clientStart = $slot->startsAtUtc->setTimezone($data['timezone']);
             $clientEnd = $slot->endsAtUtc->setTimezone($data['timezone']);
             $orgStart = $slot->startsAtUtc->setTimezone($booking->organization->timezone);
             $orgEnd = $slot->endsAtUtc->setTimezone($booking->organization->timezone);
+            $clientLabel = $clientStart->format('D, M j · g:i A').' – '.$clientEnd->format('g:i A');
+            $organizationLabel = $orgStart->format('D, M j · g:i A').' – '.$orgEnd->format('g:i A');
+            if ($booking->appointmentType->ticketing_enabled) {
+                $event = $ticketEvents->appointmentAttributes($booking->appointmentType, $slot->startsAtUtc, $slot->endsAtUtc);
+                $clientShowStart = $event['show_starts_at_utc']->setTimezone($data['timezone']);
+                $clientShowEnd = $event['show_ends_at_utc']?->setTimezone($data['timezone']);
+                $orgShowStart = $event['show_starts_at_utc']->setTimezone($booking->organization->timezone);
+                $orgShowEnd = $event['show_ends_at_utc']?->setTimezone($booking->organization->timezone);
+                $clientLabel = $clientStart->format('D, M j').' · Doors '.$clientStart->format('g:i A').' · Show '.$clientShowStart->format('g:i A').($clientShowEnd ? ' – '.$clientShowEnd->format('g:i A') : '');
+                $organizationLabel = $orgStart->format('D, M j').' · Doors '.$orgStart->format('g:i A').' · Show '.$orgShowStart->format('g:i A').($orgShowEnd ? ' – '.$orgShowEnd->format('g:i A') : '');
+            }
             return [
                 'starts_at_utc' => $slot->startsAtUtc->toIso8601String(),
-                'client_label' => $clientStart->format('D, M j · g:i A').' – '.$clientEnd->format('g:i A'),
-                'organization_label' => $orgStart->format('D, M j · g:i A').' – '.$orgEnd->format('g:i A'),
+                'client_label' => $clientLabel,
+                'organization_label' => $organizationLabel,
                 'remaining_capacity' => $slot->remainingCapacity,
             ];
         }, $slots)]);

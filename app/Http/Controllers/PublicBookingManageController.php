@@ -10,11 +10,14 @@ use App\Domain\Bookings\BookingScheduleProposalService;
 use App\Domain\Bookings\PublicBookingAvailabilityService;
 use App\Domain\Bookings\PublicBookingHoldService;
 use App\Domain\Bookings\ContractSubmissionService;
+use App\Domain\Tickets\TicketBarcodeService;
+use App\Domain\Tickets\TicketEventService;
 use App\Enums\ContractReviewStatus;
 use App\Models\Booking;
 use App\Models\BookingContractFile;
 use App\Models\BookingAnswerFile;
 use App\Models\BookingScheduleProposal;
+use App\Models\Ticket;
 use App\Notifications\BookingAccessEmail;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -72,7 +75,7 @@ class PublicBookingManageController extends Controller
     ): View {
         $this->authorizeToken($booking, $token);
         $proposals->expireForBooking($booking);
-        $booking->load(['organization', 'appointmentType', 'appointment', 'attendees', 'contractTemplate', 'contractSubmissions.files', 'answers.files', 'priceLines', 'resourceConfirmations', 'reschedules', 'scheduleProposals.proposedBy']);
+        $booking->load(['organization', 'appointmentType', 'appointment', 'attendees', 'tickets.attendee', 'contractTemplate', 'contractSubmissions.files', 'answers.files', 'priceLines', 'resourceConfirmations', 'reschedules', 'scheduleProposals.proposedBy']);
 
         $pendingProposal = $booking->scheduleProposals->first(function (BookingScheduleProposal $proposal): bool {
             return $proposal->status->value === 'pending' && $proposal->expires_at_utc->isFuture();
@@ -153,6 +156,7 @@ class PublicBookingManageController extends Controller
         string $token,
         BookingPolicyService $policy,
         PublicBookingAvailabilityService $availability,
+        TicketEventService $ticketEvents,
     ): JsonResponse {
         $this->authorizeToken($booking, $token);
         if ($booking->scheduleProposals()->where('status', 'pending')->where('expires_at_utc', '>', now('UTC'))->exists()) {
@@ -179,12 +183,19 @@ class PublicBookingManageController extends Controller
             (int) $booking->attendee_count,
         );
 
-        return response()->json(['slots' => array_map(function ($slot) use ($booking, $data): array {
+        return response()->json(['slots' => array_map(function ($slot) use ($booking, $data, $ticketEvents): array {
             $clientStart = $slot->startsAtUtc->setTimezone($data['timezone']);
             $clientEnd = $slot->endsAtUtc->setTimezone($data['timezone']);
+            $label = $clientStart->format('D, M j · g:i A').' – '.$clientEnd->format('g:i A');
+            if ($booking->appointmentType->ticketing_enabled) {
+                $event = $ticketEvents->appointmentAttributes($booking->appointmentType, $slot->startsAtUtc, $slot->endsAtUtc);
+                $showStart = $event['show_starts_at_utc']->setTimezone($data['timezone']);
+                $showEnd = $event['show_ends_at_utc']?->setTimezone($data['timezone']);
+                $label = $clientStart->format('D, M j').' · Doors '.$clientStart->format('g:i A').' · Show '.$showStart->format('g:i A').($showEnd ? ' – '.$showEnd->format('g:i A') : '');
+            }
             return [
                 'starts_at_utc' => $slot->startsAtUtc->toIso8601String(),
-                'client_label' => $clientStart->format('D, M j · g:i A').' – '.$clientEnd->format('g:i A'),
+                'client_label' => $label,
                 'remaining_capacity' => $slot->remainingCapacity,
             ];
         }, $slots)]);
@@ -283,6 +294,25 @@ class PublicBookingManageController extends Controller
         abort_unless(hash_equals($file->booking_id, $booking->getKey()), 404);
         abort_unless(Storage::disk($file->disk)->exists($file->path), 404);
         return Storage::disk($file->disk)->download($file->path, $file->original_name);
+    }
+
+    public function ticket(
+        Booking $booking,
+        string $token,
+        Ticket $ticket,
+        TicketBarcodeService $barcodes,
+    ): View {
+        $this->authorizeToken($booking, $token);
+        abort_unless(hash_equals($ticket->booking_id, $booking->getKey()), 404);
+        $booking->loadMissing(['organization', 'appointmentType']);
+        $ticket->load(['attendee', 'appointment']);
+
+        return view('tickets.show', [
+            'organization' => $booking->organization,
+            'booking' => $booking,
+            'ticket' => $ticket,
+            'barcodeSvg' => $barcodes->svg($ticket->code),
+        ]);
     }
 
     private function authorizeToken(Booking $booking, string $token): void

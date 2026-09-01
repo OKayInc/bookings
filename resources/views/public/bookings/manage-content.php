@@ -5,8 +5,12 @@
 
 <div class="grid">
     <div class="card">
-        <h3>Your time</h3>
-        <p><?= e($booking->appointment->starts_at_utc->setTimezone($booking->booking_timezone)->format('D, M j, Y · g:i A')) ?> – <?= e($booking->appointment->ends_at_utc->setTimezone($booking->booking_timezone)->format('g:i A')) ?></p>
+        <h3><?= $booking->appointment->ticketing_enabled ? 'Your event time' : 'Your time' ?></h3>
+        <?php if ($booking->appointment->ticketing_enabled): ?>
+            <p><strong>Doors open:</strong> <?= e($booking->appointment->starts_at_utc->setTimezone($booking->booking_timezone)->format('D, M j, Y · g:i A')) ?><br><strong>Show starts:</strong> <?= e($booking->appointment->show_starts_at_utc->setTimezone($booking->booking_timezone)->format('D, M j, Y · g:i A')) ?><?php if ($booking->appointment->show_ends_at_utc): ?><br><strong>Show ends:</strong> <?= e($booking->appointment->show_ends_at_utc->setTimezone($booking->booking_timezone)->format('D, M j, Y · g:i A')) ?><?php endif; ?></p>
+        <?php else: ?>
+            <p><?= e($booking->appointment->starts_at_utc->setTimezone($booking->booking_timezone)->format('D, M j, Y · g:i A')) ?> – <?= e($booking->appointment->ends_at_utc->setTimezone($booking->booking_timezone)->format('g:i A')) ?></p>
+        <?php endif; ?>
         <p class="muted"><?= e($booking->booking_timezone) ?></p>
     </div>
     <div class="card">
@@ -17,9 +21,32 @@
     <div class="card">
         <h3>Price</h3>
         <p><?= e(app(\App\Domain\Money\MoneyService::class)->format($booking->price_minor, $booking->currency)) ?></p>
-        <p class="muted">Payment collection is implemented in M8.</p>
+        <p class="muted">Payment collection will be implemented in M9.</p>
     </div>
 </div>
+
+<?php if ($booking->tickets->isNotEmpty()): ?>
+<div class="card">
+    <h2>Your tickets</h2>
+    <p>Each attendee has an individual ticket. Open and print each ticket or show its barcode at admission.</p>
+    <div class="table-scroll">
+        <table class="table table-hover align-middle">
+            <thead><tr><th>Attendee</th><th>Admission</th><th>Status</th><th></th></tr></thead>
+            <tbody><?php foreach ($booking->tickets as $ticket): ?>
+                <tr>
+                    <td><?= e(trim(($ticket->attendee?->first_name ?? '').' '.($ticket->attendee?->last_name ?? '')) ?: 'Guest') ?></td>
+                    <td><?= e($ticket->seat_display) ?></td>
+                    <td><span class="badge"><?= e($ticket->status->label()) ?></span></td>
+                    <td><a class="btn" target="_blank" rel="noopener" href="<?= e(route('public.bookings.tickets.show', [$booking, $manageToken, $ticket])) ?>">View / print ticket</a></td>
+                </tr>
+            <?php endforeach; ?></tbody>
+        </table>
+    </div>
+    <?php if ($booking->tickets->contains(fn ($ticket) => $ticket->status->value === 'reserved')): ?>
+        <p class="muted">Reserved tickets become valid automatically when the booking reaches Confirmed status.</p>
+    <?php endif; ?>
+</div>
+<?php endif; ?>
 
 <?php if ($booking->appointment->meeting_provider && !in_array($booking->status->value, ['cancelled', 'declined'], true)): ?>
 <div class="card">

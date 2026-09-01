@@ -7,6 +7,7 @@ use App\Enums\ContractReviewStatus;
 use App\Enums\EmailVerificationMode;
 use App\Models\Booking;
 use App\Notifications\BookingStatusChangedEmail;
+use App\Domain\Tickets\TicketLifecycleService;
 use Illuminate\Support\Facades\Notification;
 
 class BookingWorkflowService
@@ -14,6 +15,7 @@ class BookingWorkflowService
     public function __construct(
         private readonly ResourceConfirmationService $confirmations,
         private readonly AppointmentLifecycleService $lifecycle,
+        private readonly TicketLifecycleService $tickets,
     ) {
     }
 
@@ -77,6 +79,8 @@ class BookingWorkflowService
                 ? ($booking->expires_at_utc ?: now('UTC')->addHours((int) config('booking.email_verification_ttl_hours', 24)))
                 : null,
         ]);
+
+        $this->tickets->sync($booking);
 
         if ($status !== $previous && in_array($status, [BookingStatus::Confirmed, BookingStatus::Declined], true)) {
             $fresh = $booking->fresh(['appointmentType', 'appointment']);

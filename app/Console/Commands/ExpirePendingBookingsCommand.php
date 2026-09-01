@@ -2,10 +2,12 @@
 
 namespace App\Console\Commands;
 
+use App\Domain\Bookings\AppointmentLifecycleService;
+use App\Domain\Tickets\TicketLifecycleService;
 use App\Enums\BookingStatus;
+use App\Models\Appointment;
 use App\Models\Booking;
 use Illuminate\Console\Command;
-use App\Domain\Bookings\AppointmentLifecycleService;
 use Illuminate\Support\Facades\DB;
 
 class ExpirePendingBookingsCommand extends Command
@@ -13,7 +15,10 @@ class ExpirePendingBookingsCommand extends Command
     protected $signature = 'appointments:expire-pending-bookings';
     protected $description = 'Cancel unverified guest bookings after their verification window expires';
 
-    public function handle(AppointmentLifecycleService $appointments): int
+    public function handle(
+        AppointmentLifecycleService $appointments,
+        TicketLifecycleService $tickets,
+    ): int
     {
         $count = 0;
         Booking::query()
@@ -21,13 +26,14 @@ class ExpirePendingBookingsCommand extends Command
             ->whereNotNull('expires_at_utc')
             ->where('expires_at_utc', '<=', now('UTC'))
             ->orderBy('id')
-            ->chunkById(100, function ($bookings) use (&$count): void {
+            ->chunkById(100, function ($bookings) use (&$count, $tickets): void {
                 foreach ($bookings as $booking) {
-                    DB::transaction(function () use ($booking, &$count): void {
+                    DB::transaction(function () use ($booking, &$count, $tickets): void {
                         $locked = Booking::query()->whereKey($booking->getKey())->lockForUpdate()->first();
                         if ($locked === null || $locked->status !== BookingStatus::PendingEmailVerification || $locked->expires_at_utc?->isFuture()) {
                             return;
                         }
+                        Appointment::query()->whereKey($locked->appointment_id)->lockForUpdate()->firstOrFail();
 
                         $locked->update([
                             'status' => BookingStatus::Cancelled->value,
@@ -35,6 +41,7 @@ class ExpirePendingBookingsCommand extends Command
                             'email_verification_expires_at_utc' => null,
                             'expires_at_utc' => null,
                         ]);
+                        $tickets->sync($locked);
 
                         $count++;
                     });

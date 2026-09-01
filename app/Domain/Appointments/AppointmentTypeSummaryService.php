@@ -9,6 +9,7 @@ use App\Enums\AttendeePricingMode;
 use App\Enums\DurationMode;
 use App\Enums\PricingMode;
 use App\Enums\SeasonRecurrence;
+use App\Enums\TicketSeatingScheme;
 use App\Models\AppointmentType;
 
 class AppointmentTypeSummaryService
@@ -75,9 +76,28 @@ class AppointmentTypeSummaryService
 
     public function attendance(AppointmentType $type): string
     {
+        if ($type->ticketing_enabled) {
+            return 'Up to '.number_format((int) $type->capacity).' tickets per event';
+        }
+
         return $type->attendance_mode === AttendanceMode::Single
             ? '1 attendee'
             : 'Up to '.number_format((int) $type->capacity).' attendees per session';
+    }
+
+    public function seating(AppointmentType $type): string
+    {
+        if (! $type->ticketing_enabled) {
+            return 'Not a ticketed event';
+        }
+
+        $scheme = $type->ticket_seating_scheme ?? TicketSeatingScheme::None;
+        $description = $scheme->label();
+        if ($type->ticket_seat_optional && $scheme->supportsOptionalSeat()) {
+            $description .= ' · seat number may be omitted';
+        }
+
+        return $description;
     }
 
     public function location(AppointmentType $type): string

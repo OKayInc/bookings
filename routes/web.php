@@ -24,6 +24,7 @@ use App\Http\Controllers\PublicBookingController;
 use App\Http\Controllers\PublicBookingManageController;
 use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\StaffConfirmationController;
+use App\Http\Controllers\TicketController;
 use App\Http\Controllers\ScheduleProposalController;
 use App\Models\User;
 use Illuminate\Auth\Events\Verified;
@@ -84,6 +85,8 @@ Route::get('/booking/manage/{booking}/{token}/signed-files/{file}', [PublicBooki
     ->name('public.bookings.signed-file');
 Route::get('/booking/manage/{booking}/{token}/answer-files/{file}', [PublicBookingManageController::class, 'answerFile'])
     ->name('public.bookings.answer-file');
+Route::get('/booking/manage/{booking}/{token}/tickets/{ticket}', [PublicBookingManageController::class, 'ticket'])
+    ->name('public.bookings.tickets.show');
 Route::post('/booking/manage/{booking}/{token}/cancel', [PublicBookingManageController::class, 'cancel'])
     ->middleware('throttle:10,1')->name('public.bookings.cancel');
 Route::get('/booking/manage/{booking}/{token}/reschedule/slots', [PublicBookingManageController::class, 'rescheduleSlots'])
@@ -195,6 +198,10 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
             ->name('bookings.signed-file');
         Route::get('/bookings/{booking}/answer-files/{file}', [BookingController::class, 'answerFile'])
             ->name('bookings.answer-file');
+        Route::get('/tickets/check-in', [TicketController::class, 'index'])->name('tickets.index');
+        Route::post('/tickets/check-in', [TicketController::class, 'checkIn'])->name('tickets.check-in');
+        Route::post('/tickets/{ticket}/undo-check-in', [TicketController::class, 'undo'])->name('tickets.undo');
+        Route::get('/bookings/{booking}/tickets/{ticket}', [TicketController::class, 'show'])->name('tickets.show');
 
         Route::get('/availability', [AvailabilityController::class, 'index'])->name('availability.index');
         Route::get('/availability/holidays', [OrganizationHolidayController::class, 'index'])->name('availability.holidays.index');

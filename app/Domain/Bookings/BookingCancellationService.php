@@ -8,6 +8,8 @@ use App\Enums\ScheduleProposalStatus;
 use App\Models\Booking;
 use App\Models\BookingScheduleProposal;
 use App\Models\BookingHold;
+use App\Models\Appointment;
+use App\Domain\Tickets\TicketLifecycleService;
 use App\Notifications\BookingStatusChangedEmail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -18,6 +20,7 @@ class BookingCancellationService
     public function __construct(
         private readonly BookingPolicyService $policy,
         private readonly AppointmentLifecycleService $lifecycle,
+        private readonly TicketLifecycleService $tickets,
     ) {
     }
 
@@ -48,6 +51,7 @@ class BookingCancellationService
             if (in_array($locked->status, [BookingStatus::Cancelled, BookingStatus::Declined], true)) {
                 throw new RuntimeException('This booking is already cancelled or declined.');
             }
+            Appointment::query()->whereKey($locked->appointment_id)->lockForUpdate()->firstOrFail();
             if (! $staffOverride && ! $this->policy->canCancel($locked)) {
                 throw new RuntimeException($this->policy->cancellationStatus($locked));
             }
@@ -81,6 +85,8 @@ class BookingCancellationService
                 ->where('booking_id', $locked->getKey())
                 ->where('warning_active', true)
                 ->update(['warning_active' => false]);
+
+            $this->tickets->sync($locked);
 
             return $locked->fresh(['appointmentType', 'appointment']);
         }, 3);

@@ -12,6 +12,7 @@ use App\Enums\EmailVerificationMode;
 use App\Enums\ConferenceProvider;
 use App\Enums\PricingMode;
 use App\Enums\SeasonRecurrence;
+use App\Enums\TicketSeatingScheme;
 use App\Models\Concerns\HasBinaryUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -35,6 +36,12 @@ class AppointmentType extends Model
         'access_password',
         'public_token',
         'attendance_mode',
+        'ticketing_enabled',
+        'show_start_offset_minutes',
+        'show_end_offset_minutes',
+        'ticket_seating_scheme',
+        'ticket_seat_optional',
+        'ticket_seat_blocks',
         'is_online',
         'meeting_provider',
         'capacity',
@@ -81,6 +88,12 @@ class AppointmentType extends Model
         return [
             'visibility' => AppointmentVisibility::class,
             'attendance_mode' => AttendanceMode::class,
+            'ticketing_enabled' => 'boolean',
+            'show_start_offset_minutes' => 'integer',
+            'show_end_offset_minutes' => 'integer',
+            'ticket_seating_scheme' => TicketSeatingScheme::class,
+            'ticket_seat_optional' => 'boolean',
+            'ticket_seat_blocks' => 'array',
             'is_online' => 'boolean',
             'meeting_provider' => ConferenceProvider::class,
             'capacity' => 'integer',

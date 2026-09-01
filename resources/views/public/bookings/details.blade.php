@@ -4,13 +4,17 @@
 <div class="page-heading"><h1>Complete your booking</h1><p class="muted">{{ $type->name }} · {{ $organization->name }}</p></div>
 
 <div class="card">
-    <h2>Selected time</h2>
-    <p><strong>{{ $hold->starts_at_utc->setTimezone($hold->booking_timezone)->format('l, F j, Y · g:i A') }}</strong> – {{ $hold->ends_at_utc->setTimezone($hold->booking_timezone)->format('g:i A') }} <span class="muted">{{ $hold->booking_timezone }}</span></p>
+    <h2>{{ $eventTiming ? 'Selected event' : 'Selected time' }}</h2>
+    @if($eventTiming)
+        <p><strong>Doors open:</strong> {{ $hold->starts_at_utc->setTimezone($hold->booking_timezone)->format('l, F j, Y · g:i A') }}<br><strong>Show starts:</strong> {{ $eventTiming['show_starts_at_utc']->setTimezone($hold->booking_timezone)->format('l, F j, Y · g:i A') }}@if($eventTiming['show_ends_at_utc'])<br><strong>Show ends:</strong> {{ $eventTiming['show_ends_at_utc']->setTimezone($hold->booking_timezone)->format('l, F j, Y · g:i A') }}@endif<br><span class="muted">Resources remain booked until {{ $hold->ends_at_utc->setTimezone($hold->booking_timezone)->format('g:i A') }} · {{ $hold->booking_timezone }}</span></p>
+    @else
+        <p><strong>{{ $hold->starts_at_utc->setTimezone($hold->booking_timezone)->format('l, F j, Y · g:i A') }}</strong> – {{ $hold->ends_at_utc->setTimezone($hold->booking_timezone)->format('g:i A') }} <span class="muted">{{ $hold->booking_timezone }}</span></p>
+    @endif
     @if($hold->booking_timezone !== $organization->timezone)
         <p class="muted">Organization time: {{ $hold->starts_at_utc->setTimezone($organization->timezone)->format('l, F j, Y · g:i A') }} – {{ $hold->ends_at_utc->setTimezone($organization->timezone)->format('g:i A') }} · {{ $organization->timezone }}</p>
     @endif
     <p class="muted">This time is temporarily held until {{ $hold->expires_at_utc->setTimezone($hold->booking_timezone)->format('g:i A') }}.</p>
-    <p>{{ $hold->attendee_count }} attendee(s) reserved for this booking, including the primary client.</p>
+    <p>{{ $hold->attendee_count }} {{ $eventTiming ? 'ticket(s)' : 'attendee(s)' }} reserved for this booking, including the primary client.</p>
 </div>
 
 @if($hold->contractTemplate)
@@ -40,8 +44,8 @@
 
     @if($hold->attendee_count > 1)
     <div class="section-card">
-        <h2>Additional attendees</h2>
-        <p class="muted">Names and emails for additional attendees are optional in M4. The primary client above counts as attendee 1.</p>
+        <h2>{{ $eventTiming ? 'Additional ticket holders' : 'Additional attendees' }}</h2>
+        <p class="muted">Names and emails for additional {{ $eventTiming ? 'ticket holders' : 'attendees' }} are optional. The primary client above counts as attendee 1.</p>
         @for($i = 0; $i < $hold->attendee_count - 1; $i++)
             <div class="card compact">
                 <strong>Attendee {{ $i + 2 }}</strong>

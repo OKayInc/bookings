@@ -91,6 +91,11 @@ class Organization extends Model
         return $this->hasMany(Booking::class);
     }
 
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class);
+    }
+
     public function appointmentTypes(): HasMany
     {
         return $this->hasMany(AppointmentType::class);

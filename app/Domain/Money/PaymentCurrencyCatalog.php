@@ -11,7 +11,7 @@ namespace App\Domain\Money;
  * enable either provider later without changing its accounting currency.
  *
  * Provider/account-country restrictions are still possible and will be
- * checked when payment accounts are connected in M8.
+ * checked when payment accounts are connected in M9.
  */
 final class PaymentCurrencyCatalog
 {

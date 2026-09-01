@@ -2,7 +2,7 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "appointment-software/application",
     "type": "project",
-    "description": "Multi-organization appointment platform - M7-R1 verified backend users and Mailgun API mail transport",
+    "description": "Multi-organization appointment and ticketing platform - M8",
     "keywords": [
         "laravel",
         "appointments",

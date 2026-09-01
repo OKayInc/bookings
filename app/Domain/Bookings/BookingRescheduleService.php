@@ -22,6 +22,8 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use App\Notifications\BookingStatusChangedEmail;
+use App\Domain\Tickets\TicketAllocationService;
+use App\Domain\Tickets\TicketEventService;
 use RuntimeException;
 
 class BookingRescheduleService
@@ -37,6 +39,8 @@ class BookingRescheduleService
         private readonly OrganizationHolidayService $holidays,
         private readonly ResourceHolidayService $resourceHolidays,
         private readonly AppointmentTypeSeasonService $seasons,
+        private readonly TicketAllocationService $ticketAllocation,
+        private readonly TicketEventService $ticketEvents,
     ) {
     }
 
@@ -179,6 +183,7 @@ class BookingRescheduleService
             ]);
             $hold->update(['status' => BookingHoldStatus::Consumed->value]);
             $this->confirmations->resetForReschedule($lockedBooking);
+            $this->ticketAllocation->reassignForBooking($lockedBooking->fresh(['appointment', 'tickets']));
 
             return $lockedBooking->fresh(['appointment', 'appointmentType', 'organization', 'contractSubmissions']);
         }, 3);
@@ -196,6 +201,8 @@ class BookingRescheduleService
     private function createAppointmentFromHold(BookingHold $hold): Appointment
     {
         $hold->loadMissing(['resources', 'appointmentType']);
+        $startsAtUtc = CarbonImmutable::instance($hold->starts_at_utc)->utc();
+        $endsAtUtc = CarbonImmutable::instance($hold->ends_at_utc)->utc();
         $appointment = Appointment::create([
             'organization_id' => $hold->organization_id,
             'appointment_type_id' => $hold->appointment_type_id,
@@ -209,6 +216,7 @@ class BookingRescheduleService
             'status' => AppointmentStatus::Scheduled->value,
             'meeting_provider' => $hold->appointmentType->is_online ? $hold->appointmentType->meeting_provider?->value : null,
             'meeting_status' => $hold->appointmentType->is_online ? 'pending' : null,
+            ...$this->ticketEvents->appointmentAttributes($hold->appointmentType, $startsAtUtc, $endsAtUtc),
         ]);
         $appointment->resources()->sync($hold->resources->mapWithKeys(fn ($resource) => [
             $resource->getKey() => [

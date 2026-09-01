@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasBinaryUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class BookingAttendee extends Model
 {
@@ -28,5 +29,10 @@ class BookingAttendee extends Model
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);
+    }
+
+    public function ticket(): HasOne
+    {
+        return $this->hasOne(Ticket::class);
     }
 }
