@@ -15,6 +15,7 @@ use App\Enums\QuestionType;
 use App\Http\Requests\StoreAppointmentQuestionRequest;
 use App\Models\AppointmentQuestion;
 use App\Models\AppointmentType;
+use App\Models\QuestionOption;
 use App\Models\ReusableQuestion;
 use App\Support\Organizations\OrganizationContext;
 use Illuminate\Http\RedirectResponse;
@@ -110,7 +111,14 @@ class AppointmentQuestionController extends Controller
         PhoneValidationService $phones,
     ): View {
         $this->guardQuestion($appointmentType, $question, $context);
-        $question->load(['options', 'reusableQuestion', 'visibilityConditions.sourceQuestion', 'visibilityConditions.expectedOption', 'numericConstraints.sourceQuestion']);
+        $question->load([
+            'options',
+            'reusableQuestion',
+            'visibilityConditions.sourceQuestion',
+            'visibilityConditions.expectedOption',
+            'visibilityConditions.expectedOptions',
+            'numericConstraints.sourceQuestion',
+        ]);
 
         return view('questionnaire.edit', $this->formData($appointmentType, $question, $context, $phones));
     }
@@ -301,10 +309,13 @@ class AppointmentQuestionController extends Controller
         MoneyService $money,
         PercentageService $percent,
     ): void {
-        $existing = $question->options()->with('visibilityConditions')->get()->keyBy('uuid');
+        $existing = $question->options()
+            ->with(['visibilityConditions', 'matchingVisibilityConditions'])
+            ->get()
+            ->keyBy('uuid');
 
         if (! $question->type->hasOptions()) {
-            if ($existing->contains(fn ($option): bool => $option->visibilityConditions->isNotEmpty())) {
+            if ($existing->contains(fn ($option): bool => $this->optionIsUsedByVisibilityCondition($option))) {
                 throw new InvalidArgumentException('This question type cannot change while one of its answers is used by a dependency.');
             }
             $question->options()->delete();
@@ -356,7 +367,7 @@ class AppointmentQuestionController extends Controller
         }
 
         $removed = $existing->reject(fn ($option, string $uuid): bool => isset($usedUuids[$uuid]));
-        if ($removed->contains(fn ($option): bool => $option->visibilityConditions->isNotEmpty())) {
+        if ($removed->contains(fn ($option): bool => $this->optionIsUsedByVisibilityCondition($option))) {
             throw new InvalidArgumentException('An answer used by a dependency cannot be removed. Update the dependent question first.');
         }
 
@@ -377,6 +388,12 @@ class AppointmentQuestionController extends Controller
         }
 
         $question->unsetRelation('options');
+    }
+
+    private function optionIsUsedByVisibilityCondition(QuestionOption $option): bool
+    {
+        return $option->visibilityConditions->isNotEmpty()
+            || $option->matchingVisibilityConditions->isNotEmpty();
     }
 
     private function formData(

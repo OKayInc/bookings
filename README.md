@@ -213,7 +213,7 @@ The public date picker now shows time-only slot boxes instead of repeating the s
 
 ## M7-R15: dependent questionnaire questions
 
-Appointment-type questionnaires can now show a question only when earlier checkbox, radio, or select answers match a Boolean expression. AND conditions form a group and OR starts an alternative group, supporting rules such as `(Question 1 = A AND Question 2 = B) OR Question 1 = C`. The browser updates immediately, while the server independently excludes hidden questions from required validation, provider verification, file handling, pricing, and booking-answer snapshots. See `docs/CHANGES-M7-R15.md` and `docs/UPGRADE-M7-R14-TO-M7-R15.md`.
+Appointment-type questionnaires can now show a question only when earlier checkbox, radio, or select answers match a Boolean expression. A checkbox condition may accept several possible answers and matches when any configured answer is selected. AND conditions form a group and OR starts an alternative group, supporting rules such as `(Question 1 = A AND Question 2 = B) OR Question 1 = C`. The browser updates immediately, while the server independently excludes hidden questions from required validation, provider verification, file handling, pricing, and booking-answer snapshots. See `docs/QUESTIONNAIRES.md`.
 
 ## M7-R16: per-distance fallback fees
 

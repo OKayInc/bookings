@@ -61,6 +61,103 @@ class DependentQuestionTest extends TestCase
         ])->contains('uuid', $target->uuid));
     }
 
+    public function test_checkbox_dependency_matches_any_of_several_configured_answers(): void
+    {
+        [$user, $organization, $type] = $this->context();
+        $source = $this->choiceQuestion($type, 'Which services?', 1, ['Photography', 'Video', 'Printing'], 'checkboxes');
+
+        $this->actingAs($user)
+            ->withSession(['active_organization_uuid' => $organization->uuid])
+            ->post(route('appointment-types.questions.store', $type), [
+                'type' => 'text',
+                'label' => 'Production details',
+                'position' => 2,
+                'is_active' => '1',
+                'visibility_conditions' => [[
+                    'boolean_operator' => 'and',
+                    'source_question_uuid' => $source->uuid,
+                    'question_option_uuids' => [
+                        $source->options[0]->uuid,
+                        $source->options[1]->uuid,
+                    ],
+                ]],
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('appointment-types.questionnaire.index', $type));
+
+        $target = $type->questions()
+            ->where('label', 'Production details')
+            ->with('visibilityConditions.expectedOptions')
+            ->firstOrFail();
+        $condition = $target->visibilityConditions->sole();
+        $this->assertEqualsCanonicalizing(
+            [$source->options[0]->uuid, $source->options[1]->uuid],
+            $condition->expectedOptions->pluck('uuid')->all(),
+        );
+
+        $visibility = app(QuestionVisibilityService::class);
+        foreach ([$source->options[0]->uuid, $source->options[1]->uuid] as $matchingOptionUuid) {
+            $this->assertTrue($visibility->visibleQuestions($type->fresh(), [
+                $source->uuid => [$matchingOptionUuid],
+            ])->contains('uuid', $target->uuid));
+        }
+        $this->assertFalse($visibility->visibleQuestions($type->fresh(), [
+            $source->uuid => [$source->options[2]->uuid],
+        ])->contains('uuid', $target->uuid));
+        $this->assertTrue($visibility->visibleQuestions($type->fresh(), [
+            $source->uuid => [$source->options[2]->uuid, $source->options[1]->uuid],
+        ])->contains('uuid', $target->uuid));
+
+        $this->actingAs($user)
+            ->withSession(['active_organization_uuid' => $organization->uuid])
+            ->put(route('appointment-types.questions.update', [$type, $source]), [
+                'type' => 'checkboxes',
+                'label' => $source->label,
+                'position' => 1,
+                'is_active' => '1',
+                'options' => [
+                    [
+                        'uuid' => $source->options[0]->uuid,
+                        'label' => $source->options[0]->label,
+                        'pricing_adjustment_type' => 'none',
+                    ],
+                    [
+                        'uuid' => $source->options[2]->uuid,
+                        'label' => $source->options[2]->label,
+                        'pricing_adjustment_type' => 'none',
+                    ],
+                ],
+            ])
+            ->assertSessionHasErrors('question');
+
+        $this->assertTrue($source->options()->whereUuid($source->options[1]->uuid)->exists());
+    }
+
+    public function test_single_answer_source_rejects_multiple_acceptable_answers(): void
+    {
+        [$user, $organization, $type] = $this->context();
+        $source = $this->choiceQuestion($type, 'Choose one', 1, ['First', 'Second'], 'radio');
+
+        $this->actingAs($user)
+            ->withSession(['active_organization_uuid' => $organization->uuid])
+            ->post(route('appointment-types.questions.store', $type), [
+                'type' => 'text',
+                'label' => 'Invalid multiple-answer dependency',
+                'position' => 2,
+                'is_active' => '1',
+                'visibility_conditions' => [[
+                    'boolean_operator' => 'and',
+                    'source_question_uuid' => $source->uuid,
+                    'question_option_uuids' => $source->options->pluck('uuid')->all(),
+                ]],
+            ])
+            ->assertSessionHasErrors('question');
+
+        $this->assertDatabaseMissing('appointment_questions', [
+            'label' => 'Invalid multiple-answer dependency',
+        ]);
+    }
+
     public function test_hidden_required_answer_is_ignored_by_validation_pricing_and_persistence_payload(): void
     {
         [, , $type] = $this->context();

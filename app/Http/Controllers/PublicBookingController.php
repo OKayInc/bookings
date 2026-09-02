@@ -196,7 +196,7 @@ class PublicBookingController extends Controller
     public function editHold(string $token, TicketEventService $ticketEvents): View
     {
         $hold = $this->holdByToken($token);
-        $hold->load(['organization', 'resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
+        $hold->load(['organization', 'resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.questions.visibilityConditions.expectedOptions', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
 
         return view('public.bookings.details', [
             'organization' => $hold->organization,
@@ -220,7 +220,7 @@ class PublicBookingController extends Controller
         MoneyService $money,
     ): JsonResponse {
         $hold = $this->holdByToken($token);
-        $hold->load(['resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.shortNoticeFeeRules']);
+        $hold->load(['resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.questions.visibilityConditions.expectedOptions', 'appointmentType.shortNoticeFeeRules']);
         $answers = (array) $request->input('answers', []);
         try {
             $quote = $questionnaires->quote(
@@ -257,7 +257,7 @@ class PublicBookingController extends Controller
         QuestionnaireSubmissionService $questionnaires,
     ): RedirectResponse {
         $hold = $this->holdByToken($token);
-        $hold->load(['resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
+        $hold->load(['resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.questions.visibilityConditions.expectedOptions', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
 
         $rules = [
             'first_name' => ['required', 'string', 'max:120'],

@@ -260,10 +260,12 @@ M7-R15 stores appointment-type-specific display dependencies as ordered relation
 
 - `appointment_question_id` is the dependent/target question;
 - `source_question_id` is an earlier checkbox, radio, or select question on the same appointment type;
-- `question_option_id` is the source answer that must be selected;
+- `question_option_id` is the primary source answer retained for backward compatibility;
 - `boolean_operator` is `and` or `or`, and `position` preserves expression order.
 
-AND binds within a group and OR separates alternative groups. The first connector is normalized to AND and has no effect. All three UUID relationships use `BINARY(16)` keys and cascade when their owning questionnaire data is deleted. Application validation requires an active source and option, strictly earlier ordering, same-appointment-type ownership, and no duplicate predicate. Option UUIDs are preserved during ordinary option edits so a label/value change does not retarget a dependency.
+M9-R2 adds `appointment_question_visibility_condition_options`, a normalized option set for each condition. Existing predicates are backfilled with their original answer. Checkbox conditions can relate to several acceptable options and match when any of those options is selected; single-answer source types retain exactly one related option.
+
+AND binds within a group and OR separates alternative groups. The first connector is normalized to AND and has no effect. All UUID relationships use `BINARY(16)` keys and cascade when their owning questionnaire data is deleted. Application validation requires an active source and every selected option, strictly earlier ordering, same-appointment-type ownership, and no duplicate predicate. Option UUIDs are preserved during ordinary option edits so a label/value change does not retarget a dependency.
 
 Dependencies belong to the appointment-type attachment rather than its organization-wide reusable template because they reference other attachments in one ordered questionnaire. A newly attached reusable question therefore starts without display dependencies.
 

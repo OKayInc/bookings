@@ -15,7 +15,7 @@ $optionCharge=function($o) use($money,$organization){ if($o->pricing_adjustment_
 $visibilityConditions=$question->visibilityConditions->sortBy('position')->map(fn($condition): array=>[
  'boolean_operator'=>$condition->boolean_operator,
  'source_question_uuid'=>$condition->sourceQuestion?->uuid,
- 'question_option_uuid'=>$condition->expectedOption?->uuid,
+ 'question_option_uuids'=>$condition->expectedOptionUuids(),
 ])->values()->all();
 $numericConstraints=$numericService->publicRules($question);
 $numericMessage=$numericConstraints !== [] ? $numericService->message($question) : '';

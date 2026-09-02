@@ -7,6 +7,7 @@ use App\Enums\PricingPercentageBasis;
 use App\Models\Concerns\HasBinaryUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class QuestionOption extends Model
@@ -17,4 +18,13 @@ class QuestionOption extends Model
     protected function casts(): array { return ['position'=>'integer','is_active'=>'boolean','pricing_adjustment_type'=>PricingAdjustmentType::class,'pricing_amount_minor'=>'integer','pricing_percentage_bps'=>'integer','pricing_percentage_basis'=>PricingPercentageBasis::class]; }
     public function question(): BelongsTo { return $this->belongsTo(AppointmentQuestion::class,'appointment_question_id'); }
     public function visibilityConditions(): HasMany { return $this->hasMany(AppointmentQuestionVisibilityCondition::class); }
+    public function matchingVisibilityConditions(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            AppointmentQuestionVisibilityCondition::class,
+            'appointment_question_visibility_condition_options',
+            'question_option_id',
+            'visibility_condition_id',
+        );
+    }
 }

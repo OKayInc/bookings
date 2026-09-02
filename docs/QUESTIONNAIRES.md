@@ -10,7 +10,7 @@ The questionnaire builder lists and searches active reusable questions before th
 
 ## Display dependencies
 
-An appointment-type question may depend on selected answers from earlier checkbox, radio, or select questions. A condition compares one source question to one source option. Multiple rows use normal Boolean precedence: consecutive AND rows form one group, while OR begins another alternative group. For example, the ordered rows `Q1=A`, `AND Q2=B`, `OR Q1=C` mean `(Q1=A AND Q2=B) OR Q1=C`.
+An appointment-type question may depend on selected answers from earlier checkbox, radio, or select questions. A condition compares one source question to one or more acceptable source options. Checkbox sources allow several acceptable answers in the same condition; the condition is true when the submitted checkbox answer contains any one of them. Radio and select sources remain limited to one acceptable answer. Multiple rows use normal Boolean precedence: consecutive AND rows form one group, while OR begins another alternative group. For example, the ordered rows `Q1=A`, `AND Q2=B`, `OR Q1=C` mean `(Q1=A AND Q2=B) OR Q1=C`.
 
 Only earlier questions may be referenced. This provides a progressive top-to-bottom questionnaire, permits dependency chains, and prevents self-references and cycles. Dependencies belong to the appointment-type copy and are intentionally not part of a reusable template because their source questions exist only within that particular appointment type.
 
@@ -21,7 +21,7 @@ The browser hides, disables, and clears a dependent answer as soon as its expres
 - has no uploaded files processed; and
 - does not create a booking-answer snapshot, even if a client submits a forged/stale value.
 
-Source option UUIDs remain stable when their labels or values are edited. An option or source question that is still referenced cannot be removed, disabled, moved after its dependent question, or changed to a non-choice type until the dependency is updated.
+Source option UUIDs remain stable when their labels or values are edited. Every option in a multi-answer condition is protected: a referenced option or source question cannot be removed, disabled, moved after its dependent question, or changed to a non-choice type until the dependency is updated.
 
 ## Verification
 

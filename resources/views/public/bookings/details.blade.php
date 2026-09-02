@@ -108,6 +108,7 @@
 </form>
 @if($type->questions->where('is_active',true)->isNotEmpty() || $type->shortNoticeFeeRules->where('is_active',true)->isNotEmpty() || $type->pricing_mode->value === 'per_attendee')
 <script src="{{ asset('js/numeric-question-constraints.js') }}?v=m7-r21"></script>
+<script src="{{ asset('js/question-visibility.js') }}?v=m9-r2"></script>
 <script>
 (function(){
  const form=document.querySelector('form.form-stack'); const total=document.getElementById('questionnaire-total'); const lines=document.getElementById('questionnaire-price-lines'); const questionElements=Array.from(document.querySelectorAll('.questionnaire-question')); let timer;
@@ -128,7 +129,7 @@
    });
  }
  function hasAnswer(questionUuid,optionUuid){const source=questions.get(questionUuid);if(!source||source.hidden)return false;return Array.from(source.querySelectorAll('input,select,textarea')).some(control=>!control.disabled&&control.value===optionUuid&&(!['checkbox','radio'].includes(control.type)||control.checked));}
- function expressionMatches(conditions){if(conditions.length===0)return true;let completed=false,current=null;conditions.forEach((condition,index)=>{const matches=hasAnswer(condition.source_question_uuid,condition.question_option_uuid);if(index===0)current=matches;else if(condition.boolean_operator==='or'){completed=completed||current;current=matches;}else current=current&&matches;});return completed||Boolean(current);}
+ function expressionMatches(conditions){return QuestionVisibility.expressionMatches(conditions,hasAnswer);}
  function clearControl(control){if(control.type==='checkbox'||control.type==='radio')control.checked=false;else if(control.type==='file')control.value='';else control.value='';}
  function refreshVisibility(){questionElements.forEach(element=>{const show=expressionMatches(element._visibilityConditions);const wasHidden=element.hidden;if(!show&&!wasHidden)element.querySelectorAll('input,select,textarea').forEach(clearControl);element.hidden=!show;element.setAttribute('aria-hidden',show?'false':'true');element.querySelectorAll('input,select,textarea').forEach(control=>{control.disabled=!show;control.required=show&&control.dataset.visibilityRequired==='1';});});}
  async function updateQuote(){

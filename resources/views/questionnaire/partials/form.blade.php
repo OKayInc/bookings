@@ -17,13 +17,14 @@ $qType=old('type',$question?->type?->value ?? 'text');
     $storedVisibilityConditions = $question?->visibilityConditions?->map(fn ($condition): array => [
         'boolean_operator' => $condition->boolean_operator,
         'source_question_uuid' => $condition->sourceQuestion?->uuid,
-        'question_option_uuid' => $condition->expectedOption?->uuid,
+        'question_option_uuids' => $condition->expectedOptionUuids(),
     ])->values()->all() ?? [];
     $visibilityRows = old('visibility_conditions', $storedVisibilityConditions);
     $dependencyPayload = $dependencyQuestions->map(fn ($candidate): array => [
         'uuid' => $candidate->uuid,
         'label' => $candidate->label,
         'position' => $candidate->position,
+        'accepts_multiple_answers' => $candidate->type->acceptsMultipleAnswers(),
         'options' => $candidate->options->where('is_active', true)->map(fn ($option): array => [
             'uuid' => $option->uuid,
             'label' => $option->label,
@@ -32,19 +33,20 @@ $qType=old('type',$question?->type?->value ?? 'text');
 @endphp
 <div class="section-card">
 <h2>Display dependencies</h2>
-<p class="muted">Optional. Show this question only when the selected answers match. AND conditions stay in the same group; OR starts an alternative group. Only earlier checkbox, radio, and select questions can be used, which keeps chained questionnaires predictable and cycle-free.</p>
+<p class="muted">Optional. Show this question only when the selected answers match. A checkbox condition can accept several answers and matches when any one is selected. AND conditions stay in the same group; OR starts an alternative group. Only earlier checkbox, radio, and select questions can be used, which keeps chained questionnaires predictable and cycle-free.</p>
 <div id="visibility-condition-rows">
 @foreach($visibilityRows as $index => $condition)
 @php
     $sourceUuid = $condition['source_question_uuid'] ?? '';
-    $optionUuid = $condition['question_option_uuid'] ?? '';
+    $optionUuids = array_values((array) ($condition['question_option_uuids'] ?? array_filter([$condition['question_option_uuid'] ?? null])));
     $sourcePayload = collect($dependencyPayload)->firstWhere('uuid', $sourceUuid);
+    $acceptsMultipleAnswers = (bool) ($sourcePayload['accepts_multiple_answers'] ?? false);
 @endphp
 <div class="card compact visibility-condition-row">
  <div class="row three">
   <div class="field visibility-connector-field"><label class="visibility-connector-label">Join with</label><select class="visibility-operator" name="visibility_conditions[{{ $index }}][boolean_operator]"><option value="and" @selected(($condition['boolean_operator'] ?? 'and') === 'and')>AND</option><option value="or" @selected(($condition['boolean_operator'] ?? 'and') === 'or')>OR</option></select></div>
   <div class="field"><label>Earlier question</label><select class="visibility-source" name="visibility_conditions[{{ $index }}][source_question_uuid]" required><option value="">Choose a question…</option>@foreach($dependencyPayload as $candidate)<option value="{{ $candidate['uuid'] }}" @selected($sourceUuid === $candidate['uuid'])>#{{ $candidate['position'] }} · {{ $candidate['label'] }}</option>@endforeach</select></div>
-  <div class="field"><label>Has answer</label><select class="visibility-option" name="visibility_conditions[{{ $index }}][question_option_uuid]" required><option value="">Choose an answer…</option>@foreach((array)($sourcePayload['options'] ?? []) as $candidateOption)<option value="{{ $candidateOption['uuid'] }}" @selected($optionUuid === $candidateOption['uuid'])>{{ $candidateOption['label'] }}</option>@endforeach</select></div>
+  <div class="field"><label class="visibility-answer-label">{{ $acceptsMultipleAnswers ? 'Has any answer' : 'Has answer' }}</label><select class="visibility-option" name="visibility_conditions[{{ $index }}][question_option_uuids][]" @if($acceptsMultipleAnswers) multiple size="{{ min(8, max(2, count((array) ($sourcePayload['options'] ?? [])))) }}" @endif required>@unless($acceptsMultipleAnswers)<option value="">Choose an answer…</option>@endunless @foreach((array)($sourcePayload['options'] ?? []) as $candidateOption)<option value="{{ $candidateOption['uuid'] }}" @selected(in_array($candidateOption['uuid'], $optionUuids, true))>{{ $candidateOption['label'] }}</option>@endforeach</select><div class="muted visibility-answer-help" @if(!$acceptsMultipleAnswers) hidden @endif>Select one or more answers. Matching any selected answer shows this condition.</div></div>
  </div>
  <button type="button" class="btn btn-danger remove-visibility-condition">Remove condition</button>
 </div>
@@ -161,10 +163,10 @@ $qType=old('type',$question?->type?->value ?? 'text');
  const conditionRows=document.getElementById('visibility-condition-rows'); const addCondition=document.getElementById('add-visibility-condition');
  function escape(value){const d=document.createElement('div');d.textContent=String(value);return d.innerHTML;}
  function sourceOptions(selected=''){return `<option value="">Choose a question…</option>`+dependencyQuestions.map(q=>`<option value="${escape(q.uuid)}" ${q.uuid===selected?'selected':''}>#${escape(q.position)} · ${escape(q.label)}</option>`).join('');}
- function answerOptions(sourceUuid,selected=''){const source=dependencyQuestions.find(q=>q.uuid===sourceUuid);return `<option value="">Choose an answer…</option>`+(source?.options||[]).map(o=>`<option value="${escape(o.uuid)}" ${o.uuid===selected?'selected':''}>${escape(o.label)}</option>`).join('');}
- function refreshConditionRows(){Array.from(conditionRows.querySelectorAll('.visibility-condition-row')).forEach((row,i)=>{const op=row.querySelector('.visibility-operator');const source=row.querySelector('.visibility-source');const option=row.querySelector('.visibility-option');op.name=`visibility_conditions[${i}][boolean_operator]`;source.name=`visibility_conditions[${i}][source_question_uuid]`;option.name=`visibility_conditions[${i}][question_option_uuid]`;row.querySelector('.visibility-connector-label').textContent=i===0?'Show when':'Join with';op.style.display=i===0?'none':'';if(i===0)op.value='and';});}
- if(addCondition) addCondition.addEventListener('click',()=>{const d=document.createElement('div');d.className='card compact visibility-condition-row';d.innerHTML=`<div class="row three"><div class="field visibility-connector-field"><label class="visibility-connector-label">Join with</label><select class="visibility-operator"><option value="and">AND</option><option value="or">OR</option></select></div><div class="field"><label>Earlier question</label><select class="visibility-source" required>${sourceOptions()}</select></div><div class="field"><label>Has answer</label><select class="visibility-option" required><option value="">Choose an answer…</option></select></div></div><button type="button" class="btn btn-danger remove-visibility-condition">Remove condition</button>`;conditionRows.appendChild(d);refreshConditionRows();});
- conditionRows.addEventListener('change',e=>{if(e.target.classList.contains('visibility-source')){const row=e.target.closest('.visibility-condition-row');row.querySelector('.visibility-option').innerHTML=answerOptions(e.target.value);}});
+ function configureAnswerSelect(row,sourceUuid,selected=[]){const source=dependencyQuestions.find(q=>q.uuid===sourceUuid);const multiple=Boolean(source?.accepts_multiple_answers);const option=row.querySelector('.visibility-option');const selectedValues=Array.isArray(selected)?selected:[selected];option.multiple=multiple;if(multiple)option.setAttribute('size',String(Math.min(8,Math.max(2,(source?.options||[]).length))));else option.removeAttribute('size');option.innerHTML=(multiple?'':'<option value="">Choose an answer…</option>')+(source?.options||[]).map(o=>`<option value="${escape(o.uuid)}" ${selectedValues.includes(o.uuid)?'selected':''}>${escape(o.label)}</option>`).join('');row.querySelector('.visibility-answer-label').textContent=multiple?'Has any answer':'Has answer';row.querySelector('.visibility-answer-help').hidden=!multiple;}
+ function refreshConditionRows(){Array.from(conditionRows.querySelectorAll('.visibility-condition-row')).forEach((row,i)=>{const op=row.querySelector('.visibility-operator');const source=row.querySelector('.visibility-source');const option=row.querySelector('.visibility-option');op.name=`visibility_conditions[${i}][boolean_operator]`;source.name=`visibility_conditions[${i}][source_question_uuid]`;option.name=`visibility_conditions[${i}][question_option_uuids][]`;row.querySelector('.visibility-connector-label').textContent=i===0?'Show when':'Join with';op.style.display=i===0?'none':'';if(i===0)op.value='and';});}
+ if(addCondition) addCondition.addEventListener('click',()=>{const d=document.createElement('div');d.className='card compact visibility-condition-row';d.innerHTML=`<div class="row three"><div class="field visibility-connector-field"><label class="visibility-connector-label">Join with</label><select class="visibility-operator"><option value="and">AND</option><option value="or">OR</option></select></div><div class="field"><label>Earlier question</label><select class="visibility-source" required>${sourceOptions()}</select></div><div class="field"><label class="visibility-answer-label">Has answer</label><select class="visibility-option" required><option value="">Choose an answer…</option></select><div class="muted visibility-answer-help" hidden>Select one or more answers. Matching any selected answer shows this condition.</div></div></div><button type="button" class="btn btn-danger remove-visibility-condition">Remove condition</button>`;conditionRows.appendChild(d);refreshConditionRows();});
+ conditionRows.addEventListener('change',e=>{if(e.target.classList.contains('visibility-source')){const row=e.target.closest('.visibility-condition-row');configureAnswerSelect(row,e.target.value);}});
  refreshConditionRows();
  document.addEventListener('click',e=>{if(e.target.classList.contains('remove-option'))e.target.closest('.option-row').remove();if(e.target.classList.contains('remove-distance-range'))e.target.closest('.distance-range-row').remove();if(e.target.classList.contains('remove-visibility-condition')){e.target.closest('.visibility-condition-row').remove();refreshConditionRows();}});
 })();

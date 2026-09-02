@@ -41,4 +41,9 @@ enum QuestionType: string
     {
         return in_array($this, [self::Checkboxes, self::Radio, self::Select], true);
     }
+
+    public function acceptsMultipleAnswers(): bool
+    {
+        return $this === self::Checkboxes;
+    }
 }

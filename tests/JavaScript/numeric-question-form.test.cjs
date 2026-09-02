@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const engine = require('../../public/js/numeric-question-constraints.js');
+const visibility = require('../../public/js/question-visibility.js');
 
 // Exercise the actual checkout event handlers with a small DOM stub. This is
 // deliberately not a replacement for a rendered-browser accessibility test.
@@ -50,7 +51,7 @@ function checkout({ sourceConditional = false, targetConditional = false, attend
     const script = file.match(/<script>\s*([\s\S]*?)<\/script>/)[1]
         .replace(/@json\(route\('public\.booking-holds\.quote',\$holdToken\)\)/g, '"/quote"');
     vm.runInNewContext(script, {
-        document, FormData, File: class {}, NumericQuestionConstraints: engine,
+        document, FormData, File: class {}, NumericQuestionConstraints: engine, QuestionVisibility: visibility,
         fetch: async () => ({ ok: true, json: async () => ({ total_display: '$100', lines: [] }) }),
         setTimeout() { return 1; }, clearTimeout() {},
     });

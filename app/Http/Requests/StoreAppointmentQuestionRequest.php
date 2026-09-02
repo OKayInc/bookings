@@ -76,9 +76,12 @@ class StoreAppointmentQuestionRequest extends FormRequest
             'options.*.pricing_percentage' => ['nullable', 'string', 'max:20'],
             'options.*.pricing_percentage_basis' => ['nullable', Rule::enum(PricingPercentageBasis::class)],
             'visibility_conditions' => ['nullable', 'array', 'max:100'],
+            'visibility_conditions.*' => ['array'],
             'visibility_conditions.*.boolean_operator' => ['required_with:visibility_conditions', Rule::in(['and', 'or'])],
             'visibility_conditions.*.source_question_uuid' => ['required_with:visibility_conditions', 'uuid'],
-            'visibility_conditions.*.question_option_uuid' => ['required_with:visibility_conditions', 'uuid'],
+            'visibility_conditions.*.question_option_uuid' => ['nullable', 'uuid'],
+            'visibility_conditions.*.question_option_uuids' => ['nullable', 'array', 'max:500'],
+            'visibility_conditions.*.question_option_uuids.*' => ['required', 'uuid', 'distinct'],
         ];
     }
 
@@ -170,6 +173,18 @@ class StoreAppointmentQuestionRequest extends FormRequest
                 }
                 if ($pricingType === 'percentage' && trim((string) ($row['pricing_percentage'] ?? '')) === '') {
                     $validator->errors()->add("options.$index.pricing_percentage", 'Enter the percentage extra charge.');
+                }
+            }
+
+            foreach ((array) $this->input('visibility_conditions', []) as $index => $row) {
+                $optionUuids = is_array($row['question_option_uuids'] ?? null)
+                    ? array_filter($row['question_option_uuids'], fn ($uuid): bool => trim((string) $uuid) !== '')
+                    : [];
+                if ($optionUuids === [] && trim((string) ($row['question_option_uuid'] ?? '')) === '') {
+                    $validator->errors()->add(
+                        "visibility_conditions.$index.question_option_uuids",
+                        'Choose at least one answer for this display condition.',
+                    );
                 }
             }
         });
