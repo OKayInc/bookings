@@ -2,15 +2,53 @@
 
 namespace App\Domain\Tickets;
 
+use App\Domain\Money\MoneyService;
 use App\Enums\TicketSeatingScheme;
 use App\Models\Appointment;
+use App\Models\AppointmentType;
 use InvalidArgumentException;
 
 class TicketSeatingService
 {
+    public function __construct(private readonly MoneyService $money)
+    {
+    }
+
     /**
      * @param array<int, mixed> $blocks
-     * @return list<array{section:?string,row:?string,first_seat:?int,last_seat:?int,quantity:int}>
+     * @return list<array{section:?string,row:?string,first_seat:?int,last_seat:?int,quantity:int,seat_fee_minor:int}>
+     */
+    public function normalizeInput(
+        TicketSeatingScheme $scheme,
+        bool $seatOptional,
+        array $blocks,
+        int $capacity,
+        string $currency,
+        bool $allowSeatFees,
+    ): array {
+        $prepared = [];
+        foreach ($blocks as $block) {
+            if (! is_array($block)) {
+                $prepared[] = $block;
+                continue;
+            }
+
+            $feeInput = $block['seat_fee'] ?? null;
+            $hasFee = $feeInput !== null && trim((string) $feeInput) !== '';
+            if ($hasFee && ! $allowSeatFees) {
+                throw new InvalidArgumentException('Seating fees require a paid ticketed event using per-attendee pricing.');
+            }
+
+            $block['seat_fee_minor'] = $hasFee ? $this->money->parse((string) $feeInput, $currency) : 0;
+            $prepared[] = $block;
+        }
+
+        return $this->normalize($scheme, $seatOptional, $prepared, $capacity);
+    }
+
+    /**
+     * @param array<int, mixed> $blocks
+     * @return list<array{section:?string,row:?string,first_seat:?int,last_seat:?int,quantity:int,seat_fee_minor:int}>
      */
     public function normalize(
         TicketSeatingScheme $scheme,
@@ -43,6 +81,10 @@ class TicketSeatingService
             $number = $index + 1;
             $section = $this->label($block['section'] ?? null);
             $row = $this->label($block['row'] ?? null);
+            $seatFeeMinor = filter_var($block['seat_fee_minor'] ?? 0, FILTER_VALIDATE_INT);
+            if ($seatFeeMinor === false || $seatFeeMinor < 0) {
+                throw new InvalidArgumentException("Seating block {$number} has an invalid per-ticket seating fee.");
+            }
 
             if (in_array($scheme, [TicketSeatingScheme::SectionSeat, TicketSeatingScheme::SectionRowSeat], true) && $section === null) {
                 throw new InvalidArgumentException("Seating block {$number} requires a section label.");
@@ -97,6 +139,7 @@ class TicketSeatingService
                 'first_seat' => $first,
                 'last_seat' => $last,
                 'quantity' => $quantity,
+                'seat_fee_minor' => $seatFeeMinor,
             ];
         }
 
@@ -108,7 +151,7 @@ class TicketSeatingService
     }
 
     /**
-     * @return list<array{seat_key:?string,section_label:?string,row_label:?string,seat_label:?string}>
+     * @return list<array{seat_key:?string,section_label:?string,row_label:?string,seat_label:?string,seat_fee_minor:int}>
      */
     public function inventory(Appointment $appointment): array
     {
@@ -123,6 +166,7 @@ class TicketSeatingService
                 'section_label' => null,
                 'row_label' => null,
                 'seat_label' => null,
+                'seat_fee_minor' => 0,
             ]);
         }
 
@@ -134,6 +178,7 @@ class TicketSeatingService
                     'section_label' => null,
                     'row_label' => null,
                     'seat_label' => (string) $seat,
+                    'seat_fee_minor' => 0,
                 ];
             }
 
@@ -151,6 +196,7 @@ class TicketSeatingService
                         'section_label' => $section,
                         'row_label' => $row,
                         'seat_label' => (string) $seat,
+                        'seat_fee_minor' => (int) ($block['seat_fee_minor'] ?? 0),
                     ];
                 }
                 continue;
@@ -162,11 +208,41 @@ class TicketSeatingService
                     'section_label' => $section,
                     'row_label' => $row,
                     'seat_label' => null,
+                    'seat_fee_minor' => (int) ($block['seat_fee_minor'] ?? 0),
                 ];
             }
         }
 
         return $inventory;
+    }
+
+    /** @return list<array{seat_key:?string,section_label:?string,row_label:?string,seat_label:?string,seat_fee_minor:int}> */
+    public function inventoryForType(AppointmentType $type): array
+    {
+        $appointment = new Appointment([
+            'capacity' => $type->capacity,
+            'ticket_seating_scheme' => $type->ticket_seating_scheme?->value ?? TicketSeatingScheme::None->value,
+            'ticket_seat_blocks' => $type->ticket_seat_blocks,
+        ]);
+
+        return $this->inventory($appointment);
+    }
+
+    /** @param array<string, mixed> $seat */
+    public function display(array $seat): string
+    {
+        $parts = [];
+        if (filled($seat['section_label'] ?? null)) {
+            $parts[] = 'Section '.$seat['section_label'];
+        }
+        if (filled($seat['row_label'] ?? null)) {
+            $parts[] = 'Row '.$seat['row_label'];
+        }
+        if (filled($seat['seat_label'] ?? null)) {
+            $parts[] = 'Seat '.$seat['seat_label'];
+        }
+
+        return $parts === [] ? 'General admission' : implode(' · ', $parts);
     }
 
     private function label(mixed $value): ?string

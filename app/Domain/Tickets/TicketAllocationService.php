@@ -4,27 +4,31 @@ namespace App\Domain\Tickets;
 
 use App\Enums\TicketStatus;
 use App\Models\Booking;
+use App\Models\BookingHold;
 use App\Models\Ticket;
 use Illuminate\Support\Str;
 use RuntimeException;
 
 class TicketAllocationService
 {
-    public function __construct(private readonly TicketSeatingService $seating)
-    {
+    public function __construct(
+        private readonly TicketInventoryService $inventory,
+        private readonly TicketSeatPricingService $seatPricing,
+    ) {
     }
 
-    public function createForBooking(Booking $booking): void
+    /** @param array<int, mixed> $reservedSeats */
+    public function createForBooking(Booking $booking, array $reservedSeats = [], ?BookingHold $hold = null): void
     {
         $booking->loadMissing(['appointment', 'attendees']);
         if (! $booking->appointment->ticketing_enabled) {
             return;
         }
 
-        $seats = $this->availableSeats($booking);
-        if (count($seats) < $booking->attendees->count()) {
-            throw new RuntimeException('This event no longer has enough ticket inventory for the booking.');
-        }
+        $quantity = $booking->attendees->count();
+        $seats = $reservedSeats === []
+            ? $this->inventory->reserveForAppointment($booking->appointment, $quantity, $hold)
+            : $this->inventory->validateReservation($booking->appointment, $reservedSeats, $quantity, $hold);
 
         foreach ($booking->attendees as $position => $attendee) {
             $seat = $seats[$position];
@@ -40,7 +44,8 @@ class TicketAllocationService
         }
     }
 
-    public function reassignForBooking(Booking $booking): void
+    /** @param array<int, mixed> $reservedSeats */
+    public function reassignForBooking(Booking $booking, array $reservedSeats = [], ?BookingHold $hold = null): void
     {
         $booking->loadMissing(['appointment', 'tickets']);
         if (! $booking->appointment->ticketing_enabled) {
@@ -50,9 +55,13 @@ class TicketAllocationService
             throw new RuntimeException('A booking with checked-in tickets cannot be rescheduled.');
         }
 
-        $seats = $this->availableSeats($booking);
-        if (count($seats) < $booking->tickets->count()) {
-            throw new RuntimeException('The proposed event no longer has enough ticket inventory for this booking.');
+        $quantity = $booking->tickets->count();
+        $seats = $reservedSeats === []
+            ? $this->inventory->reserveForAppointment($booking->appointment, $quantity, $hold, $booking)
+            : $this->inventory->validateReservation($booking->appointment, $reservedSeats, $quantity, $hold, $booking);
+        $currentSeatFees = $booking->tickets->sum(fn (Ticket $ticket): int => (int) $ticket->seat_fee_minor);
+        if ($this->seatPricing->total($seats) !== $currentSeatFees) {
+            throw new RuntimeException('The proposed event would change the booking seating fee. Choose an event with the same seating fee or cancel and create a new booking.');
         }
 
         foreach ($booking->tickets->values() as $position => $ticket) {
@@ -64,23 +73,6 @@ class TicketAllocationService
                 ...$seats[$position],
             ]);
         }
-    }
-
-    /** @return list<array{seat_key:?string,section_label:?string,row_label:?string,seat_label:?string}> */
-    private function availableSeats(Booking $booking): array
-    {
-        $inventory = $this->seating->inventory($booking->appointment);
-        $used = Ticket::query()
-            ->where('appointment_id', $booking->appointment_id)
-            ->where('booking_id', '!=', $booking->getKey())
-            ->whereNotNull('seat_key')
-            ->pluck('seat_key')
-            ->flip();
-
-        return array_values(array_filter(
-            $inventory,
-            fn (array $seat): bool => $seat['seat_key'] === null || ! $used->has($seat['seat_key']),
-        ));
     }
 
     private function uniqueCode(): string

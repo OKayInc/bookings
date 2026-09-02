@@ -7,9 +7,9 @@
 - **M5 Questionnaire + Pricing — complete:** unlimited and reusable organization questions, chargeable checkbox/select/number/address answers, driving-distance and tiered short-notice fees, files, email/phone/address verification and deterministic price snapshots.
 - **M6 Confirmation + Policies — complete:** employee/resource acceptance, cancellation/rescheduling policy enforcement and reminders.
 - **M7 Calendars — complete:** Google Calendar and Microsoft Graph availability/synchronization with per-appointment-type calendar selection, followed by the M7 revision series through M7-R21.
-- **M8 Ticketing — complete:** ticketed-event timing, optional seat numbering, one ticket per attendee, printable Code 128 tickets, lifecycle handling and organization-scoped admission check-in.
+- **M8 Ticketing — complete through M8-R1:** ticketed-event timing, optional seat numbering, one ticket per attendee, printable Code 128 tickets, lifecycle handling, admission check-in, enforced ticket-compatible modes and paid seating-block fees.
 - **M9 Payments:** organization-specific Stripe/PayPal, retainers, balances, refunds, whitelist/blacklist rules.
 - **M10 API:** two-key client/organization API authentication, organization-role authorization and administrative purge commands.
 - **M11 Product plans:** free/paid capabilities, configurable free-plan caps, advertising and owner-granted forever-free unlimited accounts.
 
-M8 adds ticketed events without changing the scheduling meaning of an appointment. The selected start is doors open, the appointment end remains the end of the resource-busy range, and show start/optional show end must fall inside that range. See `docs/TICKETING.md` and `docs/UPGRADE-M7-R21-TO-M8.md`.
+M8 adds ticketed events without changing the scheduling meaning of an appointment. The selected start is doors open, the appointment end remains the end of the resource-busy range, and show start/optional show end must fall inside that range. M8-R1 tightens compatible mode validation and adds paid seating-block fees. See `docs/TICKETING.md`, `docs/UPGRADE-M7-R21-TO-M8.md`, and `docs/UPGRADE-M8-TO-M8-R1.md`.

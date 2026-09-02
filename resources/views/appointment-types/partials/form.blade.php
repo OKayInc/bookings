@@ -245,6 +245,7 @@
             </template>
         </div>
         <p class="muted" id="ticket-consecutive-help">Consecutive numbering automatically uses seat 1 through the configured session capacity.</p>
+        <p class="muted">Ticketed events may be free or use per-attendee pricing. For a paid event, each seating block can add a fee per allocated ticket.</p>
     </div>
 </div>
 
@@ -822,6 +823,11 @@
     const add = document.getElementById('add-ticket-seat-block');
     const attendance = document.getElementById('attendance_mode');
     const duration = document.getElementById('duration_mode');
+    const pricing = document.getElementById('pricing_mode');
+    const singleAttendance = attendance.querySelector('option[value="single"]');
+    const variableDuration = duration.querySelector('option[value="variable"]');
+    const fixedTotalPricing = pricing.querySelector('option[value="fixed"]');
+    const durationRatePricing = pricing.querySelector('option[value="rate"]');
     let nextIndex = Array.from(list.querySelectorAll('[data-index]')).reduce(
         (highest, row) => Math.max(highest, Number.parseInt(row.dataset.index, 10) || 0),
         -1,
@@ -836,12 +842,18 @@
         row.querySelector('[data-remove-ticket-seat-block]').addEventListener('click', () => row.remove());
     }
 
-    function syncRow(row, selected, seatsOptional) {
+    function optionState(option, available) {
+        option.hidden = !available;
+        option.disabled = !available;
+    }
+
+    function syncRow(row, selected, seatsOptional, paidTickets) {
         const usesSection = selected === 'section_seat' || selected === 'section_row_seat';
         const usesRow = selected === 'row_seat' || selected === 'section_row_seat';
         sectionState(row.querySelector('[data-ticket-section-field]'), usesSection);
         sectionState(row.querySelector('[data-ticket-row-field]'), usesRow);
         sectionState(row.querySelector('[data-ticket-quantity-field]'), seatsOptional);
+        sectionState(row.querySelector('[data-ticket-seat-fee-field]'), paidTickets);
 
         const first = row.querySelector('[data-ticket-first-seat-field] input');
         const last = row.querySelector('[data-ticket-last-seat-field] input');
@@ -856,6 +868,10 @@
     function sync() {
         const active = enabled.checked;
         sectionState(fields, active);
+        optionState(singleAttendance, !active);
+        optionState(variableDuration, !active);
+        optionState(fixedTotalPricing, !active);
+        optionState(durationRatePricing, !active);
         if (!active) return;
 
         if (attendance.value !== 'group') {
@@ -866,8 +882,13 @@
             duration.value = 'fixed';
             duration.dispatchEvent(new Event('change'));
         }
+        if (!['free', 'per_attendee'].includes(pricing.value)) {
+            pricing.value = 'per_attendee';
+            pricing.dispatchEvent(new Event('change'));
+        }
 
         const selected = scheme.value;
+        const paidTickets = pricing.value === 'per_attendee';
         const usesBlocks = ['section_seat', 'row_seat', 'section_row_seat'].includes(selected);
         const supportsOptional = ['section_seat', 'row_seat'].includes(selected);
         if (!supportsOptional) optional.checked = false;
@@ -882,7 +903,7 @@
             list.appendChild(row);
             prepare(row);
         }
-        list.querySelectorAll('[data-ticket-seat-block]').forEach(row => syncRow(row, selected, supportsOptional && optional.checked));
+        list.querySelectorAll('[data-ticket-seat-block]').forEach(row => syncRow(row, selected, supportsOptional && optional.checked, paidTickets));
     }
 
     list.querySelectorAll('[data-ticket-seat-block]').forEach(prepare);
@@ -894,7 +915,7 @@
         prepare(row);
         sync();
     });
-    [enabled, scheme, optional, attendance, duration].forEach(control => control.addEventListener('change', sync));
+    [enabled, scheme, optional, attendance, duration, pricing].forEach(control => control.addEventListener('change', sync));
     sync();
 })();
 </script>

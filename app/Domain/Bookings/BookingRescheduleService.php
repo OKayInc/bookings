@@ -183,7 +183,11 @@ class BookingRescheduleService
             ]);
             $hold->update(['status' => BookingHoldStatus::Consumed->value]);
             $this->confirmations->resetForReschedule($lockedBooking);
-            $this->ticketAllocation->reassignForBooking($lockedBooking->fresh(['appointment', 'tickets']));
+            $this->ticketAllocation->reassignForBooking(
+                $lockedBooking->fresh(['appointment', 'tickets']),
+                $hold->ticket_seats ?? [],
+                $hold,
+            );
 
             return $lockedBooking->fresh(['appointment', 'appointmentType', 'organization', 'contractSubmissions']);
         }, 3);

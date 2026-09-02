@@ -40,8 +40,11 @@ class TicketingTest extends TestCase
                 'ticket_seating_scheme' => 'section_seat',
                 'ticket_seat_optional' => '1',
                 'capacity' => 4,
+                'pricing_mode' => 'per_attendee',
+                'attendee_pricing_mode' => 'flat',
+                'attendee_price' => '25.00',
                 'ticket_seat_blocks' => [
-                    ['section' => 'Floor', 'first_seat' => 1, 'last_seat' => 2, 'quantity' => null],
+                    ['section' => 'Floor', 'first_seat' => 1, 'last_seat' => 2, 'quantity' => null, 'seat_fee' => '10.00'],
                     ['section' => 'Balcony', 'first_seat' => null, 'last_seat' => null, 'quantity' => 2],
                 ],
             ]));
@@ -57,7 +60,47 @@ class TicketingTest extends TestCase
         $this->assertSame(180, $type->show_end_offset_minutes);
         $this->assertSame('section_seat', $type->ticket_seating_scheme->value);
         $this->assertTrue($type->ticket_seat_optional);
+        $this->assertSame(1000, $type->ticket_seat_blocks[0]['seat_fee_minor']);
+        $this->assertSame(0, $type->ticket_seat_blocks[1]['seat_fee_minor']);
         $this->assertSame(2, $type->ticket_seat_blocks[1]['quantity']);
+    }
+
+    public function test_ticket_configuration_rejects_single_variable_and_non_ticket_pricing_modes(): void
+    {
+        [$user, $organization] = $this->ownerContext();
+
+        $this->actingAs($user)
+            ->withSession(['active_organization_uuid' => $organization->uuid])
+            ->post(route('appointment-types.store'), $this->configuration([
+                'attendance_mode' => 'single',
+                'duration_mode' => 'variable',
+                'minimum_duration_value' => 1,
+                'maximum_duration_value' => 4,
+                'duration_increment_value' => 1,
+                'pricing_mode' => 'fixed',
+                'fixed_price' => '100.00',
+            ]))
+            ->assertSessionHasErrors(['attendance_mode', 'duration_mode', 'pricing_mode']);
+
+        $this->assertSame(0, AppointmentType::count());
+    }
+
+    public function test_free_ticket_configuration_rejects_seating_fees(): void
+    {
+        [$user, $organization] = $this->ownerContext();
+
+        $this->actingAs($user)
+            ->withSession(['active_organization_uuid' => $organization->uuid])
+            ->post(route('appointment-types.store'), $this->configuration([
+                'capacity' => 2,
+                'ticket_seating_scheme' => 'section_seat',
+                'ticket_seat_blocks' => [
+                    ['section' => 'Floor', 'first_seat' => 1, 'last_seat' => 2, 'seat_fee' => '5.00'],
+                ],
+            ]))
+            ->assertSessionHasErrors('ticket_seat_blocks');
+
+        $this->assertSame(0, AppointmentType::count());
     }
 
     public function test_ticket_configuration_rejects_times_outside_booking_and_inventory_mismatch(): void
@@ -188,8 +231,9 @@ class TicketingTest extends TestCase
         [, $organization] = $this->ownerContext();
         $type = $this->ticketType($organization, [
             'capacity' => 2,
-            'pricing_mode' => 'fixed',
-            'fixed_price_minor' => 2500,
+            'pricing_mode' => 'per_attendee',
+            'attendee_pricing_mode' => 'flat',
+            'attendee_price_minor' => 2500,
         ]);
         $this->availability($organization);
 
@@ -202,6 +246,38 @@ class TicketingTest extends TestCase
 
         $this->assertSame('pending_payment', $booking->status->value);
         $this->assertSame('reserved', $booking->tickets->first()->status->value);
+    }
+
+    public function test_held_section_fees_are_included_in_booking_price_and_ticket_snapshots(): void
+    {
+        Notification::fake();
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-24 12:00 UTC'));
+        [, $organization] = $this->ownerContext();
+        $type = $this->ticketType($organization, [
+            'capacity' => 4,
+            'ticket_seating_scheme' => 'section_seat',
+            'ticket_seat_blocks' => [
+                ['section' => 'Floor', 'row' => null, 'first_seat' => 1, 'last_seat' => 2, 'quantity' => 2, 'seat_fee_minor' => 500],
+                ['section' => 'Balcony', 'row' => null, 'first_seat' => 1, 'last_seat' => 2, 'quantity' => 2, 'seat_fee_minor' => 0],
+            ],
+            'pricing_mode' => 'per_attendee',
+            'attendee_pricing_mode' => 'flat',
+            'attendee_price_minor' => 2000,
+        ]);
+        $this->availability($organization);
+        $start = CarbonImmutable::parse('2026-08-31 09:00', 'America/Toronto')->utc();
+
+        $floor = $this->book($type, $start, 2, 'floor@example.test');
+        $this->assertSame(5000, $floor->base_price_minor);
+        $this->assertSame(5000, $floor->price_minor);
+        $this->assertSame([500, 500], $floor->tickets->pluck('seat_fee_minor')->all());
+        $this->assertSame(['Floor', 'Floor'], $floor->tickets->pluck('section_label')->all());
+        $this->assertSame(1000, (int) $floor->priceLines()->where('source_type', 'ticket_seating')->sum('amount_minor'));
+
+        $balcony = $this->book($type->fresh(['organization', 'resources']), $start, 1, 'balcony@example.test');
+        $this->assertSame(2000, $balcony->base_price_minor);
+        $this->assertSame([0], $balcony->tickets->pluck('seat_fee_minor')->all());
+        $this->assertSame(['Balcony'], $balcony->tickets->pluck('section_label')->all());
     }
 
     public function test_expired_unverified_booking_voids_tickets_and_releases_seats(): void

@@ -1,6 +1,6 @@
-# Appointment Software — M8
+# Appointment Software — M8-R1
 
-M8 adds optional ticketed events with doors-open/show timing, seating schemes, one printable ticket per attendee, lifecycle-safe seat allocation, and organization-scoped check-in. See `docs/TICKETING.md` and `docs/UPGRADE-M7-R21-TO-M8.md`.
+M8 introduced optional ticketed events with doors-open/show timing, seating schemes, printable attendee tickets and organization-scoped check-in. M8-R1 enforces ticket-compatible attendance, duration and pricing modes and adds optional per-ticket seating-block fees for paid events. See `docs/TICKETING.md`, `docs/CHANGES-M8-R1.md`, and `docs/UPGRADE-M8-TO-M8-R1.md`.
 
 ## M7 calendar synchronization
 
@@ -221,6 +221,6 @@ Numeric questionnaire answers can be compared with an earlier numeric answer or 
 
 The numeric constraint editor now offers **Number of attendees** as a comparison operand. It uses the seats reserved for the individual booking, including the primary client, with all existing operators and AND/OR rules. Browser feedback, live quotes, and final booking validation use the held count; other clients' seats and submitted replacement counts do not affect it. See `docs/CHANGES-M7-R21.md` and `docs/UPGRADE-M7-R20-TO-M7-R21.md`.
 
-## M8: ticketed events
+## M8 and M8-R1: ticketed events
 
-Appointment types can now issue one ticket per attendee. The selected appointment start is displayed as **doors open**, show start and optional show end are constrained inside the resource-busy booking range, and those times are snapshotted on the shared event session. Seating may be unassigned, consecutive, section + seat, row + seat, or section + row + seat; section/row schemes can intentionally omit the seat component and use a configured quantity. Tickets receive unique printable Code 128 barcodes, remain reserved until the booking is confirmed, are voided on cancellation/decline, retain their historical printed seat, and can be admitted once from the organization ticket check-in desk. See `docs/TICKETING.md`, `docs/CHANGES-M8.md`, and `docs/UPGRADE-M7-R21-TO-M8.md`.
+Appointment types can issue one ticket per attendee. Ticketed events force group attendance, fixed duration, and free or per-attendee pricing. The selected appointment start is displayed as **doors open**, show start and optional show end are constrained inside the resource-busy booking range, and those times are snapshotted on the shared event session. Seating may be unassigned, consecutive, section + seat, row + seat, or section + row + seat; section/row schemes can intentionally omit the seat component, use a configured quantity, and add a per-ticket seating fee for paid events. Seats and fees are held through checkout. Tickets receive unique printable Code 128 barcodes, remain reserved until the booking is confirmed, are voided on cancellation/decline, retain their historical printed seat, and can be admitted once from the organization ticket check-in desk. See `docs/TICKETING.md`, `docs/CHANGES-M8.md`, `docs/CHANGES-M8-R1.md`, and `docs/UPGRADE-M8-TO-M8-R1.md`.

@@ -10,6 +10,7 @@ use App\Domain\Bookings\PublicBookingHoldService;
 use App\Domain\Money\MoneyService;
 use App\Domain\Questionnaires\QuestionnaireSubmissionService;
 use App\Domain\Tickets\TicketEventService;
+use App\Domain\Tickets\TicketInventoryService;
 use App\Enums\AttendanceMode;
 use App\Models\AppointmentType;
 use App\Models\BookingHold;
@@ -38,6 +39,7 @@ class PublicBookingController extends Controller
         AppointmentTypePricingService $pricing,
         MoneyService $money,
         TicketEventService $ticketEvents,
+        TicketInventoryService $ticketInventory,
     ): JsonResponse {
         $data = $request->validate([
             'access_mode' => ['required', Rule::in(['direct', 'unlisted', 'invitation'])],
@@ -79,13 +81,17 @@ class PublicBookingController extends Controller
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
-        return response()->json([
-            'timezone' => $timezone,
-            'organization_timezone' => $appointmentType->organization->timezone,
-            'price_minor' => $price,
-            'price_display' => $money->format($price, $appointmentType->organization->currency),
-            'ticketed_event' => (bool) $appointmentType->ticketing_enabled,
-            'slots' => array_map(function ($slot) use ($timezone, $appointmentType, $ticketEvents): array {
+        try {
+            $slotPayloads = array_map(function ($slot) use (
+                $timezone,
+                $appointmentType,
+                $ticketEvents,
+                $ticketInventory,
+                $pricing,
+                $money,
+                $duration,
+                $data,
+            ): array {
                 $clientStart = $slot->startsAtUtc->setTimezone($timezone);
                 $clientEnd = $slot->endsAtUtc->setTimezone($timezone);
                 $orgStart = $slot->startsAtUtc->setTimezone($appointmentType->organization->timezone);
@@ -97,6 +103,18 @@ class PublicBookingController extends Controller
                 $clientShowEnd = $event === null || $event['show_ends_at_utc'] === null ? null : $event['show_ends_at_utc']->setTimezone($timezone);
                 $orgShowStart = $event === null ? null : $event['show_starts_at_utc']->setTimezone($appointmentType->organization->timezone);
                 $orgShowEnd = $event === null || $event['show_ends_at_utc'] === null ? null : $event['show_ends_at_utc']->setTimezone($appointmentType->organization->timezone);
+                $ticketSeats = $event === null
+                    ? []
+                    : ($slot->appointment === null
+                        ? $ticketInventory->reserveForType($appointmentType, (int) $data['attendee_count'])
+                        : $ticketInventory->reserveForAppointment($slot->appointment, (int) $data['attendee_count']));
+                $slotPrice = $pricing->priceForBooking(
+                    $appointmentType,
+                    $duration,
+                    $appointmentType->duration_unit,
+                    (int) $data['attendee_count'],
+                    $ticketSeats,
+                );
 
                 return [
                     'starts_at_utc' => $slot->startsAtUtc->toIso8601String(),
@@ -107,8 +125,21 @@ class PublicBookingController extends Controller
                     'organization_event_label' => $event === null ? null : 'Doors '.$orgStart->format('g:i A').' · Show '.$orgShowStart->format('g:i A').($orgShowEnd ? ' – '.$orgShowEnd->format('g:i A') : ''),
                     'remaining_capacity' => $slot->remainingCapacity,
                     'join_existing' => $slot->appointment !== null,
+                    'price_minor' => $slotPrice,
+                    'price_display' => $money->format($slotPrice, $appointmentType->organization->currency),
                 ];
-            }, $slots),
+            }, $slots);
+        } catch (RuntimeException|\InvalidArgumentException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json([
+            'timezone' => $timezone,
+            'organization_timezone' => $appointmentType->organization->timezone,
+            'price_minor' => $price,
+            'price_display' => $money->format($price, $appointmentType->organization->currency),
+            'ticketed_event' => (bool) $appointmentType->ticketing_enabled,
+            'slots' => $slotPayloads,
         ]);
     }
 
@@ -185,6 +216,7 @@ class PublicBookingController extends Controller
                 $answers,
                 CarbonImmutable::instance($hold->starts_at_utc)->utc(),
                 attendeeCount: (int) $hold->attendee_count,
+                ticketSeats: $hold->ticket_seats ?? [],
             );
         } catch (\InvalidArgumentException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
@@ -238,6 +270,7 @@ class PublicBookingController extends Controller
             (int) $hold->duration_value,
             CarbonImmutable::instance($hold->starts_at_utc)->utc(),
             attendeeCount: (int) $hold->attendee_count,
+            ticketSeats: $hold->ticket_seats ?? [],
         );
         $files = array_values($request->file('contract_files', []));
         $this->validateContractSet($files);

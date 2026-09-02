@@ -157,7 +157,12 @@ class AppointmentTypeController extends Controller
                         : $money->decimal((int) $rule->fixed_amount_minor, $context->organization()->currency),
                     'percentage' => $percentages->display($rule->percentage_bps),
                 ])->values()->all(),
-                'ticketSeatBlockInputs' => $appointmentType->ticket_seat_blocks ?? [],
+                'ticketSeatBlockInputs' => array_map(fn (array $block): array => [
+                    ...$block,
+                    'seat_fee' => (int) ($block['seat_fee_minor'] ?? 0) > 0
+                        ? $money->decimal((int) $block['seat_fee_minor'], $context->organization()->currency)
+                        : '',
+                ], $appointmentType->ticket_seat_blocks ?? []),
             ],
         ));
     }
@@ -318,11 +323,13 @@ class AppointmentTypeController extends Controller
             && $ticketScheme->supportsOptionalSeat()
             && $request->boolean('ticket_seat_optional');
         $ticketSeatBlocks = $ticketingEnabled
-            ? app(TicketSeatingService::class)->normalize(
+            ? app(TicketSeatingService::class)->normalizeInput(
                 $ticketScheme,
                 $ticketSeatOptional,
                 $data['ticket_seat_blocks'] ?? [],
                 (int) $data['capacity'],
+                $currency,
+                $data['pricing_mode'] === PricingMode::PerAttendee->value,
             )
             : null;
 

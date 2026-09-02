@@ -45,6 +45,8 @@ Migration `2026_08_30_000056_add_online_conference_settings.php` creates one opt
 
 Migration `2026_09_01_000061_add_ticketing_capabilities.php` adds ticket configuration to `appointment_types`, immutable event timing/seating snapshots to `appointments`, and `tickets`. Each ticket belongs to one booking attendee, uses a globally unique printed code, and may hold one appointment-scoped `seat_key`; voiding clears only the allocation key so the historical section/row/seat labels remain visible while inventory becomes reusable.
 
+Migration `2026_09_01_000062_add_ticket_seat_pricing.php` snapshots the exact ticket seats and seating fees on `booking_holds` and stores the individual fee on each resulting ticket. Seating-block fee definitions remain inside the existing appointment-type and appointment seating JSON snapshots.
+
 `appointment_types.is_online` and `meeting_provider` define future meeting behavior. `appointments` snapshot the chosen provider and store the external meeting ID, encrypted attendee/host URLs, provisioning status, and a staff-visible error. Editing an appointment type or rotating organization credentials therefore does not silently switch the provider on an existing scheduled appointment.
 
 ## M7-R14 multi-day availability evaluation

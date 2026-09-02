@@ -87,6 +87,7 @@ class StoreAppointmentTypeRequest extends FormRequest
             'ticket_seat_blocks.*.first_seat' => ['nullable', 'integer', 'min:1', 'max:1000000'],
             'ticket_seat_blocks.*.last_seat' => ['nullable', 'integer', 'min:1', 'max:1000000'],
             'ticket_seat_blocks.*.quantity' => ['nullable', 'integer', 'min:1', 'max:'.config('appointment-types.max_capacity', 100000)],
+            'ticket_seat_blocks.*.seat_fee' => ['nullable', new MoneyAmount($currency)],
             'is_online' => ['nullable', 'boolean'],
             'meeting_provider' => [
                 Rule::requiredIf(fn (): bool => $this->boolean('is_online')),
@@ -507,6 +508,9 @@ class StoreAppointmentTypeRequest extends FormRequest
         if ($this->input('duration_mode') !== DurationMode::Fixed->value) {
             $validator->errors()->add('duration_mode', 'Ticketed events require one fixed doors-open-to-booking-end duration.');
         }
+        if (! in_array($this->input('pricing_mode'), [PricingMode::Free->value, PricingMode::PerAttendee->value], true)) {
+            $validator->errors()->add('pricing_mode', 'Ticketed events must use free or per-attendee pricing.');
+        }
 
         $duration = filter_var($this->input('duration_value'), FILTER_VALIDATE_INT);
         $unit = DurationUnit::tryFrom((string) $this->input('duration_unit'));
@@ -537,11 +541,13 @@ class StoreAppointmentTypeRequest extends FormRequest
         }
 
         try {
-            app(TicketSeatingService::class)->normalize(
+            app(TicketSeatingService::class)->normalizeInput(
                 $scheme,
                 $this->boolean('ticket_seat_optional'),
                 (array) $this->input('ticket_seat_blocks', []),
                 $capacity,
+                app(OrganizationContext::class)->organization()->currency,
+                $this->input('pricing_mode') === PricingMode::PerAttendee->value,
             );
         } catch (InvalidArgumentException $exception) {
             $validator->errors()->add('ticket_seat_blocks', $exception->getMessage());
@@ -565,11 +571,13 @@ class StoreAppointmentTypeRequest extends FormRequest
             $blocks = null;
             if ($scheme !== null && $capacity !== false && $capacity > 0) {
                 try {
-                    $blocks = app(TicketSeatingService::class)->normalize(
+                    $blocks = app(TicketSeatingService::class)->normalizeInput(
                         $scheme,
                         $optional,
                         (array) $this->input('ticket_seat_blocks', []),
                         $capacity,
+                        app(OrganizationContext::class)->organization()->currency,
+                        $this->input('pricing_mode') === PricingMode::PerAttendee->value,
                     );
                 } catch (InvalidArgumentException) {
                     return;
@@ -577,6 +585,14 @@ class StoreAppointmentTypeRequest extends FormRequest
             }
 
             $showEnd = $this->input('show_end_offset_minutes');
+            $storedBlocks = $type->ticket_seating_scheme?->usesBlocks()
+                ? app(TicketSeatingService::class)->normalize(
+                    $type->ticket_seating_scheme,
+                    (bool) $type->ticket_seat_optional,
+                    $type->ticket_seat_blocks ?? [],
+                    (int) $type->capacity,
+                )
+                : [];
             $changed = $changed
                 || (int) $this->input('capacity') !== (int) $type->capacity
                 || (string) $this->input('duration_unit') !== $type->duration_unit->value
@@ -585,7 +601,7 @@ class StoreAppointmentTypeRequest extends FormRequest
                 || ($showEnd === null || $showEnd === '' ? null : (int) $showEnd) !== $type->show_end_offset_minutes
                 || $scheme !== $type->ticket_seating_scheme
                 || $optional !== (bool) $type->ticket_seat_optional
-                || $blocks !== ($type->ticket_seat_blocks ?? []);
+                || $blocks !== $storedBlocks;
         }
 
         if ($changed) {

@@ -17,7 +17,7 @@ class BookingHold extends Model
         'organization_id', 'appointment_type_id', 'appointment_id', 'appointment_type_invitation_id',
         'contract_template_id', 'token_hash', 'starts_at_utc', 'ends_at_utc',
         'blocked_starts_at_utc', 'blocked_ends_at_utc', 'booking_timezone', 'duration_value',
-        'attendee_count', 'status', 'expires_at_utc',
+        'attendee_count', 'ticket_seats', 'status', 'expires_at_utc',
     ];
 
     protected $hidden = ['id', 'token_hash'];
@@ -33,6 +33,7 @@ class BookingHold extends Model
             'expires_at_utc' => 'immutable_datetime',
             'duration_value' => 'integer',
             'attendee_count' => 'integer',
+            'ticket_seats' => 'array',
             'status' => BookingHoldStatus::class,
         ];
     }

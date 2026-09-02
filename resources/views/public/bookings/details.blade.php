@@ -15,6 +15,27 @@
     @endif
     <p class="muted">This time is temporarily held until {{ $hold->expires_at_utc->setTimezone($hold->booking_timezone)->format('g:i A') }}.</p>
     <p>{{ $hold->attendee_count }} {{ $eventTiming ? 'ticket(s)' : 'attendee(s)' }} reserved for this booking, including the primary client.</p>
+    @if($eventTiming && ! empty($hold->ticket_seats))
+        @php
+            $ticketSeating = app(\App\Domain\Tickets\TicketSeatingService::class);
+            $money = app(\App\Domain\Money\MoneyService::class);
+        @endphp
+        <h3>Held admission</h3>
+        <ul>
+            @foreach(array_slice($hold->ticket_seats, 0, 100) as $seat)
+                @php
+                    $seatFeeMinor = (int) ($seat['seat_fee_minor'] ?? 0);
+                @endphp
+                <li>
+                    {{ $ticketSeating->display($seat) }}
+                    {{ $seatFeeMinor > 0 ? ' · '.$money->format($seatFeeMinor, $organization->currency).' seating fee' : '' }}
+                </li>
+            @endforeach
+        </ul>
+        @if(count($hold->ticket_seats) > 100)
+            <p class="muted">Plus {{ count($hold->ticket_seats) - 100 }} additional held tickets.</p>
+        @endif
+    @endif
 </div>
 
 @if($hold->contractTemplate)

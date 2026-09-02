@@ -8,6 +8,7 @@ use App\Models\BookingHold;
 use App\Models\Resource;
 use App\Domain\Resources\ResourceRequirementService;
 use App\Domain\Calendars\CalendarAvailabilityService;
+use App\Domain\Tickets\TicketInventoryService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -20,6 +21,7 @@ class BookingHoldService
         private readonly AppointmentDurationService $durations,
         private readonly ResourceRequirementService $requirements,
         private readonly CalendarAvailabilityService $externalCalendars,
+        private readonly TicketInventoryService $ticketInventory,
     ) {
     }
 
@@ -29,17 +31,21 @@ class BookingHoldService
         ?int $durationValue = null,
         ?string $bookingTimezone = null,
         ?int $ttlMinutes = null,
+        int $attendeeCount = 1,
     ): BookingHoldLease {
         $timezone = $bookingTimezone ?: $type->organization->timezone;
         $ttl = max(1, $ttlMinutes ?? (int) config('availability.hold_ttl_minutes', 10));
 
-        return DB::transaction(function () use ($type, $startsAtUtc, $durationValue, $timezone, $ttl): BookingHoldLease {
+        return DB::transaction(function () use ($type, $startsAtUtc, $durationValue, $timezone, $ttl, $attendeeCount): BookingHoldLease {
             $lockedType = AppointmentType::query()
                 ->whereKey($type->getKey())
                 ->lockForUpdate()
                 ->firstOrFail();
 
             $lockedType->load(['organization', 'resources']);
+            if ($attendeeCount < 1 || $attendeeCount > (int) $lockedType->capacity) {
+                throw new RuntimeException('The requested attendee count exceeds this appointment capacity.');
+            }
             $resourceKeys = $lockedType->resources->modelKeys();
 
             if ($resourceKeys !== []) {
@@ -105,6 +111,9 @@ class BookingHoldService
                 }
             }
             $token = Str::random(64);
+            $ticketSeats = $lockedType->ticketing_enabled
+                ? $this->ticketInventory->reserveForType($lockedType, $attendeeCount)
+                : null;
 
             $hold = $lockedType->bookingHolds()->create([
                 'organization_id' => $lockedType->organization_id,
@@ -115,6 +124,8 @@ class BookingHoldService
                 'blocked_ends_at_utc' => $endsAtUtc->addMinutes((int) $lockedType->buffer_after_minutes)->utc(),
                 'booking_timezone' => $timezone,
                 'duration_value' => $selectedDuration,
+                'attendee_count' => $attendeeCount,
+                'ticket_seats' => $ticketSeats,
                 'status' => BookingHoldStatus::Active->value,
                 'expires_at_utc' => now('UTC')->addMinutes($ttl),
             ]);

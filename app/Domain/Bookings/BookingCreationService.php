@@ -15,6 +15,7 @@ use App\Domain\Availability\OrganizationHolidayService;
 use App\Domain\Availability\ResourceHolidayService;
 use App\Domain\Tickets\TicketAllocationService;
 use App\Domain\Tickets\TicketEventService;
+use App\Domain\Tickets\TicketInventoryService;
 use App\Enums\AppointmentStatus;
 use App\Enums\BookingHoldStatus;
 use App\Enums\BookingStatus;
@@ -47,6 +48,7 @@ class BookingCreationService
         private readonly AppointmentTypeSeasonService $seasons,
         private readonly TicketAllocationService $ticketAllocation,
         private readonly TicketEventService $ticketEvents,
+        private readonly TicketInventoryService $ticketInventory,
     ) {
     }
 
@@ -173,14 +175,32 @@ class BookingCreationService
 
             $appointment = $this->appointmentForHold($hold, $type->capacity);
             $this->assertCapacity($appointment, (int) $hold->attendee_count);
+            $ticketSeats = [];
+            if ($appointment->ticketing_enabled) {
+                $ticketSeats = empty($hold->ticket_seats)
+                    ? $this->ticketInventory->reserveForAppointment($appointment, (int) $hold->attendee_count, $hold)
+                    : $this->ticketInventory->validateReservation(
+                        $appointment,
+                        $hold->ticket_seats,
+                        (int) $hold->attendee_count,
+                        $hold,
+                    );
+            }
 
-            $basePriceMinor = $this->pricing->priceForBooking($type, (int) $hold->duration_value, $type->duration_unit, (int) $hold->attendee_count);
+            $basePriceMinor = $this->pricing->priceForBooking(
+                $type,
+                (int) $hold->duration_value,
+                $type->duration_unit,
+                (int) $hold->attendee_count,
+                $ticketSeats,
+            );
             $questionnaire ??= new QuestionnaireSubmission([], $this->questionnairePricing->quote(
                 $type,
                 (int) $hold->duration_value,
                 [],
                 CarbonImmutable::instance($hold->starts_at_utc)->utc(),
                 attendeeCount: (int) $hold->attendee_count,
+                ticketSeats: $ticketSeats,
             ));
             if ($questionnaire->quote->basePriceMinor !== $basePriceMinor) {
                 throw new RuntimeException('The appointment price has changed. Please review the price and submit the booking again.');
@@ -253,7 +273,11 @@ class BookingCreationService
                 ]);
             }
 
-            $this->ticketAllocation->createForBooking($booking->load(['appointment', 'attendees']));
+            $this->ticketAllocation->createForBooking(
+                $booking->load(['appointment', 'attendees']),
+                $ticketSeats,
+                $hold,
+            );
 
             $this->questionnairePersistence->persist($booking->load('organization'), $questionnaire);
 

@@ -4,13 +4,16 @@ namespace App\Domain\Appointments;
 
 use App\Enums\DurationUnit;
 use App\Enums\PricingMode;
+use App\Domain\Tickets\TicketSeatPricingService;
 use App\Models\AppointmentType;
 use InvalidArgumentException;
 
 class AppointmentTypePricingService
 {
-    public function __construct(private readonly AttendeePricingService $attendees)
-    {
+    public function __construct(
+        private readonly AttendeePricingService $attendees,
+        private readonly TicketSeatPricingService $ticketSeats,
+    ) {
     }
 
     public function priceForDuration(
@@ -26,13 +29,29 @@ class AppointmentTypePricingService
         ?int $durationValue = null,
         DurationUnit|string|null $durationUnit = null,
         int $attendeeCount = 1,
+        array $ticketSeats = [],
     ): int {
-        return match ($appointmentType->pricing_mode) {
+        if ($appointmentType->ticketing_enabled
+            && ! in_array($appointmentType->pricing_mode, [PricingMode::Free, PricingMode::PerAttendee], true)) {
+            throw new InvalidArgumentException('Ticketed events must use free or per-attendee pricing.');
+        }
+
+        $base = match ($appointmentType->pricing_mode) {
             PricingMode::Free => 0,
             PricingMode::Fixed => (int) ($appointmentType->fixed_price_minor ?? 0),
             PricingMode::Rate => $this->ratePrice($appointmentType, $durationValue, $durationUnit),
             PricingMode::PerAttendee => $this->attendees->total($this->attendees->breakdown($appointmentType, $attendeeCount)),
         };
+
+        $seatFees = $appointmentType->ticketing_enabled ? $this->ticketSeats->total($ticketSeats) : 0;
+        if ($appointmentType->pricing_mode === PricingMode::Free && $seatFees > 0) {
+            throw new InvalidArgumentException('Free ticketed events cannot contain seating fees.');
+        }
+        if ($seatFees > PHP_INT_MAX - $base) {
+            throw new InvalidArgumentException('The calculated appointment price is too large.');
+        }
+
+        return $base + $seatFees;
     }
 
     private function ratePrice(

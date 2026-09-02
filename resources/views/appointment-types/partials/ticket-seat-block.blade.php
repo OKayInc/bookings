@@ -13,7 +13,7 @@
             <input id="ticket_quantity_{{ $blockIndex }}" type="number" min="1" name="ticket_seat_blocks[{{ $blockIndex }}][quantity]" value="{{ $block['quantity'] ?? '' }}">
         </div>
     </div>
-    <div class="row">
+    <div class="row three">
         <div class="field" data-ticket-first-seat-field>
             <label for="ticket_first_seat_{{ $blockIndex }}">First seat number</label>
             <input id="ticket_first_seat_{{ $blockIndex }}" type="number" min="1" name="ticket_seat_blocks[{{ $blockIndex }}][first_seat]" value="{{ $block['first_seat'] ?? '' }}" placeholder="1">
@@ -21,6 +21,11 @@
         <div class="field" data-ticket-last-seat-field>
             <label for="ticket_last_seat_{{ $blockIndex }}">Last seat number</label>
             <input id="ticket_last_seat_{{ $blockIndex }}" type="number" min="1" name="ticket_seat_blocks[{{ $blockIndex }}][last_seat]" value="{{ $block['last_seat'] ?? '' }}" placeholder="100">
+        </div>
+        <div class="field" data-ticket-seat-fee-field>
+            <label for="ticket_seat_fee_{{ $blockIndex }}">Additional fee per ticket ({{ $organization->currency }})</label>
+            <input id="ticket_seat_fee_{{ $blockIndex }}" inputmode="decimal" name="ticket_seat_blocks[{{ $blockIndex }}][seat_fee]" value="{{ $block['seat_fee'] ?? '' }}" placeholder="10.00">
+            <div class="muted">Added to the base per-attendee ticket price for tickets allocated from this block.</div>
         </div>
     </div>
     <button class="btn btn-outline-danger" type="button" data-remove-ticket-seat-block>Remove seating block</button>

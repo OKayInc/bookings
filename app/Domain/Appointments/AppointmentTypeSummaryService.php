@@ -43,7 +43,7 @@ class AppointmentTypeSummaryService
     {
         $currency = $type->organization->currency;
 
-        return match ($type->pricing_mode) {
+        $summary = match ($type->pricing_mode) {
             PricingMode::Free => 'Free',
             PricingMode::Fixed => $this->money->format((int) $type->fixed_price_minor, $currency),
             PricingMode::PerAttendee => match ($type->attendee_pricing_mode ?? AttendeePricingMode::Flat) {
@@ -57,6 +57,11 @@ class AppointmentTypeSummaryService
                 $type->rate_unit->value,
             ),
         };
+
+        $hasSeatingFees = $type->ticketing_enabled && collect($type->ticket_seat_blocks ?? [])
+            ->contains(fn (array $block): bool => (int) ($block['seat_fee_minor'] ?? 0) > 0);
+
+        return $hasSeatingFees ? $summary.' + allocated seating fees' : $summary;
     }
 
     public function examplePrice(AppointmentType $type): int

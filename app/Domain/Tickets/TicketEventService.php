@@ -2,6 +2,9 @@
 
 namespace App\Domain\Tickets;
 
+use App\Enums\AttendanceMode;
+use App\Enums\DurationMode;
+use App\Enums\PricingMode;
 use App\Models\AppointmentType;
 use Carbon\CarbonImmutable;
 use RuntimeException;
@@ -23,6 +26,16 @@ class TicketEventService
                 'ticket_seat_optional' => false,
                 'ticket_seat_blocks' => null,
             ];
+        }
+
+        if ($type->attendance_mode !== AttendanceMode::Group) {
+            throw new RuntimeException('Ticketed events must use group attendance.');
+        }
+        if ($type->duration_mode !== DurationMode::Fixed) {
+            throw new RuntimeException('Ticketed events must use a fixed duration.');
+        }
+        if (! in_array($type->pricing_mode, [PricingMode::Free, PricingMode::PerAttendee], true)) {
+            throw new RuntimeException('Ticketed events must use free or per-attendee pricing.');
         }
 
         $showStarts = $startsAtUtc->addMinutes((int) $type->show_start_offset_minutes);

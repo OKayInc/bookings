@@ -4,6 +4,7 @@ use App\Domain\Appointments\AppointmentTypePricingService;
 use App\Domain\Appointments\AttendeePricingService;
 use App\Domain\Money\MoneyService;
 use App\Domain\Bookings\ShortNoticeFeeService;
+use App\Domain\Tickets\TicketSeatPricingService;
 use App\Enums\PricingAdjustmentType;
 use App\Enums\PricingMode;
 use App\Enums\AttendeePricingMode;
@@ -18,6 +19,7 @@ class QuestionnairePricingService {
    private ShortNoticeFeeService $shortNoticeFees,
    private QuestionVisibilityService $visibility,
    private AttendeePricingService $attendeePricing,
+   private TicketSeatPricingService $ticketSeatPricing,
    private MoneyService $money,
  ) {}
  public function quote(
@@ -28,9 +30,10 @@ class QuestionnairePricingService {
    ?CarbonImmutable $nowUtc = null,
    array $drivingDistancesMeters = [],
    int $attendeeCount = 1,
+   array $ticketSeats = [],
  ): QuestionnaireQuote {
    $visibleQuestions=$this->visibility->visibleQuestions($type,$answers);
-   $base=$this->basePricing->priceForBooking($type,$durationValue,$type->duration_unit,$attendeeCount); $total=$base;
+   $base=$this->basePricing->priceForBooking($type,$durationValue,$type->duration_unit,$attendeeCount,$ticketSeats); $total=$base;
    $lines=[new QuestionnairePriceLine('appointment_type',$type->uuid,'Base appointment price','base','1',$base)];
    if ($type->pricing_mode===PricingMode::PerAttendee) {
      $mode=$type->attendee_pricing_mode??AttendeePricingMode::Flat;
@@ -42,6 +45,14 @@ class QuestionnairePricingService {
        $lines[]=new QuestionnairePriceLine('appointment_type',$type->uuid,$label,'base',(string)$line['quantity'],$line['amount_minor'],[
          'pricing_mode'=>'per_attendee','attendee_pricing_mode'=>$mode->value,'attendee_count'=>$attendeeCount,
          'unit_amount_minor'=>$line['unit_amount_minor'],'min_attendees'=>$line['min_attendees'],'max_attendees'=>$line['max_attendees'],
+       ]);
+     }
+   }
+   if ($type->ticketing_enabled) {
+     foreach ($this->ticketSeatPricing->breakdown($ticketSeats) as $line) {
+       $label='Seating fee: '.$line['label'].' ('.$this->money->format($line['unit_amount_minor'],$type->organization->currency).' each)';
+       $lines[]=new QuestionnairePriceLine('ticket_seating',$type->uuid,$label,'seat_fee',(string)$line['quantity'],$line['amount_minor'],[
+         'unit_amount_minor'=>$line['unit_amount_minor'],
        ]);
      }
    }

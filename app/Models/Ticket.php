@@ -14,7 +14,7 @@ class Ticket extends Model
     protected $fillable = [
         'organization_id', 'appointment_id', 'booking_id', 'booking_attendee_id',
         'code', 'status', 'seat_key', 'section_label', 'row_label', 'seat_label',
-        'checked_in_at_utc', 'checked_in_by_person_id',
+        'seat_fee_minor', 'checked_in_at_utc', 'checked_in_by_person_id',
     ];
 
     protected $hidden = [
@@ -28,6 +28,7 @@ class Ticket extends Model
     {
         return [
             'status' => TicketStatus::class,
+            'seat_fee_minor' => 'integer',
             'checked_in_at_utc' => 'immutable_datetime',
         ];
     }

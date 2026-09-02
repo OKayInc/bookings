@@ -32,6 +32,7 @@ class QuestionnaireSubmissionService
         ?CarbonImmutable $startsAtUtc = null,
         ?CarbonImmutable $nowUtc = null,
         int $attendeeCount = 1,
+        array $ticketSeats = [],
     ): QuestionnaireQuote {
         $visibleQuestions = $this->visibility->visibleQuestions($type, $answers);
         $visibleAnswers = $this->visibleAnswers($visibleQuestions, $answers);
@@ -65,7 +66,7 @@ class QuestionnaireSubmissionService
             }
         }
 
-        return $this->pricing->quote($type, $duration, $visibleAnswers, $startsAtUtc, $nowUtc, $distanceMeters, $attendeeCount);
+        return $this->pricing->quote($type, $duration, $visibleAnswers, $startsAtUtc, $nowUtc, $distanceMeters, $attendeeCount, $ticketSeats);
     }
 
     public function validateForBooking(
@@ -75,6 +76,7 @@ class QuestionnaireSubmissionService
         ?CarbonImmutable $startsAtUtc = null,
         ?CarbonImmutable $nowUtc = null,
         int $attendeeCount = 1,
+        array $ticketSeats = [],
     ): QuestionnaireSubmission {
         $submittedAnswers = (array) $request->input('answers', []);
         $visibleQuestions = $this->visibility->visibleQuestions($type, $submittedAnswers);
@@ -185,7 +187,7 @@ class QuestionnaireSubmissionService
         }
 
         try {
-            $quote = $this->pricing->quote($type, $duration, $raw, $startsAtUtc, $nowUtc, $distanceMeters, $attendeeCount);
+            $quote = $this->pricing->quote($type, $duration, $raw, $startsAtUtc, $nowUtc, $distanceMeters, $attendeeCount, $ticketSeats);
         } catch (\InvalidArgumentException $exception) {
             throw ValidationException::withMessages(['questionnaire' => $exception->getMessage()]);
         }

@@ -1,10 +1,10 @@
 # Ticketing
 
-M8 makes ticketing an optional appointment-type capability. It reuses the existing shared group-session capacity, MariaDB booking holds and appointment lock instead of creating a second inventory system.
+M8 makes ticketing an optional appointment-type capability. M8-R1 adds strict ticket-compatible mode enforcement and paid seating-block fees. Ticketing reuses the existing shared group-session capacity, MariaDB booking holds and appointment lock instead of creating a second inventory system.
 
 ## Event timing
 
-- Enabling **Issue one admission ticket per attendee** requires group attendance and a fixed duration.
+- Enabling **Issue one admission ticket per attendee** requires group attendance and a fixed duration. The administration form forces those values and hides single attendance and variable duration until ticketing is disabled.
 - The selected appointment start means **doors open**. It remains the beginning of the appointment and resource-busy range.
 - **Show starts** is a required minute offset from doors open.
 - **Show ends** is an optional minute offset from doors open.
@@ -27,6 +27,14 @@ For **section + seat** and **row + seat**, the administrator may allow the seat 
 
 Seats are allocated automatically in configuration order. Each shared appointment snapshots its scheme and blocks, so every buyer joining that event uses the same inventory definition.
 
+## Pricing and seating fees
+
+Ticketed events may use only **Free** or **Per attendee** pricing. Fixed-total and duration-rate pricing are hidden while ticketing is enabled and are independently rejected by the server. The existing flat, absolute-range and accumulative-range per-attendee calculations remain available for the base ticket price.
+
+For a paid event, each section/row seating block may add an optional fee per allocated ticket. This fee is stored in the organization's currency and added on top of the base per-attendee price. Free events cannot contain seating fees. Consecutive and unassigned schemes do not have section/row blocks and therefore do not add a block fee.
+
+The exact seats and their fees are reserved on the booking hold. Slot choices show the current ticket total, checkout shows the held admissions and itemized seating fees, and the server recalculates the same snapshot before creating the booking. Each resulting ticket keeps its individual seating fee for history. A reschedule is rejected when the destination allocation would change the snapshotted seating-fee total; this avoids silently repricing a booking before M9 payment adjustments exist.
+
 Ticket timing, duration, capacity and seating configuration cannot be changed while the appointment type has a future booked event. This prevents later buyers from seeing a different definition than the snapshot used for tickets already sold. The configuration becomes editable again after those events end.
 
 ## Ticket lifecycle
@@ -44,7 +52,7 @@ Cancellation keeps the printed section/row/seat labels for history but clears th
 
 The scheduled pending-booking cleanup follows the same lifecycle: when an unverified guest booking expires and becomes cancelled, its tickets are voided and its allocated seats are released.
 
-Paid M8 tickets remain **Reserved** while their booking is `pending_payment`. M9 payments will move successfully paid bookings to `confirmed`, which automatically makes their tickets valid.
+Paid tickets remain **Reserved** while their booking is `pending_payment`. M9 payments will move successfully paid bookings to `confirmed`, which automatically makes their tickets valid.
 
 ## Printing and admission
 

@@ -8,6 +8,7 @@ use App\Domain\Availability\BookingHoldLease;
 use App\Domain\Availability\BookingHoldService;
 use App\Domain\Availability\OrganizationHolidayService;
 use App\Domain\Availability\ResourceHolidayService;
+use App\Domain\Tickets\TicketInventoryService;
 use App\Enums\AppointmentStatus;
 use App\Enums\AttendanceMode;
 use App\Enums\BookingHoldStatus;
@@ -31,6 +32,7 @@ class PublicBookingHoldService
         private readonly OrganizationHolidayService $holidays,
         private readonly ResourceHolidayService $resourceHolidays,
         private readonly AppointmentTypeSeasonService $seasons,
+        private readonly TicketInventoryService $ticketInventory,
     ) {
     }
 
@@ -85,6 +87,7 @@ class PublicBookingHoldService
             $selectedDuration,
             $bookingTimezone,
             $ttlMinutes ?? (int) config('booking.public_hold_ttl_minutes', 15),
+            $attendeeCount,
         );
 
         $contractId = $type->contractTemplate()->value('id');
@@ -135,6 +138,9 @@ class PublicBookingHoldService
 
             $token = Str::random(64);
             $contractId = $lockedType->contractTemplate()->value('id');
+            $ticketSeats = $locked->ticketing_enabled
+                ? $this->ticketInventory->reserveForAppointment($locked, $attendeeCount)
+                : null;
             $hold = BookingHold::create([
                 'organization_id' => $lockedType->organization_id,
                 'appointment_type_id' => $lockedType->getKey(),
@@ -149,6 +155,7 @@ class PublicBookingHoldService
                 'booking_timezone' => $bookingTimezone,
                 'duration_value' => $locked->duration_value,
                 'attendee_count' => $attendeeCount,
+                'ticket_seats' => $ticketSeats,
                 'status' => BookingHoldStatus::Active->value,
                 'expires_at_utc' => now('UTC')->addMinutes($ttlMinutes ?? (int) config('booking.public_hold_ttl_minutes', 15)),
             ]);
