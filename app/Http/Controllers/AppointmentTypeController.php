@@ -19,6 +19,8 @@ use App\Enums\DurationMode;
 use App\Enums\DurationUnit;
 use App\Enums\EmailVerificationMode;
 use App\Enums\PricingMode;
+use App\Enums\PaymentCollectionMode;
+use App\Enums\RetainerType;
 use App\Enums\PricingAdjustmentType;
 use App\Enums\ResourceRequirementMode;
 use App\Enums\ReminderThresholdBasis;
@@ -58,6 +60,10 @@ class AppointmentTypeController extends Controller
             'attendeePriceInput' => '',
             'attendeePriceRangeInputs' => [],
             'rateAmountInput' => '',
+            'retainerAmountInput' => '',
+            'retainerPercentageInput' => '',
+            'clientRefundPercentageInput' => '0',
+            'staffRefundPercentageInput' => '100',
             'shortNoticeFeeInputs' => [],
             'ticketSeatBlockInputs' => [],
         ]));
@@ -143,6 +149,12 @@ class AppointmentTypeController extends Controller
                 'attendeePriceInput' => $appointmentType->attendee_price_minor === null
                     ? ''
                     : $money->decimal((int) $appointmentType->attendee_price_minor, $context->organization()->currency),
+                'retainerAmountInput' => $appointmentType->retainer_amount_minor === null
+                    ? ''
+                    : $money->decimal((int) $appointmentType->retainer_amount_minor, $context->organization()->currency),
+                'retainerPercentageInput' => $percentages->display($appointmentType->retainer_percentage_bps),
+                'clientRefundPercentageInput' => $percentages->display($appointmentType->client_refund_percentage_bps),
+                'staffRefundPercentageInput' => $percentages->display($appointmentType->staff_refund_percentage_bps),
                 'attendeePriceRangeInputs' => array_map(fn (array $range): array => [
                     'min_attendees' => $range['min_attendees'],
                     'max_attendees' => $range['max_attendees'],
@@ -291,6 +303,8 @@ class AppointmentTypeController extends Controller
             'bookingNoticeUnits' => BookingNoticeUnit::cases(),
             'emailVerificationModes' => EmailVerificationMode::cases(),
             'pricingModes' => PricingMode::cases(),
+            'paymentCollectionModes' => PaymentCollectionMode::cases(),
+            'retainerTypes' => RetainerType::cases(),
             'attendeePricingModes' => AttendeePricingMode::cases(),
             'shortNoticeAdjustmentTypes' => [PricingAdjustmentType::Fixed, PricingAdjustmentType::Percentage],
             'resourceRequirementModes' => ResourceRequirementMode::cases(),
@@ -332,6 +346,14 @@ class AppointmentTypeController extends Controller
                 $data['pricing_mode'] === PricingMode::PerAttendee->value,
             )
             : null;
+        $paid = $data['pricing_mode'] !== PricingMode::Free->value;
+        $paymentCollectionMode = $paid
+            ? PaymentCollectionMode::from($data['payment_collection_mode'] ?? PaymentCollectionMode::Full->value)
+            : PaymentCollectionMode::Full;
+        $retainerType = $paid && $paymentCollectionMode === PaymentCollectionMode::Retainer
+            ? RetainerType::from($data['retainer_type'])
+            : null;
+        $percentages = app(PercentageService::class);
 
         return [
             'attendance_mode' => $data['attendance_mode'],
@@ -372,6 +394,20 @@ class AppointmentTypeController extends Controller
             'attendee_price_ranges' => $attendeeRanges,
             'rate_amount_minor' => $isRatePrice ? $money->parse($data['rate_amount'], $currency) : null,
             'rate_unit' => $isRatePrice ? $data['rate_unit'] : null,
+            'payment_collection_mode' => $paymentCollectionMode->value,
+            'retainer_type' => $retainerType?->value,
+            'retainer_amount_minor' => $retainerType === RetainerType::Fixed
+                ? $money->parse($data['retainer_amount'], $currency)
+                : null,
+            'retainer_percentage_bps' => $retainerType === RetainerType::Percentage
+                ? $percentages->parseToBasisPoints($data['retainer_percentage'])
+                : null,
+            'balance_due_value' => $paymentCollectionMode === PaymentCollectionMode::Retainer
+                ? (int) ($data['balance_due_value'] ?? 0)
+                : 0,
+            'balance_due_unit' => $data['balance_due_unit'] ?? BookingNoticeUnit::Day->value,
+            'client_refund_percentage_bps' => (int) $percentages->parseToBasisPoints($data['client_refund_percentage'] ?? '0'),
+            'staff_refund_percentage_bps' => (int) $percentages->parseToBasisPoints($data['staff_refund_percentage'] ?? '100'),
             'requires_resource_confirmation' => $request->boolean('requires_resource_confirmation'),
             'email_verification_mode' => $data['email_verification_mode'] ?? EmailVerificationMode::BeforeConfirmation->value,
             'cancellation_allowed' => $request->has('cancellation_allowed') ? $request->boolean('cancellation_allowed') : true,

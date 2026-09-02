@@ -11,6 +11,8 @@ use App\Enums\DurationUnit;
 use App\Enums\EmailVerificationMode;
 use App\Enums\ConferenceProvider;
 use App\Enums\PricingMode;
+use App\Enums\PaymentCollectionMode;
+use App\Enums\RetainerType;
 use App\Enums\SeasonRecurrence;
 use App\Enums\TicketSeatingScheme;
 use App\Models\Concerns\HasBinaryUuid;
@@ -69,6 +71,14 @@ class AppointmentType extends Model
         'attendee_price_ranges',
         'rate_amount_minor',
         'rate_unit',
+        'payment_collection_mode',
+        'retainer_type',
+        'retainer_amount_minor',
+        'retainer_percentage_bps',
+        'balance_due_value',
+        'balance_due_unit',
+        'client_refund_percentage_bps',
+        'staff_refund_percentage_bps',
         'requires_resource_confirmation',
         'email_verification_mode',
         'redirect_url',
@@ -121,6 +131,14 @@ class AppointmentType extends Model
             'attendee_price_ranges' => 'array',
             'rate_amount_minor' => 'integer',
             'rate_unit' => DurationUnit::class,
+            'payment_collection_mode' => PaymentCollectionMode::class,
+            'retainer_type' => RetainerType::class,
+            'retainer_amount_minor' => 'integer',
+            'retainer_percentage_bps' => 'integer',
+            'balance_due_value' => 'integer',
+            'balance_due_unit' => BookingNoticeUnit::class,
+            'client_refund_percentage_bps' => 'integer',
+            'staff_refund_percentage_bps' => 'integer',
             'requires_resource_confirmation' => 'boolean',
             'email_verification_mode' => EmailVerificationMode::class,
             'is_active' => 'boolean',

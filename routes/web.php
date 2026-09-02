@@ -19,6 +19,11 @@ use App\Http\Controllers\OrganizationSettingsController;
 use App\Http\Controllers\OrganizationInvitationAcceptanceController;
 use App\Http\Controllers\OrganizationMemberController;
 use App\Http\Controllers\OrganizationHolidayController;
+use App\Http\Controllers\PaymentSettingsController;
+use App\Http\Controllers\PaymentRuleController;
+use App\Http\Controllers\PublicPaymentController;
+use App\Http\Controllers\PaymentWebhookController;
+use App\Http\Controllers\BookingRefundController;
 use App\Http\Controllers\PublicAppointmentTypeController;
 use App\Http\Controllers\PublicBookingController;
 use App\Http\Controllers\PublicBookingManageController;
@@ -33,6 +38,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('login'));
+
+Route::post('/payments/webhooks/{organization}/{provider}', PaymentWebhookController::class)
+    ->middleware('throttle:120,1')
+    ->name('payments.webhooks');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
@@ -95,6 +104,14 @@ Route::post('/booking/manage/{booking}/{token}/reschedule', [PublicBookingManage
     ->middleware('throttle:10,1')->name('public.bookings.reschedule');
 Route::post('/booking/manage/{booking}/{token}/schedule-proposals/{proposal}', [PublicBookingManageController::class, 'respondScheduleProposal'])
     ->middleware('throttle:20,1')->name('public.bookings.schedule-proposals.respond');
+Route::post('/booking/manage/{booking}/{token}/payments', [PublicPaymentController::class, 'start'])
+    ->middleware('throttle:20,1')->name('public.payments.start');
+Route::get('/payment/{payment}/{token}/stripe-return', [PublicPaymentController::class, 'stripeReturn'])
+    ->middleware('throttle:30,1')->name('public.payments.stripe.return');
+Route::get('/payment/{payment}/{token}/paypal-return', [PublicPaymentController::class, 'paypalReturn'])
+    ->middleware('throttle:30,1')->name('public.payments.paypal.return');
+Route::get('/payment/{payment}/{token}/cancel', [PublicPaymentController::class, 'cancel'])
+    ->middleware('throttle:30,1')->name('public.payments.cancel');
 
 Route::get('/schedule-proposal/{proposal}/{token}', [ScheduleProposalController::class, 'show'])
     ->name('public.schedule-proposals.show');
@@ -176,6 +193,11 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::get('/admin/health', HealthController::class)->name('admin.health');
         Route::get('/settings', [OrganizationSettingsController::class, 'edit'])->name('settings.edit');
         Route::put('/settings', [OrganizationSettingsController::class, 'update'])->name('settings.update');
+        Route::get('/payment-settings', [PaymentSettingsController::class, 'edit'])->name('payment-settings.edit');
+        Route::put('/payment-settings', [PaymentSettingsController::class, 'update'])->name('payment-settings.update');
+        Route::post('/payment-rules', [PaymentRuleController::class, 'store'])->name('payment-rules.store');
+        Route::patch('/payment-rules/{paymentRule}/toggle', [PaymentRuleController::class, 'toggle'])->name('payment-rules.toggle');
+        Route::delete('/payment-rules/{paymentRule}', [PaymentRuleController::class, 'destroy'])->name('payment-rules.destroy');
 
         Route::get('/calendar-connections', [CalendarConnectionController::class, 'index'])->name('calendar-connections.index');
         Route::get('/calendar-connections/resources/{resource}/{provider}/connect', [CalendarConnectionController::class, 'connect'])->name('calendar-connections.connect');
@@ -187,6 +209,8 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::post('/bookings/{booking}/confirmations/{confirmation}/respond', [BookingController::class, 'respondConfirmation'])->name('bookings.confirmations.respond');
         Route::post('/bookings/{booking}/confirmations/{confirmation}/remind', [BookingController::class, 'remindConfirmation'])->name('bookings.confirmations.remind');
         Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
+        Route::post('/bookings/{booking}/refunds', [BookingRefundController::class, 'store'])->name('bookings.refunds.store');
+        Route::post('/bookings/{booking}/refunds/{refund}/retry', [BookingRefundController::class, 'retry'])->name('bookings.refunds.retry');
         Route::post('/bookings/{booking}/conference/retry', [BookingController::class, 'retryConference'])->name('bookings.conference.retry');
         Route::get('/bookings/{booking}/schedule-proposal/slots', [BookingController::class, 'scheduleProposalSlots'])->name('bookings.schedule-proposals.slots');
         Route::post('/bookings/{booking}/schedule-proposals', [BookingController::class, 'createScheduleProposal'])->name('bookings.schedule-proposals.store');

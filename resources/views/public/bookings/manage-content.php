@@ -21,8 +21,66 @@
     <div class="card">
         <h3>Price</h3>
         <p><?= e(app(\App\Domain\Money\MoneyService::class)->format($booking->price_minor, $booking->currency)) ?></p>
-        <p class="muted">Payment collection will be implemented in M9.</p>
+        <p><span class="badge"><?= e($booking->payment_status->label()) ?></span></p>
+        <p class="muted">Captured <?= e(app(\App\Domain\Money\MoneyService::class)->format($booking->paid_minor, $booking->currency)) ?><?php if ($booking->refunded_minor > 0): ?> · Refunded <?= e(app(\App\Domain\Money\MoneyService::class)->format($booking->refunded_minor, $booking->currency)) ?><?php endif; ?></p>
     </div>
+</div>
+
+<?php
+$money = app(\App\Domain\Money\MoneyService::class);
+$netPaid = $booking->netPaidMinor();
+$initialOutstanding = max(0, (int) $booking->initial_payment_due_minor - $netPaid);
+$outstanding = $booking->outstandingMinor();
+$activeBooking = !in_array($booking->status->value, ['cancelled', 'declined'], true);
+$paymentPurpose = $initialOutstanding > 0 ? 'initial' : 'balance';
+$paymentAmount = $initialOutstanding > 0 ? $initialOutstanding : $outstanding;
+$mayPay = $activeBooking && $paymentAmount > 0
+    && ($initialOutstanding > 0
+        ? $booking->status->value === 'pending_payment'
+        : $booking->status->value === 'confirmed');
+?>
+<div class="card">
+    <h2>Payments</h2>
+    <?php if ($booking->payment_exempt): ?>
+        <div class="alert alert-info">Online prepayment was waived by an organization allowlist rule. Once the booking prerequisites are complete, you may still pay the outstanding balance here.</div>
+    <?php elseif ($outstanding === 0): ?>
+        <div class="alert alert-success">No payment balance is outstanding.</div>
+    <?php elseif ($initialOutstanding > 0): ?>
+        <p><strong><?= e($money->format($initialOutstanding, $booking->currency)) ?></strong> is due to confirm this booking<?php if ($booking->payment_collection_mode->value === 'retainer'): ?> as the retainer<?php endif; ?>.</p>
+    <?php else: ?>
+        <p><strong><?= e($money->format($outstanding, $booking->currency)) ?></strong> remains.</p>
+        <?php if ($booking->balance_due_at_utc): ?><p class="muted">Balance due <?= e($booking->balance_due_at_utc->setTimezone($organization->timezone)->format('D, M j, Y · g:i A')) ?> (<?= e($organization->timezone) ?>).</p><?php endif; ?>
+    <?php endif; ?>
+
+    <?php if ($mayPay): ?>
+        <?php if ($availablePaymentProviders === []): ?>
+            <div class="alert alert-warning">Online payment is not currently configured. Please contact <?= e($organization->name) ?>.</div>
+        <?php else: ?>
+            <div class="actions">
+                <?php foreach ($availablePaymentProviders as $provider): ?>
+                    <form method="post" action="<?= e(route('public.payments.start', [$booking, $manageToken])) ?>">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="provider" value="<?= e($provider->value) ?>">
+                        <input type="hidden" name="purpose" value="<?= e($paymentPurpose) ?>">
+                        <button class="btn btn-primary" type="submit">Pay <?= e($money->format($paymentAmount, $booking->currency)) ?> with <?= e($provider->label()) ?></button>
+                    </form>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    <?php elseif ($activeBooking && $paymentAmount > 0 && !$mayPay): ?>
+        <p class="muted">Payment opens after email, contract, and required staff approval prerequisites are complete.</p>
+    <?php endif; ?>
+
+    <?php if ($booking->payments->isNotEmpty()): ?>
+        <div class="table-responsive mt-3"><table class="table table-sm align-middle"><thead><tr><th>Created</th><th>Provider</th><th>Purpose</th><th>Amount</th><th>Status</th></tr></thead><tbody>
+        <?php foreach ($booking->payments as $payment): ?><tr><td><?= e($payment->created_at->setTimezone($organization->timezone)->format('Y-m-d H:i')) ?></td><td><?= e($payment->provider->label()) ?></td><td><?= e($payment->purpose->label()) ?></td><td><?= e($money->format($payment->amount_minor, $payment->currency)) ?></td><td><?= e(ucfirst(str_replace('_', ' ', $payment->status->value))) ?></td></tr><?php endforeach; ?>
+        </tbody></table></div>
+    <?php endif; ?>
+    <?php if ($booking->refunds->isNotEmpty()): ?>
+        <h3 class="h5 mt-3">Refunds</h3><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Created</th><th>Amount</th><th>Status</th><th>Reason</th></tr></thead><tbody>
+        <?php foreach ($booking->refunds as $refund): ?><tr><td><?= e($refund->created_at->setTimezone($organization->timezone)->format('Y-m-d H:i')) ?></td><td><?= e($money->format($refund->amount_minor, $refund->currency)) ?></td><td><?= e(ucfirst($refund->status->value)) ?></td><td><?= e($refund->reason) ?></td></tr><?php endforeach; ?>
+        </tbody></table></div>
+    <?php endif; ?>
 </div>
 
 <?php if ($booking->tickets->isNotEmpty()): ?>

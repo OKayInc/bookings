@@ -12,6 +12,8 @@ use App\Enums\DurationUnit;
 use App\Enums\EmailVerificationMode;
 use App\Enums\ConferenceProvider;
 use App\Enums\PricingMode;
+use App\Enums\PaymentCollectionMode;
+use App\Enums\RetainerType;
 use App\Enums\PricingAdjustmentType;
 use App\Enums\ReminderThresholdBasis;
 use App\Enums\ResourceRequirementMode;
@@ -179,6 +181,28 @@ class StoreAppointmentTypeRequest extends FormRequest
                 Rule::requiredIf(fn (): bool => $this->input('pricing_mode') === PricingMode::Rate->value),
                 'nullable', Rule::enum(DurationUnit::class),
             ],
+            'payment_collection_mode' => ['nullable', Rule::enum(PaymentCollectionMode::class)],
+            'retainer_type' => [
+                Rule::requiredIf(fn (): bool => $this->input('pricing_mode') !== PricingMode::Free->value
+                    && $this->input('payment_collection_mode') === PaymentCollectionMode::Retainer->value),
+                'nullable', Rule::enum(RetainerType::class),
+            ],
+            'retainer_amount' => [
+                Rule::requiredIf(fn (): bool => $this->input('pricing_mode') !== PricingMode::Free->value
+                    && $this->input('payment_collection_mode') === PaymentCollectionMode::Retainer->value
+                    && $this->input('retainer_type') === RetainerType::Fixed->value),
+                'nullable', new MoneyAmount($currency),
+            ],
+            'retainer_percentage' => [
+                Rule::requiredIf(fn (): bool => $this->input('pricing_mode') !== PricingMode::Free->value
+                    && $this->input('payment_collection_mode') === PaymentCollectionMode::Retainer->value
+                    && $this->input('retainer_type') === RetainerType::Percentage->value),
+                'nullable', 'string', 'max:20',
+            ],
+            'balance_due_value' => ['nullable', 'integer', 'min:0', 'max:12000'],
+            'balance_due_unit' => ['nullable', Rule::enum(BookingNoticeUnit::class)],
+            'client_refund_percentage' => ['nullable', 'string', 'max:20'],
+            'staff_refund_percentage' => ['nullable', 'string', 'max:20'],
 
             'resource_uuids' => ['array'],
             'resource_uuids.*' => ['uuid', 'distinct'],
@@ -233,6 +257,7 @@ class StoreAppointmentTypeRequest extends FormRequest
             $this->validateSeason($validator);
             $this->validateAttendeePricing($validator);
             $this->validateTicketing($validator);
+            $this->validatePayments($validator);
 
             if ($this->input('pricing_mode') === PricingMode::PerAttendee->value
                 && $this->input('attendance_mode') !== AttendanceMode::Group->value) {
@@ -491,6 +516,54 @@ class StoreAppointmentTypeRequest extends FormRequest
             app(AttendeePricingService::class)->breakdown($type, (int) $type->capacity);
         } catch (\InvalidArgumentException $exception) {
             $validator->errors()->add($mode === AttendeePricingMode::Flat ? 'attendee_price' : 'attendee_price_ranges', $exception->getMessage());
+        }
+    }
+
+    private function validatePayments(Validator $validator): void
+    {
+        $percentages = app(PercentageService::class);
+        foreach ([
+            'client_refund_percentage' => 'Client cancellation refund',
+            'staff_refund_percentage' => 'Staff cancellation refund',
+        ] as $field => $label) {
+            try {
+                $basisPoints = $percentages->parseToBasisPoints($this->input($field, $field === 'staff_refund_percentage' ? '100' : '0'));
+                if ($basisPoints === null || $basisPoints > 10000) {
+                    $validator->errors()->add($field, $label.' must be between 0% and 100%.');
+                }
+            } catch (InvalidArgumentException $exception) {
+                $validator->errors()->add($field, $exception->getMessage());
+            }
+        }
+
+        if ($this->input('pricing_mode') === PricingMode::Free->value
+            || $this->input('payment_collection_mode') !== PaymentCollectionMode::Retainer->value) {
+            return;
+        }
+
+        $type = RetainerType::tryFrom((string) $this->input('retainer_type'));
+        if ($type === RetainerType::Fixed) {
+            try {
+                $amount = app(MoneyService::class)->parse(
+                    (string) $this->input('retainer_amount'),
+                    app(OrganizationContext::class)->organization()->currency,
+                );
+                if ($amount <= 0) {
+                    $validator->errors()->add('retainer_amount', 'The retainer amount must be greater than zero.');
+                }
+            } catch (InvalidArgumentException) {
+                // MoneyAmount provides the field-specific formatting error.
+            }
+        }
+        if ($type === RetainerType::Percentage) {
+            try {
+                $basisPoints = $percentages->parseToBasisPoints($this->input('retainer_percentage'));
+                if ($basisPoints === null || $basisPoints <= 0 || $basisPoints > 10000) {
+                    $validator->errors()->add('retainer_percentage', 'The retainer percentage must be greater than 0% and no more than 100%.');
+                }
+            } catch (InvalidArgumentException $exception) {
+                $validator->errors()->add('retainer_percentage', $exception->getMessage());
+            }
         }
     }
 

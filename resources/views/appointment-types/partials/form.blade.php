@@ -438,7 +438,7 @@
                 </option>
             @endforeach
         </select>
-        <div class="muted">Currency: {{ $organization->currency }}. Payment collection/retainers will be implemented in M9.</div>
+        <div class="muted">Currency: {{ $organization->currency }}. The final booking total is snapshotted before any payment request is created.</div>
     </div>
 
     <div class="field" id="fixed-price-fields">
@@ -494,6 +494,51 @@
         </div>
         <div class="muted">The selected client duration will determine the total. Pricing uses integer minor units and deterministic rounding.</div>
     </div>
+</div>
+
+<div class="section-card">
+    <h2>Payment collection and refunds</h2>
+    <p class="muted">Stripe and PayPal credentials are configured per organization under <a href="{{ route('payment-settings.edit') }}">Organization → Payments</a>. These terms are copied into each booking and later edits do not change existing clients.</p>
+    <div id="free-payment-help" class="alert alert-info">Free appointment types do not create a payment request.</div>
+    <div id="payment-policy-fields">
+        <div class="field">
+            <label for="payment_collection_mode">Amount due to confirm the booking</label>
+            <select id="payment_collection_mode" name="payment_collection_mode" required>
+                @foreach($paymentCollectionModes as $mode)
+                    <option value="{{ $mode->value }}" @selected(old('payment_collection_mode', $appointmentType?->payment_collection_mode?->value ?? 'full') === $mode->value)>{{ $mode->label() }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div id="retainer-fields">
+            <div class="field">
+                <label for="retainer_type">Retainer calculation</label>
+                <select id="retainer_type" name="retainer_type">
+                    @foreach($retainerTypes as $type)
+                        <option value="{{ $type->value }}" @selected(old('retainer_type', $appointmentType?->retainer_type?->value ?? 'percentage') === $type->value)>{{ $type->label() }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div id="retainer-fixed-fields" class="field">
+                <label for="retainer_amount">Fixed retainer ({{ $organization->currency }})</label>
+                <input id="retainer_amount" inputmode="decimal" name="retainer_amount" value="{{ old('retainer_amount', $retainerAmountInput) }}" placeholder="50.00">
+                <div class="muted">If the final total is lower, the client is charged only that final total.</div>
+            </div>
+            <div id="retainer-percentage-fields" class="field">
+                <label for="retainer_percentage">Retainer percentage</label>
+                <div class="input-group"><input id="retainer_percentage" class="form-control" inputmode="decimal" name="retainer_percentage" value="{{ old('retainer_percentage', $retainerPercentageInput) }}" placeholder="25"><span class="input-group-text">%</span></div>
+            </div>
+            <div class="row">
+                <div class="field"><label for="balance_due_value">Remaining balance due</label><input id="balance_due_value" type="number" min="0" name="balance_due_value" value="{{ old('balance_due_value', $appointmentType?->balance_due_value ?? 0) }}"></div>
+                <div class="field"><label for="balance_due_unit">Before appointment</label><select id="balance_due_unit" name="balance_due_unit">@foreach($bookingNoticeUnits as $unit)<option value="{{ $unit->value }}" @selected(old('balance_due_unit', $appointmentType?->balance_due_unit?->value ?? 'day') === $unit->value)>{{ ucfirst($unit->value) }}s</option>@endforeach</select></div>
+            </div>
+            <p class="muted">Clients can pay the balance early from their private booking page. The due date is shown in the booking ledger; M9 does not store a card or make an off-session charge.</p>
+        </div>
+    </div>
+    <div class="row">
+        <div class="field"><label for="client_refund_percentage">Refund after client cancellation</label><div class="input-group"><input id="client_refund_percentage" class="form-control" inputmode="decimal" name="client_refund_percentage" value="{{ old('client_refund_percentage', $clientRefundPercentageInput) }}" required><span class="input-group-text">% of captured amount</span></div></div>
+        <div class="field"><label for="staff_refund_percentage">Refund after staff cancellation</label><div class="input-group"><input id="staff_refund_percentage" class="form-control" inputmode="decimal" name="staff_refund_percentage" value="{{ old('staff_refund_percentage', $staffRefundPercentageInput) }}" required><span class="input-group-text">% of captured amount</span></div></div>
+    </div>
+    <p class="muted">Staff schedule-change cancellations use the staff percentage. Refunds are allocated across captured transactions and sent back through the original provider.</p>
 </div>
 
 <div class="section-card">
@@ -597,7 +642,7 @@
         <label for="cancellation_policy_text">Policy shown to clients (optional)</label>
         <textarea id="cancellation_policy_text" name="cancellation_policy_text">{{ old('cancellation_policy_text', $appointmentType?->cancellation_policy_text) }}</textarea>
     </div>
-    <div class="muted">A deadline of 0 allows cancellation until the appointment starts. Payment/refund consequences will be connected in M9.</div>
+    <div class="muted">A deadline of 0 allows cancellation until the appointment starts. The snapshotted client refund percentage is applied automatically to captured payments.</div>
 </div>
 
 <div class="section-card">
@@ -805,6 +850,44 @@
         const button = event.target.closest('[data-remove-attendee-range]');
         if (button) { button.closest('[data-index]').remove(); sync(); }
     });
+    sync();
+})();
+</script>
+
+<script>
+(() => {
+    const pricing = document.getElementById('pricing_mode');
+    const policy = document.getElementById('payment-policy-fields');
+    const freeHelp = document.getElementById('free-payment-help');
+    const collection = document.getElementById('payment_collection_mode');
+    const retainer = document.getElementById('retainer-fields');
+    const retainerType = document.getElementById('retainer_type');
+    const fixed = document.getElementById('retainer-fixed-fields');
+    const percentage = document.getElementById('retainer-percentage-fields');
+
+    function state(section, enabled) {
+        section.style.display = enabled ? 'block' : 'none';
+        section.querySelectorAll('input, select').forEach(control => { control.disabled = !enabled; });
+    }
+
+    function sync() {
+        const paid = pricing.value !== 'free' && pricing.value !== '';
+        policy.style.display = paid ? 'block' : 'none';
+        freeHelp.style.display = paid ? 'none' : 'block';
+        collection.disabled = false;
+        if (!paid) collection.value = 'full';
+        const usesRetainer = paid && collection.value === 'retainer';
+        state(retainer, usesRetainer);
+        if (usesRetainer) {
+            state(fixed, retainerType.value === 'fixed');
+            state(percentage, retainerType.value === 'percentage');
+            retainerType.disabled = false;
+            document.getElementById('retainer_amount').required = retainerType.value === 'fixed';
+            document.getElementById('retainer_percentage').required = retainerType.value === 'percentage';
+        }
+    }
+
+    [pricing, collection, retainerType].forEach(control => control.addEventListener('change', sync));
     sync();
 })();
 </script>

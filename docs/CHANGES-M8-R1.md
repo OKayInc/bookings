@@ -19,7 +19,7 @@
 - Booking holds now reserve the exact ticket seats and their quoted fees, preventing another buyer from taking a numbered seat during checkout.
 - Booking creation revalidates every held allocation under the appointment lock while retaining the server-created held fee.
 - Each ticket stores its individual historical seating fee, and booking price lines preserve the itemized seating-fee total.
-- A reschedule that would change the seating-fee total is rejected instead of silently repricing a booking before M9 payment adjustments exist.
+- A reschedule that would change the seating-fee total is rejected instead of silently changing an immutable booking price.
 
 ## Compatibility
 

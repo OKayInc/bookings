@@ -11,6 +11,7 @@ use App\Models\BookingHold;
 use App\Models\Appointment;
 use App\Domain\Tickets\TicketLifecycleService;
 use App\Notifications\BookingStatusChangedEmail;
+use App\Domain\Payments\PaymentRefundService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use RuntimeException;
@@ -21,6 +22,7 @@ class BookingCancellationService
         private readonly BookingPolicyService $policy,
         private readonly AppointmentLifecycleService $lifecycle,
         private readonly TicketLifecycleService $tickets,
+        private readonly PaymentRefundService $refunds,
     ) {
     }
 
@@ -92,6 +94,7 @@ class BookingCancellationService
         }, 3);
 
         $this->lifecycle->cancelIfOrphaned($appointment);
+        DB::afterCommit(fn () => $this->refunds->safeRefundForCancellation($cancelled));
         Notification::route('mail', $cancelled->email)->notify(new BookingStatusChangedEmail($cancelled, 'Your booking has been cancelled.'));
 
         return $cancelled;

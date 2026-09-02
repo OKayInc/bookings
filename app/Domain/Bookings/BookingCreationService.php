@@ -16,6 +16,8 @@ use App\Domain\Availability\ResourceHolidayService;
 use App\Domain\Tickets\TicketAllocationService;
 use App\Domain\Tickets\TicketEventService;
 use App\Domain\Tickets\TicketInventoryService;
+use App\Domain\Payments\PaymentRuleService;
+use App\Domain\Payments\BookingPaymentSnapshotService;
 use App\Enums\AppointmentStatus;
 use App\Enums\BookingHoldStatus;
 use App\Enums\BookingStatus;
@@ -49,6 +51,8 @@ class BookingCreationService
         private readonly TicketAllocationService $ticketAllocation,
         private readonly TicketEventService $ticketEvents,
         private readonly TicketInventoryService $ticketInventory,
+        private readonly PaymentRuleService $paymentRules,
+        private readonly BookingPaymentSnapshotService $paymentSnapshots,
     ) {
     }
 
@@ -116,6 +120,7 @@ class BookingCreationService
             }
             $email = trim($contactData['email']);
             $normalized = OrganizationContact::normalizeEmail($email);
+            $paymentRule = $this->paymentRules->assertMayBook($organization, $email);
 
             if ($hold->invitation !== null) {
                 /** @var AppointmentTypeInvitation $invitation */
@@ -206,6 +211,13 @@ class BookingCreationService
                 throw new RuntimeException('The appointment price has changed. Please review the price and submit the booking again.');
             }
             $priceMinor = $questionnaire->quote->totalMinor;
+            $paymentSnapshot = $this->paymentSnapshots->snapshot(
+                $type,
+                $priceMinor,
+                CarbonImmutable::instance($hold->starts_at_utc)->utc(),
+                $paymentRule !== null,
+                $paymentRule?->getKey(),
+            );
             $requiresVerification = $type->email_verification_mode !== EmailVerificationMode::None
                 && $contact->email_verified_at === null;
 
@@ -227,6 +239,7 @@ class BookingCreationService
                 'base_price_minor' => $basePriceMinor,
                 'price_minor' => $priceMinor,
                 'currency' => $organization->currency,
+                ...$paymentSnapshot,
                 'first_name' => $contactData['first_name'],
                 'last_name' => $contactData['last_name'],
                 'email' => $email,

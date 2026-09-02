@@ -7,6 +7,7 @@ use App\Domain\Bookings\BookingCancellationService;
 use App\Domain\Bookings\BookingCreationService;
 use App\Domain\Bookings\BookingPolicyService;
 use App\Domain\Bookings\PublicBookingHoldService;
+use App\Domain\Payments\PaymentStateService;
 use App\Enums\AvailabilityScope;
 use App\Enums\MembershipRole;
 use App\Enums\MembershipStatus;
@@ -14,10 +15,12 @@ use App\Models\AppointmentType;
 use App\Models\Organization;
 use App\Models\OrganizationMembership;
 use App\Models\Ticket;
+use App\Models\PaymentTransaction;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class TicketingTest extends TestCase
@@ -224,7 +227,7 @@ class TicketingTest extends TestCase
         $this->assertSame(5, $type->fresh()->capacity);
     }
 
-    public function test_paid_ticket_stays_reserved_until_the_payments_milestone_confirms_booking(): void
+    public function test_paid_ticket_becomes_issued_after_an_exact_payment_capture(): void
     {
         Notification::fake();
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-24 12:00 UTC'));
@@ -246,6 +249,24 @@ class TicketingTest extends TestCase
 
         $this->assertSame('pending_payment', $booking->status->value);
         $this->assertSame('reserved', $booking->tickets->first()->status->value);
+
+        $payment = PaymentTransaction::create([
+            'organization_id' => $booking->organization_id,
+            'booking_id' => $booking->getKey(),
+            'provider' => 'stripe',
+            'purpose' => 'initial',
+            'status' => 'pending',
+            'amount_minor' => 2500,
+            'currency' => 'CAD',
+            'idempotency_key' => (string) Str::uuid(),
+            'return_token_hash' => hash('sha256', Str::random(64), true),
+            'provider_external_id' => 'cs_ticket_payment',
+            'expires_at_utc' => now('UTC')->addHour(),
+        ]);
+        app(PaymentStateService::class)->complete($payment, 'pi_ticket_payment', 2500, 'CAD', []);
+
+        $this->assertSame('confirmed', $booking->fresh()->status->value);
+        $this->assertSame('issued', $booking->tickets->first()->fresh()->status->value);
     }
 
     public function test_held_section_fees_are_included_in_booking_price_and_ticket_snapshots(): void

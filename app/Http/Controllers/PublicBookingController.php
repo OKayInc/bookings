@@ -303,7 +303,12 @@ class PublicBookingController extends Controller
             return redirect()->away($booking->appointmentType->redirect_url);
         }
 
-        return redirect()->route('public.bookings.received', $booking->reference);
+        $response = redirect()->route('public.bookings.received', $booking->reference);
+        if ($booking->status->value !== 'pending_email_verification') {
+            $response->with('manage_url', route('public.bookings.manage', [$booking, $result->manageToken]));
+        }
+
+        return $response;
     }
 
     public function contract(string $token): StreamedResponse

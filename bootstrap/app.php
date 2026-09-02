@@ -28,6 +28,9 @@ return Application::configure(basePath: dirname(__DIR__))
         SyncStaffConfirmationsCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->validateCsrfTokens(except: [
+            'payments/webhooks/*',
+        ]);
         $middleware->alias([
             'organization' => EnsureActiveOrganization::class,
         ]);

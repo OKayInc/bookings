@@ -220,7 +220,7 @@ class BookingScheduleProposalService
             return $booking;
         }, 3);
 
-        $this->notifyStaff($proposal->fresh(['booking.appointmentType', 'proposedBy']), 'The client cancelled the booking after the staff schedule-change proposal. Payment/refund handling will be evaluated by the payment workflow when available.');
+        $this->notifyStaff($proposal->fresh(['booking.appointmentType', 'proposedBy']), 'The client cancelled the booking after the staff schedule-change proposal. The booking payment policy will apply the staff-caused cancellation refund percentage.');
         return $booking;
     }
 

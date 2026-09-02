@@ -1,6 +1,17 @@
-# Appointment Software — M8-R1
+# Appointment Software — M9
 
-M8 introduced optional ticketed events with doors-open/show timing, seating schemes, printable attendee tickets and organization-scoped check-in. M8-R1 enforces ticket-compatible attendance, duration and pricing modes and adds optional per-ticket seating-block fees for paid events. See `docs/TICKETING.md`, `docs/CHANGES-M8-R1.md`, and `docs/UPGRADE-M8-TO-M8-R1.md`.
+M9 adds organization-owned Stripe and PayPal hosted checkout, full or retainer collection, client-paid balances, signed/idempotent webhook reconciliation, cancellation and manual refunds, and exact-email/domain allowlist and blocklist rules. See `docs/PAYMENTS.md`, `docs/CHANGES-M9.md`, and `docs/UPGRADE-M8-R1-TO-M9.md`.
+
+## M9 payment capabilities
+
+- Encrypted Stripe and PayPal credentials per organization; no platform-wide merchant account.
+- Stripe-hosted Checkout and PayPal Orders v2 capture without card storage.
+- Full-price or fixed/percentage retainer collection from the private booking page.
+- Remaining-balance payment with an organization-local due-date snapshot.
+- Exact amount/currency reconciliation, verified webhooks and provider idempotency keys.
+- Configurable client/staff cancellation refund percentages plus staff manual refunds.
+- Safe refund retries, duplicate-capture overpayment protection and late-cancellation refunds.
+- Exact-email or domain allowlists and blocklists, with blocklist precedence.
 
 ## M7 calendar synchronization
 
@@ -57,7 +68,7 @@ Staff/managers can propose a different appointment time without immediately chan
 
 - **Accept proposed time** — moves the booking and resets required staff confirmation for the new time.
 - **Keep original time** — leaves the original booking in place with an active staff-availability warning.
-- **Cancel booking** — records the cancellation as caused by a staff schedule issue so M9 can apply the appropriate refund logic.
+- **Cancel booking** — records the cancellation as caused by a staff schedule issue so the snapshotted staff refund percentage is applied.
 
 Proposal acceptance does not consume the client's reschedule quota. Proposal creation may bypass normal new-booking advance-notice limits, but it still enforces real resource availability, buffers, capacity and concurrency locks.
 
@@ -98,7 +109,7 @@ Only person-resources receive confirmation emails.
 
 Cancellation and rescheduling policies are copied from the appointment type into the booking when it is created. Later changes to the appointment type do not retroactively modify an existing client's policy.
 
-M9 will connect cancellation/payment/refund consequences. M6 enforces whether and when the booking may be cancelled or rescheduled.
+M9 connects cancellation to the snapshotted client/staff refund percentage. M6 continues to enforce whether and when the booking may be cancelled or rescheduled.
 
 ## Reminders
 
@@ -224,3 +235,7 @@ The numeric constraint editor now offers **Number of attendees** as a comparison
 ## M8 and M8-R1: ticketed events
 
 Appointment types can issue one ticket per attendee. Ticketed events force group attendance, fixed duration, and free or per-attendee pricing. The selected appointment start is displayed as **doors open**, show start and optional show end are constrained inside the resource-busy booking range, and those times are snapshotted on the shared event session. Seating may be unassigned, consecutive, section + seat, row + seat, or section + row + seat; section/row schemes can intentionally omit the seat component, use a configured quantity, and add a per-ticket seating fee for paid events. Seats and fees are held through checkout. Tickets receive unique printable Code 128 barcodes, remain reserved until the booking is confirmed, are voided on cancellation/decline, retain their historical printed seat, and can be admitted once from the organization ticket check-in desk. See `docs/TICKETING.md`, `docs/CHANGES-M8.md`, `docs/CHANGES-M8-R1.md`, and `docs/UPGRADE-M8-TO-M8-R1.md`.
+
+## M9: organization-owned payments
+
+Payment terms are configured on each appointment type and copied to the booking after the final price is calculated. A successful full payment or retainer satisfies `pending_payment`; any remaining balance stays visible and payable from the passwordless management page. Provider events are tenant-scoped, signature-verified and deduplicated. Refunds return through the original capture and are serialized per booking to prevent double refunds. See `docs/PAYMENTS.md`.

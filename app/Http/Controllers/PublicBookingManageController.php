@@ -12,6 +12,7 @@ use App\Domain\Bookings\PublicBookingHoldService;
 use App\Domain\Bookings\ContractSubmissionService;
 use App\Domain\Tickets\TicketBarcodeService;
 use App\Domain\Tickets\TicketEventService;
+use App\Domain\Payments\PaymentCheckoutService;
 use App\Enums\ContractReviewStatus;
 use App\Models\Booking;
 use App\Models\BookingContractFile;
@@ -72,10 +73,11 @@ class PublicBookingManageController extends Controller
         string $token,
         BookingPolicyService $policy,
         BookingScheduleProposalService $proposals,
+        PaymentCheckoutService $checkouts,
     ): View {
         $this->authorizeToken($booking, $token);
         $proposals->expireForBooking($booking);
-        $booking->load(['organization', 'appointmentType', 'appointment', 'attendees', 'tickets.attendee', 'contractTemplate', 'contractSubmissions.files', 'answers.files', 'priceLines', 'resourceConfirmations', 'reschedules', 'scheduleProposals.proposedBy']);
+        $booking->load(['organization.paymentSettings', 'appointmentType', 'appointment', 'attendees', 'tickets.attendee', 'contractTemplate', 'contractSubmissions.files', 'answers.files', 'priceLines', 'resourceConfirmations', 'reschedules', 'scheduleProposals.proposedBy', 'payments.refunds', 'refunds.transaction']);
 
         $pendingProposal = $booking->scheduleProposals->first(function (BookingScheduleProposal $proposal): bool {
             return $proposal->status->value === 'pending' && $proposal->expires_at_utc->isFuture();
@@ -97,6 +99,7 @@ class PublicBookingManageController extends Controller
             'warningProposals' => $warningProposals,
             'policy' => $policy,
             'timezones' => \DateTimeZone::listIdentifiers(),
+            'availablePaymentProviders' => $checkouts->availableProviders($booking),
         ]);
     }
 

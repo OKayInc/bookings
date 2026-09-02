@@ -12,7 +12,9 @@
   <thead><tr><th>Question</th><th>Type</th><th>Default</th><th></th></tr></thead>
   <tbody id="question-library-rows">
   @foreach($reusableQuestions as $reusableQuestion)
-  @php($alreadyAttached=$attachedReusableQuestionIds->containsStrict($reusableQuestion->getKey()))
+  @php
+      $alreadyAttached = $attachedReusableQuestionIds->containsStrict($reusableQuestion->getKey());
+  @endphp
   <tr data-library-row data-search="{{ \Illuminate\Support\Str::lower($reusableQuestion->label.' '.$reusableQuestion->type->label()) }}">
    <td><strong>{{ $reusableQuestion->label }}</strong>@if($reusableQuestion->description)<div class="muted">{{ \Illuminate\Support\Str::limit($reusableQuestion->description,90) }}</div>@endif</td>
    <td>{{ $reusableQuestion->type->label() }}@if($reusableQuestion->type->hasOptions())<div class="muted">{{ $reusableQuestion->options_count }} option(s)</div>@endif</td>

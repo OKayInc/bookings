@@ -55,7 +55,7 @@ class BookingController extends Controller
         $isAssignedStaff = $this->isAssignedStaff($booking, $request);
         abort_unless($canManage || $isAssignedStaff, 403);
         $canProposeScheduleChange = $canManage || $isAssignedStaff;
-        $booking->load(['appointmentType', 'appointment.resources.person', 'contact', 'attendees', 'tickets.attendee', 'tickets.checkedInBy', 'contractTemplate', 'contractSubmissions.files', 'contractSubmissions.reviewedBy', 'answers.files', 'priceLines', 'resourceConfirmations.resource', 'resourceConfirmations.person', 'resourceConfirmations.respondedBy', 'reschedules', 'scheduleProposals.proposedBy', 'scheduleProposals.hold', 'appointment.externalEvents.calendar.connection.resource']);
+        $booking->load(['organization.paymentSettings', 'appointmentType', 'appointment.resources.person', 'contact', 'attendees', 'tickets.attendee', 'tickets.checkedInBy', 'contractTemplate', 'contractSubmissions.files', 'contractSubmissions.reviewedBy', 'answers.files', 'priceLines', 'resourceConfirmations.resource', 'resourceConfirmations.person', 'resourceConfirmations.respondedBy', 'reschedules', 'scheduleProposals.proposedBy', 'scheduleProposals.hold', 'appointment.externalEvents.calendar.connection.resource', 'payments.refunds', 'refunds.transaction', 'refunds.requestedBy']);
         app(BookingScheduleProposalService::class)->expireForBooking($booking);
         $booking->load('scheduleProposals.proposedBy', 'scheduleProposals.hold');
 

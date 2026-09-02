@@ -8,8 +8,8 @@
 - **M6 Confirmation + Policies — complete:** employee/resource acceptance, cancellation/rescheduling policy enforcement and reminders.
 - **M7 Calendars — complete:** Google Calendar and Microsoft Graph availability/synchronization with per-appointment-type calendar selection, followed by the M7 revision series through M7-R21.
 - **M8 Ticketing — complete through M8-R1:** ticketed-event timing, optional seat numbering, one ticket per attendee, printable Code 128 tickets, lifecycle handling, admission check-in, enforced ticket-compatible modes and paid seating-block fees.
-- **M9 Payments:** organization-specific Stripe/PayPal, retainers, balances, refunds, whitelist/blacklist rules.
+- **M9 Payments — complete:** organization-specific Stripe/PayPal hosted checkout, full/retainer collection, client-paid balances, automatic/manual refunds and allowlist/blocklist rules.
 - **M10 API:** two-key client/organization API authentication, organization-role authorization and administrative purge commands.
 - **M11 Product plans:** free/paid capabilities, configurable free-plan caps, advertising and owner-granted forever-free unlimited accounts.
 
-M8 adds ticketed events without changing the scheduling meaning of an appointment. The selected start is doors open, the appointment end remains the end of the resource-busy range, and show start/optional show end must fall inside that range. M8-R1 tightens compatible mode validation and adds paid seating-block fees. See `docs/TICKETING.md`, `docs/UPGRADE-M7-R21-TO-M8.md`, and `docs/UPGRADE-M8-TO-M8-R1.md`.
+M9 makes payment a tenant-owned workflow: every organization supplies its own encrypted merchant credentials and every booking keeps immutable collection/refund terms. See `docs/PAYMENTS.md` and `docs/UPGRADE-M8-R1-TO-M9.md`.

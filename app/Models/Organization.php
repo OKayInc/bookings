@@ -106,6 +106,26 @@ class Organization extends Model
         return $this->hasOne(OrganizationConferenceSetting::class);
     }
 
+    public function paymentSettings(): HasOne
+    {
+        return $this->hasOne(OrganizationPaymentSetting::class);
+    }
+
+    public function paymentRules(): HasMany
+    {
+        return $this->hasMany(PaymentRule::class)->orderBy('rule_type')->orderBy('pattern_normalized');
+    }
+
+    public function paymentTransactions(): HasMany
+    {
+        return $this->hasMany(PaymentTransaction::class);
+    }
+
+    public function paymentRefunds(): HasMany
+    {
+        return $this->hasMany(PaymentRefund::class);
+    }
+
     public function reusableQuestions(): HasMany
     {
         return $this->hasMany(ReusableQuestion::class);

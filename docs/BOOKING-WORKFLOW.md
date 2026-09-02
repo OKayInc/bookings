@@ -47,7 +47,7 @@ A one-to-one appointment has capacity 1. A group/class appointment can have seve
 7. Client enters contact information; no registration/password is created.
 8. If a contract exists, the hold snapshots the exact contract-template version. Client downloads that version and uploads signed PDF or page images.
 9. Final booking transaction creates or joins an appointment/session, creates the booking/contact/attendees, snapshots price/currency, consumes the hold, and records invitation usage.
-10. Email verification, contract review, staff confirmation and future payment requirements determine booking status.
+10. Email verification, contract review, staff confirmation and the snapshotted initial payment requirement determine booking status.
 
 ## Online meetings
 
@@ -82,7 +82,7 @@ The database stores only SHA-256 hashes of booking-management and email-verifica
 - `pending_email_verification`
 - `pending_contract_review`
 - `pending_staff_confirmation` (the staff approval UI is M6)
-- `pending_payment` (payment collection is M9)
+- `pending_payment` (full amount or configured retainer has not been captured)
 - `confirmed`
 - `cancelled`
 - `declined`

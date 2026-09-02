@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Enums\BookingStatus;
+use App\Enums\BookingPaymentStatus;
+use App\Enums\PaymentCollectionMode;
 use App\Models\Concerns\HasBinaryUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,7 +18,10 @@ class Booking extends Model
     protected $fillable = [
         'organization_id', 'appointment_id', 'appointment_type_id', 'organization_contact_id',
         'appointment_type_invitation_id', 'contract_template_id', 'reference', 'status',
-        'attendee_count', 'booking_timezone', 'base_price_minor', 'price_minor', 'currency', 'first_name',
+        'attendee_count', 'booking_timezone', 'base_price_minor', 'price_minor', 'currency',
+        'payment_collection_mode', 'initial_payment_due_minor', 'balance_due_at_utc',
+        'client_refund_percentage_bps', 'staff_refund_percentage_bps', 'payment_exempt',
+        'payment_rule_id', 'payment_status', 'paid_minor', 'refunded_minor', 'first_name',
         'last_name', 'email', 'email_normalized', 'phone', 'email_verified_at',
         'email_verification_token_hash', 'email_verification_expires_at_utc',
         'manage_token_hash', 'expires_at_utc',
@@ -28,7 +33,7 @@ class Booking extends Model
     protected $hidden = [
         'id', 'organization_id', 'appointment_id', 'appointment_type_id', 'organization_contact_id',
         'appointment_type_invitation_id', 'contract_template_id', 'email_verification_token_hash',
-        'manage_token_hash',
+        'manage_token_hash', 'payment_rule_id',
     ];
 
     protected $appends = ['uuid'];
@@ -40,6 +45,15 @@ class Booking extends Model
             'attendee_count' => 'integer',
             'base_price_minor' => 'integer',
             'price_minor' => 'integer',
+            'payment_collection_mode' => PaymentCollectionMode::class,
+            'initial_payment_due_minor' => 'integer',
+            'balance_due_at_utc' => 'immutable_datetime',
+            'client_refund_percentage_bps' => 'integer',
+            'staff_refund_percentage_bps' => 'integer',
+            'payment_exempt' => 'boolean',
+            'payment_status' => BookingPaymentStatus::class,
+            'paid_minor' => 'integer',
+            'refunded_minor' => 'integer',
             'email_verified_at' => 'immutable_datetime',
             'email_verification_expires_at_utc' => 'immutable_datetime',
             'expires_at_utc' => 'immutable_datetime',
@@ -125,6 +139,31 @@ class Booking extends Model
     public function tickets(): HasMany
     {
         return $this->hasMany(Ticket::class)->orderBy('created_at');
+    }
+
+    public function paymentRule(): BelongsTo
+    {
+        return $this->belongsTo(PaymentRule::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(PaymentTransaction::class)->latest();
+    }
+
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(PaymentRefund::class)->latest();
+    }
+
+    public function netPaidMinor(): int
+    {
+        return max(0, (int) $this->paid_minor - (int) $this->refunded_minor);
+    }
+
+    public function outstandingMinor(): int
+    {
+        return max(0, (int) $this->price_minor - $this->netPaidMinor());
     }
 
     public function cancellationScheduleProposal(): BelongsTo

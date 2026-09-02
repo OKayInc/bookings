@@ -1,4 +1,10 @@
-# Database — M7-R21
+# Database — M9
+
+## M9 payment ledger
+
+Migration `2026_09_02_000063_add_m9_payments.php` adds one optional encrypted `organization_payment_settings` row per organization and tenant-scoped `payment_rules`. Appointment types store future full/retainer and cancellation-refund terms; bookings snapshot the applicable collection mode, initial amount, balance due instant, refund percentages, matched allowlist rule and aggregate payment status/totals.
+
+`payment_transactions` is the immutable checkout/capture ledger. It records provider, purpose, requested minor-unit amount/currency, opaque return-token hash, provider references, response payload and completion timestamps. `payment_refunds` allocates each refund to its original transaction and preserves a provider idempotency key. `payment_webhook_events` deduplicates each organization/provider event ID and retains processing errors for provider retries. All new entity keys are UUIDv7 `BINARY(16)` and tenant-owned rows cascade with their organization or booking.
 
 ## Core M1 tables retained
 

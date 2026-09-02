@@ -33,7 +33,7 @@ Ticketed events may use only **Free** or **Per attendee** pricing. Fixed-total a
 
 For a paid event, each section/row seating block may add an optional fee per allocated ticket. This fee is stored in the organization's currency and added on top of the base per-attendee price. Free events cannot contain seating fees. Consecutive and unassigned schemes do not have section/row blocks and therefore do not add a block fee.
 
-The exact seats and their fees are reserved on the booking hold. Slot choices show the current ticket total, checkout shows the held admissions and itemized seating fees, and the server recalculates the same snapshot before creating the booking. Each resulting ticket keeps its individual seating fee for history. A reschedule is rejected when the destination allocation would change the snapshotted seating-fee total; this avoids silently repricing a booking before M9 payment adjustments exist.
+The exact seats and their fees are reserved on the booking hold. Slot choices show the current ticket total, checkout shows the held admissions and itemized seating fees, and the server recalculates the same snapshot before creating the booking. Each resulting ticket keeps its individual seating fee for history. A reschedule is rejected when the destination allocation would change the immutable seating-fee total; changing a settled booking price requires cancellation and a new booking.
 
 Ticket timing, duration, capacity and seating configuration cannot be changed while the appointment type has a future booked event. This prevents later buyers from seeing a different definition than the snapshot used for tickets already sold. The configuration becomes editable again after those events end.
 
@@ -52,7 +52,7 @@ Cancellation keeps the printed section/row/seat labels for history but clears th
 
 The scheduled pending-booking cleanup follows the same lifecycle: when an unverified guest booking expires and becomes cancelled, its tickets are voided and its allocated seats are released.
 
-Paid tickets remain **Reserved** while their booking is `pending_payment`. M9 payments will move successfully paid bookings to `confirmed`, which automatically makes their tickets valid.
+Paid tickets remain **Reserved** while their booking is `pending_payment`. A successful full payment or configured retainer moves an otherwise-ready booking to `confirmed`, which automatically makes its tickets valid. An unpaid balance does not invalidate a ticket after the configured retainer has confirmed the booking.
 
 ## Printing and admission
 

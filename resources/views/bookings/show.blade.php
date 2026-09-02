@@ -9,6 +9,33 @@
     <div class="card"><h3>Price</h3><p>{{ app(\App\Domain\Money\MoneyService::class)->format($booking->price_minor, $booking->currency) }}</p><p>{{ $booking->attendee_count }} attendee(s)</p></div>
 </div>
 
+@php
+    $money = app(\App\Domain\Money\MoneyService::class);
+@endphp
+<div class="card">
+    <div class="d-flex justify-content-between gap-3 align-items-start"><div><h2>Payment ledger</h2><p>Total {{ $money->format($booking->price_minor, $booking->currency) }} · Net captured {{ $money->format($booking->netPaidMinor(), $booking->currency) }} · Outstanding {{ $money->format($booking->outstandingMinor(), $booking->currency) }}</p></div><span class="badge">{{ $booking->payment_status->label() }}</span></div>
+    @if($booking->payment_exempt)<div class="alert alert-info">Online prepayment was waived by an allowlist rule. Price history was retained.</div>@endif
+    @if($canManage && $booking->payments->isNotEmpty())
+        <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Created</th><th>Provider</th><th>Purpose</th><th>Amount</th><th>Status</th><th>Provider reference</th></tr></thead><tbody>
+        @foreach($booking->payments as $payment)<tr><td>{{ $payment->created_at->setTimezone($booking->organization->timezone)->format('Y-m-d H:i') }}</td><td>{{ $payment->provider->label() }}</td><td>{{ $payment->purpose->label() }}</td><td>{{ $money->format($payment->amount_minor, $payment->currency) }}</td><td>{{ ucfirst(str_replace('_', ' ', $payment->status->value)) }}@if($payment->failure_message)<div class="small text-danger">{{ $payment->failure_message }}</div>@endif</td><td class="font-monospace small">{{ $payment->provider_capture_id ?: $payment->provider_external_id ?: '—' }}</td></tr>@endforeach
+        </tbody></table></div>
+    @elseif($canManage)<p class="muted">No online payment attempt has been recorded.</p>@endif
+    @if($canManage && $booking->refunds->isNotEmpty())
+        <h3 class="h5">Refunds</h3><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Created</th><th>Amount</th><th>Status</th><th>Requested by</th><th>Reason</th></tr></thead><tbody>
+        @foreach($booking->refunds as $refund)<tr><td>{{ $refund->created_at->setTimezone($booking->organization->timezone)->format('Y-m-d H:i') }}</td><td>{{ $money->format($refund->amount_minor, $refund->currency) }}</td><td>{{ ucfirst($refund->status->value) }}@if($refund->failure_message)<div class="small text-danger">{{ $refund->failure_message }}</div>@endif @if($refund->status->value !== 'succeeded')<form class="mt-1" method="post" action="{{ route('bookings.refunds.retry', [$booking, $refund]) }}">@csrf<button class="btn btn-sm" type="submit">Retry</button></form>@endif</td><td>{{ $refund->requestedBy?->full_name ?? 'Automatic' }}</td><td>{{ $refund->reason }}</td></tr>@endforeach
+        </tbody></table></div>
+    @endif
+    @if($canManage && $booking->netPaidMinor() > 0)
+        <hr><h3 class="h5">Issue manual refund</h3>
+        <form method="post" action="{{ route('bookings.refunds.store', $booking) }}" onsubmit="return confirm('Submit this refund through the original payment provider?');">@csrf
+            <div class="row"><div class="field"><label for="refund_amount">Amount ({{ $booking->currency }})</label><input id="refund_amount" inputmode="decimal" name="amount" value="{{ old('amount', $money->decimal($booking->netPaidMinor(), $booking->currency)) }}" required></div><div class="field"><label for="refund_reason">Reason (visible to client)</label><input id="refund_reason" name="reason" maxlength="5000" required></div></div>
+            <button class="btn btn-outline-danger" type="submit">Issue refund</button>
+        </form>
+    @elseif(! $canManage)
+        <p class="muted">Detailed provider and refund records are available to organization managers.</p>
+    @endif
+</div>
+
 @if($booking->tickets->isNotEmpty())
 <div class="card table-scroll">
     <h2>Tickets</h2>
@@ -186,7 +213,9 @@
 <div class="card">
     <h2>Staff confirmation</h2>
     @forelse($booking->resourceConfirmations as $confirmation)
-        @php($canRespond = $canManage || ($confirmation->person_id && hash_equals($confirmation->person_id, auth()->user()->person_id)))
+        @php
+            $canRespond = $canManage || ($confirmation->person_id && hash_equals($confirmation->person_id, auth()->user()->person_id));
+        @endphp
         <div class="card compact" style="margin-bottom:8px">
             <p><strong>{{ $confirmation->resource->name }}</strong> · <span class="badge">{{ $confirmation->replacement_group ? 'Replacement: '.$confirmation->replacement_group : ($confirmation->is_required ? 'Required' : 'Optional') }}</span> · {{ $confirmation->status->label() }}</p>
             @if($confirmation->responded_at_utc)<p class="muted">Responded {{ $confirmation->responded_at_utc->format('Y-m-d H:i') }} UTC @if($confirmation->respondedBy) by {{ $confirmation->respondedBy->full_name }} @endif</p>@endif
@@ -214,7 +243,7 @@
 @if($canManage && !in_array($booking->status->value, ['cancelled','declined'], true))
 <div class="card">
     <h2>Administrative cancellation</h2>
-    <p class="muted">Staff cancellation overrides the client cancellation deadline. Payment/refund handling will be connected in M9.</p>
+    <p class="muted">Staff cancellation overrides the client cancellation deadline and automatically applies the snapshotted staff refund percentage.</p>
     <form method="post" action="{{ route('bookings.cancel', $booking) }}" onsubmit="return confirm('Cancel this booking?');">
         @csrf
         <div class="field"><label for="admin_cancel_reason">Reason (optional)</label><textarea id="admin_cancel_reason" name="reason"></textarea></div>

@@ -5,7 +5,9 @@
 <div class="card"><div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Name</th><th>Type</th><th>Person</th><th>Timezone</th><th>Organization settings</th><th>Status</th><th></th></tr></thead><tbody>
 @forelse($resources as $resource)
 <tr><td>{{ $resource->name }}</td><td>{{ $resource->type }}</td><td>{{ $resource->person?->full_name ?? '—' }}</td><td>{{ $resource->timezone ?? 'Organization default' }}</td><td>
-@php($holidayRegion = $resource->pivot->holiday_region ?: ($resourceHolidaySuggestions[$resource->uuid] ?? null))
+@php
+    $holidayRegion = $resource->pivot->holiday_region ?: ($resourceHolidaySuggestions[$resource->uuid] ?? null);
+@endphp
 @if(hash_equals($resource->organization_id, $organization->getKey()))
 <div class="d-flex flex-column align-items-start gap-1">
 <span class="badge">{{ $resource->pivot->is_required_by_default ? 'Required' : 'Optional' }}</span>

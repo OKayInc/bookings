@@ -40,12 +40,13 @@
                     </li>
 
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle @if(request()->routeIs('resources.*', 'organizations.*', 'organization-members.*', 'settings.*', 'admin.*')) active @endif" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Organization</a>
+                        <a class="nav-link dropdown-toggle @if(request()->routeIs('resources.*', 'organizations.*', 'organization-members.*', 'settings.*', 'payment-settings.*', 'payment-rules.*', 'admin.*')) active @endif" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Organization</a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="{{ route('resources.index') }}">Resources</a></li>
                             @if($activeOrganization && auth()->user()->can('update', $activeOrganization))
                                 <li><a class="dropdown-item" href="{{ route('organization-members.index') }}">Members</a></li>
                                 <li><a class="dropdown-item" href="{{ route('settings.edit') }}">Settings</a></li>
+                                <li><a class="dropdown-item" href="{{ route('payment-settings.edit') }}">Payments</a></li>
                             @endif
                             <li><a class="dropdown-item" href="{{ route('organizations.index') }}">Organizations</a></li>
                             <li><hr class="dropdown-divider"></li>

@@ -32,6 +32,11 @@ use App\Models\Organization;
 use App\Models\OrganizationContact;
 use App\Models\OrganizationMembership;
 use App\Models\Person;
+use App\Models\OrganizationPaymentSetting;
+use App\Models\PaymentRefund;
+use App\Models\PaymentRule;
+use App\Models\PaymentTransaction;
+use App\Models\PaymentWebhookEvent;
 use App\Models\Resource;
 use App\Models\ShortNoticeFeeRule;
 use App\Models\User;
@@ -48,6 +53,11 @@ class ModelTableNameTest extends TestCase
             [Organization::class, 'organizations'],
             [OrganizationContact::class, 'organization_contacts'],
             [OrganizationMembership::class, 'organization_memberships'],
+            [OrganizationPaymentSetting::class, 'organization_payment_settings'],
+            [PaymentRule::class, 'payment_rules'],
+            [PaymentTransaction::class, 'payment_transactions'],
+            [PaymentRefund::class, 'payment_refunds'],
+            [PaymentWebhookEvent::class, 'payment_webhook_events'],
             [Resource::class, 'resources'],
             [AppointmentType::class, 'appointment_types'],
             [ShortNoticeFeeRule::class, 'short_notice_fee_rules'],

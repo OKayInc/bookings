@@ -9,6 +9,9 @@
         <p>Please check <strong>{{ $maskedEmail }}</strong> and use the verification link before it expires.</p>
     @else
         <p>A secure passwordless management link has been sent to <strong>{{ $maskedEmail }}</strong>.</p>
+        @if(session('manage_url'))
+            <p><a class="btn btn-primary" href="{{ session('manage_url') }}">{{ $booking->status->value === 'pending_payment' ? 'Continue to payment' : 'Manage booking' }}</a></p>
+        @endif
     @endif
     <p class="muted">You do not need to register for an account.</p>
 </div>

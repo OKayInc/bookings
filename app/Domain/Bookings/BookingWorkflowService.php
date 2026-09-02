@@ -44,7 +44,13 @@ class BookingWorkflowService
             }
         }
 
-        if ((int) $booking->price_minor > 0) {
+        $initialDue = (int) $booking->initial_payment_due_minor;
+        if ($initialDue === 0 && (int) $booking->price_minor > 0 && ! $booking->payment_exempt) {
+            $initialDue = (int) $booking->price_minor;
+        }
+        if ((int) $booking->price_minor > 0
+            && ! $booking->payment_exempt
+            && $booking->netPaidMinor() < $initialDue) {
             return BookingStatus::PendingPayment;
         }
 
@@ -75,9 +81,14 @@ class BookingWorkflowService
         $status = $this->statusFor($booking);
         $booking->update([
             'status' => $status->value,
-            'expires_at_utc' => $status === BookingStatus::PendingEmailVerification
-                ? ($booking->expires_at_utc ?: now('UTC')->addHours((int) config('booking.email_verification_ttl_hours', 24)))
-                : null,
+            'expires_at_utc' => match ($status) {
+                BookingStatus::PendingEmailVerification => $booking->expires_at_utc
+                    ?: now('UTC')->addHours((int) config('booking.email_verification_ttl_hours', 24)),
+                BookingStatus::PendingPayment => $previous === BookingStatus::PendingPayment && $booking->expires_at_utc !== null
+                    ? $booking->expires_at_utc
+                    : now('UTC')->addMinutes(max(15, (int) config('payments.booking_payment_window_minutes', 60))),
+                default => null,
+            },
         ]);
 
         $this->tickets->sync($booking);
@@ -87,7 +98,9 @@ class BookingWorkflowService
             Notification::route('mail', $fresh->email)->notify(new BookingStatusChangedEmail(
                 $fresh,
                 $status === BookingStatus::Confirmed
-                    ? 'All required staff and replacement groups have approved your booking.'
+                    ? ($previous === BookingStatus::PendingPayment
+                        ? 'Your initial payment was received and your booking is confirmed.'
+                        : 'All booking prerequisites are complete and your booking is confirmed.')
                     : 'A required staff resource or replacement group declined your booking.',
             ));
         }
