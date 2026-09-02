@@ -573,6 +573,21 @@
                         'resource_replacement_groups.'.$resource->uuid,
                         $assignedResource?->pivot?->replacement_group
                     );
+                    $equipmentInput = $resourceEquipmentPricingInputs[$resource->uuid] ?? [
+                        'quantity' => 1,
+                        'mode' => 'free',
+                        'unit_price' => '',
+                        'fixed_price' => '',
+                        'bundles' => [],
+                    ];
+                    $equipmentQuantity = old('resource_quantities.'.$resource->uuid, $equipmentInput['quantity']);
+                    $equipmentPricingMode = old('resource_equipment_pricing_modes.'.$resource->uuid, $equipmentInput['mode']);
+                    $equipmentUnitPrice = old('resource_equipment_unit_prices.'.$resource->uuid, $equipmentInput['unit_price']);
+                    $equipmentFixedPrice = old('resource_equipment_fixed_prices.'.$resource->uuid, $equipmentInput['fixed_price']);
+                    $equipmentBundles = old('resource_equipment_bundles.'.$resource->uuid, $equipmentInput['bundles']);
+                    if (! is_array($equipmentBundles) || $equipmentBundles === []) {
+                        $equipmentBundles = [['quantity' => 1, 'amount' => '']];
+                    }
                 @endphp
                 <div class="card compact" style="margin-bottom:8px">
                     <label style="display:flex;align-items:center;gap:8px">
@@ -586,6 +601,9 @@
                             <label for="resource_requirement_{{ $resource->uuid }}">Requirement for this appointment type</label>
                             <select id="resource_requirement_{{ $resource->uuid }}" name="resource_requirement_modes[{{ $resource->uuid }}]">
                                 @foreach($resourceRequirementModes as $mode)
+                                    @if($resource->usesQuantityInventory() && $mode->value === 'replacement')
+                                        @continue
+                                    @endif
                                     <option value="{{ $mode->value }}" @selected($selectedMode === $mode->value)>{{ $mode->label() }}</option>
                                 @endforeach
                             </select>
@@ -604,6 +622,89 @@
                             <div class="muted">Used only with “One of a replacement group”. Give every alternative the same group name.</div>
                         </div>
                     </div>
+                    @if($resource->type === 'equipment')
+                        <div class="equipment-assignment" data-equipment-assignment style="margin-top:12px">
+                            @if($resource->usesQuantityInventory())
+                            <div class="alert alert-info" style="margin-bottom:8px">
+                                Shared stock: <strong>{{ $resource->inventory_quantity }}</strong> pieces. Availability is reduced only by overlapping active holds and scheduled appointments.
+                            </div>
+                            <div class="row">
+                                <div class="field" style="margin-bottom:0">
+                                    <label for="resource_quantity_{{ $resource->uuid }}">Pieces required per appointment</label>
+                                    <input id="resource_quantity_{{ $resource->uuid }}"
+                                        type="number"
+                                        name="resource_quantities[{{ $resource->uuid }}]"
+                                        min="1"
+                                        max="{{ $resource->inventory_quantity }}"
+                                        value="{{ $equipmentQuantity }}">
+                                </div>
+                                <div class="field" style="margin-bottom:0">
+                                    <label for="resource_equipment_pricing_{{ $resource->uuid }}">Rental pricing</label>
+                                    <select id="resource_equipment_pricing_{{ $resource->uuid }}"
+                                        name="resource_equipment_pricing_modes[{{ $resource->uuid }}]"
+                                        data-equipment-pricing-mode>
+                                        @foreach($equipmentPricingModes as $mode)
+                                            <option value="{{ $mode->value }}" @selected($equipmentPricingMode === $mode->value)>{{ $mode->label() }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            @else
+                            <div class="alert alert-info" style="margin-bottom:8px">Quantity tracking is off. This equipment is reserved as one unique resource and may be used in a replacement group.</div>
+                            <input type="hidden" name="resource_quantities[{{ $resource->uuid }}]" value="1" max="1">
+                            <div class="field" style="margin-bottom:0">
+                                <label for="resource_equipment_pricing_{{ $resource->uuid }}">Rental pricing</label>
+                                <select id="resource_equipment_pricing_{{ $resource->uuid }}"
+                                    name="resource_equipment_pricing_modes[{{ $resource->uuid }}]"
+                                    data-equipment-pricing-mode>
+                                    @foreach($equipmentPricingModes as $mode)
+                                        <option value="{{ $mode->value }}" @selected($equipmentPricingMode === $mode->value)>{{ $mode->label() }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @endif
+                            <div class="field" data-equipment-price-fields="per_unit">
+                                <label>Price per piece ({{ $organization->currency }})</label>
+                                <input inputmode="decimal"
+                                    name="resource_equipment_unit_prices[{{ $resource->uuid }}]"
+                                    value="{{ $equipmentUnitPrice }}"
+                                    placeholder="3.00">
+                            </div>
+                            <div class="field" data-equipment-price-fields="fixed">
+                                <label>Fixed rental fee ({{ $organization->currency }})</label>
+                                <input inputmode="decimal"
+                                    name="resource_equipment_fixed_prices[{{ $resource->uuid }}]"
+                                    value="{{ $equipmentFixedPrice }}"
+                                    placeholder="20.00">
+                                <div class="muted">Charged once regardless of the required piece count.</div>
+                            </div>
+                            <div data-equipment-price-fields="bundles">
+                                <label>Bundle schedule ({{ $organization->currency }})</label>
+                                <div data-equipment-bundle-list data-resource-uuid="{{ $resource->uuid }}">
+                                    @foreach($equipmentBundles as $bundleIndex => $bundle)
+                                        <div class="row align-items-end" data-equipment-bundle-row style="margin-bottom:8px">
+                                            <div class="field" style="margin-bottom:0">
+                                                <label>Pieces</label>
+                                                <input type="number" min="1" max="{{ $resource->inventory_quantity }}"
+                                                    name="resource_equipment_bundles[{{ $resource->uuid }}][{{ $bundleIndex }}][quantity]"
+                                                    value="{{ $bundle['quantity'] ?? '' }}">
+                                            </div>
+                                            <div class="field" style="margin-bottom:0">
+                                                <label>Bundle price</label>
+                                                <input inputmode="decimal"
+                                                    name="resource_equipment_bundles[{{ $resource->uuid }}][{{ $bundleIndex }}][amount]"
+                                                    value="{{ $bundle['amount'] ?? '' }}"
+                                                    placeholder="10.00">
+                                            </div>
+                                            <div class="field" style="margin-bottom:0"><button class="btn" type="button" data-remove-equipment-bundle>Remove</button></div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                <button class="btn" type="button" data-add-equipment-bundle>Add bundle</button>
+                                <div class="muted">Include a one-piece tier. The checkout uses the cheapest exact combination; for example, 6 pieces can use one 5-piece bundle plus one piece.</div>
+                            </div>
+                        </div>
+                    @endif
                 </div>
             @empty
                 <p class="muted">Create resources first if this appointment requires them.</p>
@@ -864,6 +965,8 @@
     const retainerType = document.getElementById('retainer_type');
     const fixed = document.getElementById('retainer-fixed-fields');
     const percentage = document.getElementById('retainer-percentage-fields');
+    const equipmentPricing = Array.from(document.querySelectorAll('[data-equipment-pricing-mode]'));
+    const equipmentSelectors = equipmentPricing.map(select => select.closest('.card.compact').querySelector('input[name="resource_uuids[]"]'));
 
     function state(section, enabled) {
         section.style.display = enabled ? 'block' : 'none';
@@ -871,7 +974,11 @@
     }
 
     function sync() {
-        const paid = pricing.value !== 'free' && pricing.value !== '';
+        const paidEquipment = equipmentPricing.some(select => {
+            const selected = select.closest('.card.compact').querySelector('input[name="resource_uuids[]"]');
+            return selected.checked && select.value !== 'free';
+        });
+        const paid = (pricing.value !== 'free' && pricing.value !== '') || paidEquipment;
         policy.style.display = paid ? 'block' : 'none';
         freeHelp.style.display = paid ? 'none' : 'block';
         collection.disabled = false;
@@ -887,7 +994,7 @@
         }
     }
 
-    [pricing, collection, retainerType].forEach(control => control.addEventListener('change', sync));
+    [pricing, collection, retainerType, ...equipmentPricing, ...equipmentSelectors].forEach(control => control.addEventListener('change', sync));
     sync();
 })();
 </script>
@@ -1000,6 +1107,54 @@
     });
     [enabled, scheme, optional, attendance, duration, pricing].forEach(control => control.addEventListener('change', sync));
     sync();
+})();
+</script>
+
+<script>
+(() => {
+    function setSectionState(section, active) {
+        section.hidden = !active;
+        section.querySelectorAll('input, button').forEach(control => {
+            control.disabled = !active;
+        });
+    }
+
+    function prepareBundleRow(row) {
+        row.querySelector('[data-remove-equipment-bundle]').addEventListener('click', () => row.remove());
+    }
+
+    document.querySelectorAll('[data-equipment-assignment]').forEach(assignment => {
+        const pricing = assignment.querySelector('[data-equipment-pricing-mode]');
+        const list = assignment.querySelector('[data-equipment-bundle-list]');
+        const add = assignment.querySelector('[data-add-equipment-bundle]');
+        const resourceUuid = list.dataset.resourceUuid;
+        const maximum = assignment.querySelector('input[name^="resource_quantities"]').max;
+        let nextIndex = Array.from(list.querySelectorAll('input[name$="[quantity]"]')).reduce((highest, input) => {
+            const match = input.name.match(/\]\[(\d+)\]\[quantity\]$/);
+            return Math.max(highest, match ? Number.parseInt(match[1], 10) : -1);
+        }, -1) + 1;
+
+        const sync = () => {
+            assignment.querySelectorAll('[data-equipment-price-fields]').forEach(section => {
+                setSectionState(section, section.dataset.equipmentPriceFields === pricing.value);
+            });
+        };
+
+        list.querySelectorAll('[data-equipment-bundle-row]').forEach(prepareBundleRow);
+        add.addEventListener('click', () => {
+            const index = nextIndex++;
+            const row = document.createElement('div');
+            row.className = 'row align-items-end';
+            row.dataset.equipmentBundleRow = '';
+            row.style.marginBottom = '8px';
+            row.innerHTML = `<div class="field" style="margin-bottom:0"><label>Pieces</label><input type="number" min="1" max="${maximum}" name="resource_equipment_bundles[${resourceUuid}][${index}][quantity]"></div><div class="field" style="margin-bottom:0"><label>Bundle price</label><input inputmode="decimal" name="resource_equipment_bundles[${resourceUuid}][${index}][amount]" placeholder="10.00"></div><div class="field" style="margin-bottom:0"><button class="btn" type="button" data-remove-equipment-bundle>Remove</button></div>`;
+            list.appendChild(row);
+            prepareBundleRow(row);
+            row.querySelector('input').focus();
+        });
+        pricing.addEventListener('change', sync);
+        sync();
+    });
 })();
 </script>
 

@@ -12,6 +12,7 @@ final readonly class BookableSlot
         public CarbonImmutable $endsAtUtc,
         public ?Appointment $appointment,
         public int $remainingCapacity,
+        public array $equipmentAvailability = [],
     ) {
     }
 }

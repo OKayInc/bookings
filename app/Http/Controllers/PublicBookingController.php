@@ -8,6 +8,7 @@ use App\Domain\Bookings\PublicAppointmentAccessService;
 use App\Domain\Bookings\PublicBookingAvailabilityService;
 use App\Domain\Bookings\PublicBookingHoldService;
 use App\Domain\Money\MoneyService;
+use App\Domain\Resources\EquipmentPricingService;
 use App\Domain\Questionnaires\QuestionnaireSubmissionService;
 use App\Domain\Tickets\TicketEventService;
 use App\Domain\Tickets\TicketInventoryService;
@@ -40,6 +41,7 @@ class PublicBookingController extends Controller
         MoneyService $money,
         TicketEventService $ticketEvents,
         TicketInventoryService $ticketInventory,
+        EquipmentPricingService $equipmentPricing,
     ): JsonResponse {
         $data = $request->validate([
             'access_mode' => ['required', Rule::in(['direct', 'unlisted', 'invitation'])],
@@ -71,7 +73,12 @@ class PublicBookingController extends Controller
                 $timezone,
                 (int) $data['attendee_count'],
             );
+            $equipmentTotal = $equipmentPricing->total($appointmentType);
             $price = $pricing->priceForBooking($appointmentType, $duration, $appointmentType->duration_unit, (int) $data['attendee_count']);
+            if ($equipmentTotal > PHP_INT_MAX - $price) {
+                throw new \InvalidArgumentException('The appointment price is too large.');
+            }
+            $price += $equipmentTotal;
             if ($appointmentType->ticketing_enabled) {
                 foreach ($slots as $slot) {
                     $ticketEvents->appointmentAttributes($appointmentType, $slot->startsAtUtc, $slot->endsAtUtc);
@@ -91,6 +98,7 @@ class PublicBookingController extends Controller
                 $money,
                 $duration,
                 $data,
+                $equipmentTotal,
             ): array {
                 $clientStart = $slot->startsAtUtc->setTimezone($timezone);
                 $clientEnd = $slot->endsAtUtc->setTimezone($timezone);
@@ -115,6 +123,10 @@ class PublicBookingController extends Controller
                     (int) $data['attendee_count'],
                     $ticketSeats,
                 );
+                if ($equipmentTotal > PHP_INT_MAX - $slotPrice) {
+                    throw new \InvalidArgumentException('The appointment price is too large.');
+                }
+                $slotPrice += $equipmentTotal;
 
                 return [
                     'starts_at_utc' => $slot->startsAtUtc->toIso8601String(),
@@ -124,6 +136,7 @@ class PublicBookingController extends Controller
                     'client_event_label' => $event === null ? null : 'Doors '.$clientStart->format('g:i A').' · Show '.$clientShowStart->format('g:i A').($clientShowEnd ? ' – '.$clientShowEnd->format('g:i A') : ''),
                     'organization_event_label' => $event === null ? null : 'Doors '.$orgStart->format('g:i A').' · Show '.$orgShowStart->format('g:i A').($orgShowEnd ? ' – '.$orgShowEnd->format('g:i A') : ''),
                     'remaining_capacity' => $slot->remainingCapacity,
+                    'equipment_availability' => $slot->equipmentAvailability,
                     'join_existing' => $slot->appointment !== null,
                     'price_minor' => $slotPrice,
                     'price_display' => $money->format($slotPrice, $appointmentType->organization->currency),
@@ -183,7 +196,7 @@ class PublicBookingController extends Controller
     public function editHold(string $token, TicketEventService $ticketEvents): View
     {
         $hold = $this->holdByToken($token);
-        $hold->load(['organization', 'appointmentType.organization', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
+        $hold->load(['organization', 'resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
 
         return view('public.bookings.details', [
             'organization' => $hold->organization,
@@ -207,7 +220,7 @@ class PublicBookingController extends Controller
         MoneyService $money,
     ): JsonResponse {
         $hold = $this->holdByToken($token);
-        $hold->load(['appointmentType.organization', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.shortNoticeFeeRules']);
+        $hold->load(['resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.shortNoticeFeeRules']);
         $answers = (array) $request->input('answers', []);
         try {
             $quote = $questionnaires->quote(
@@ -217,6 +230,9 @@ class PublicBookingController extends Controller
                 CarbonImmutable::instance($hold->starts_at_utc)->utc(),
                 attendeeCount: (int) $hold->attendee_count,
                 ticketSeats: $hold->ticket_seats ?? [],
+                equipmentResourceQuantities: $hold->resources->mapWithKeys(fn ($resource) => [
+                    $resource->getKey() => (int) ($resource->pivot->quantity_reserved ?? 1),
+                ])->all(),
             );
         } catch (\InvalidArgumentException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
@@ -241,7 +257,7 @@ class PublicBookingController extends Controller
         QuestionnaireSubmissionService $questionnaires,
     ): RedirectResponse {
         $hold = $this->holdByToken($token);
-        $hold->load(['appointmentType.organization', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
+        $hold->load(['resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
 
         $rules = [
             'first_name' => ['required', 'string', 'max:120'],
@@ -271,6 +287,9 @@ class PublicBookingController extends Controller
             CarbonImmutable::instance($hold->starts_at_utc)->utc(),
             attendeeCount: (int) $hold->attendee_count,
             ticketSeats: $hold->ticket_seats ?? [],
+            equipmentResourceQuantities: $hold->resources->mapWithKeys(fn ($resource) => [
+                $resource->getKey() => (int) ($resource->pivot->quantity_reserved ?? 1),
+            ])->all(),
         );
         $files = array_values($request->file('contract_files', []));
         $this->validateContractSet($files);

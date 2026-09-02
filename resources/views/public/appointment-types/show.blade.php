@@ -126,6 +126,9 @@
     const message = document.getElementById('slot-message');
     const price = document.getElementById('price-preview');
     let slotRequestVersion = 0;
+    const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;',
+    })[character]);
 
     const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (detected && [...timezone.options].some(option => option.value === detected)) timezone.value = detected;
@@ -153,7 +156,7 @@
             if (requestVersion !== slotRequestVersion) return;
             if (!response.ok) throw new Error(data.message || 'Unable to load availability.');
             price.textContent = ticketedEvent
-                ? 'Each event option shows the current ticket total, including any allocated seating fees.'
+                ? 'Each event option shows the current ticket total, including allocated seating and equipment fees.'
                 : `Base total before questionnaire extras or applicable short-notice fees: ${data.price_display}`;
             message.textContent = data.slots.length ? '' : 'No available times were found for this date.';
 
@@ -167,7 +170,13 @@
                 const capacityLabel = ticketedEvent ? 'tickets' : 'spaces';
                 const capacity = slot.remaining_capacity > 1 ? `<small>${slot.remaining_capacity} ${capacityLabel} currently available</small>` : '';
                 const slotPrice = ticketedEvent ? `<small>Ticket total before extras: ${slot.price_display}</small>` : '';
-                button.innerHTML = `<strong>${primaryLabel}</strong><small>${data.timezone}</small>${alt}${capacity}${slotPrice}`;
+                const equipment = slot.equipment_availability.map(item => {
+                    const allocation = item.reserved_for_session > 0
+                        ? `${item.reserved_for_session} reserved for this session`
+                        : `this appointment reserves ${item.quantity_required}`;
+                    return `<small>${escapeHtml(item.name)}: ${item.available_quantity} of ${item.total_quantity} available · ${allocation}</small>`;
+                }).join('');
+                button.innerHTML = `<strong>${primaryLabel}</strong><small>${data.timezone}</small>${alt}${capacity}${equipment}${slotPrice}`;
                 button.addEventListener('click', () => reserve(slot.starts_at_utc, button, selection));
                 list.appendChild(button);
             });

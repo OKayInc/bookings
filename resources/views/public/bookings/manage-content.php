@@ -248,7 +248,14 @@ $requiredDeclined = $requiredConfirmations->where('status', \App\Enums\ResourceC
             const label = document.createElement('label');
             const radio = document.createElement('input'); radio.type='radio'; radio.name='reschedule_slot_choice'; radio.value=slot.starts_at_utc;
             radio.addEventListener('change', () => { start.value=slot.starts_at_utc; confirmButton.disabled=false; });
-            label.appendChild(radio); label.appendChild(document.createTextNode(' '+slot.client_label)); slots.appendChild(label);
+            label.appendChild(radio); label.appendChild(document.createTextNode(' '+slot.client_label));
+            (slot.equipment_availability || []).forEach((item) => {
+                const stock = document.createElement('small');
+                stock.className = 'muted';
+                stock.textContent = ` · ${item.name}: ${item.available_quantity} of ${item.total_quantity} available`;
+                label.appendChild(stock);
+            });
+            slots.appendChild(label);
         });
     });
     document.getElementById('reschedule-form').addEventListener('submit', (event) => {

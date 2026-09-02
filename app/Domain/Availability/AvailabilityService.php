@@ -11,6 +11,7 @@ use App\Models\AvailabilitySchedule;
 use App\Models\BookingHold;
 use App\Models\Resource;
 use App\Domain\Resources\ResourceRequirementService;
+use App\Domain\Resources\EquipmentInventoryService;
 use App\Domain\Calendars\CalendarAvailabilityService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -25,6 +26,7 @@ class AvailabilityService
         private readonly OrganizationHolidayService $holidays,
         private readonly ResourceHolidayService $resourceHolidays,
         private readonly AppointmentTypeSeasonService $seasons,
+        private readonly EquipmentInventoryService $equipmentInventory,
     ) {
     }
 
@@ -84,6 +86,7 @@ class AvailabilityService
 
         $conflictStartUtc = $rangeStartUtc->subMinutes((int) $type->buffer_before_minutes);
         $conflictEndUtc = $coverageEndUtc->addMinutes((int) $type->buffer_after_minutes);
+        $this->equipmentInventory->prime($type, $conflictStartUtc, $conflictEndUtc);
         $busy = $this->busyIntervals($type, $conflictStartUtc, $conflictEndUtc);
         array_push($busy, ...$this->holidays->closures(
             $type->organization,
@@ -117,8 +120,13 @@ class AvailabilityService
                 );
 
                 if (! $this->overlapsAny($blocked, $busy)
+                    && $this->equipmentInventory->requiredEquipmentAvailableAt($type, $blocked->start, $blocked->end)
                     && $this->replacementGroupsAvailableAt($replacementGroups, $type, $candidate, $end)) {
-                    $slots[] = new AvailabilitySlot($candidate, $end);
+                    $slots[] = new AvailabilitySlot(
+                        $candidate,
+                        $end,
+                        $this->equipmentInventory->snapshotsForTypeAt($type, $blocked->start, $blocked->end),
+                    );
                 }
 
                 $candidate = $candidate->addMinutes($intervalMinutes);
@@ -189,8 +197,25 @@ class AvailabilityService
             $endsAtUtc->addMinutes((int) $type->buffer_after_minutes),
         );
 
-        $busy = $this->busyIntervalsForResource($resource, $blocked->start, $blocked->end);
-        array_push($busy, ...$this->externalCalendars->forResource($resource, $type, $blocked->start, $blocked->end, $freshExternalCalendars));
+        $busy = $this->externalCalendars->forResource(
+            $resource,
+            $type,
+            $blocked->start,
+            $blocked->end,
+            $freshExternalCalendars,
+        );
+
+        if ($resource->usesQuantityInventory()) {
+            return ! $this->overlapsAny($blocked, $busy)
+                && $this->equipmentInventory->canReserve(
+                    $resource,
+                    $this->equipmentInventory->requiredQuantity($resource),
+                    $blocked->start,
+                    $blocked->end,
+                );
+        }
+
+        array_push($busy, ...$this->busyIntervalsForResource($resource, $blocked->start, $blocked->end));
 
         return ! $this->overlapsAny($blocked, $busy);
     }
@@ -302,7 +327,13 @@ class AvailabilityService
     /** @return list<AvailabilityInterval> */
     private function busyIntervals(AppointmentType $type, CarbonImmutable $from, CarbonImmutable $to): array
     {
-        $resourceKeys = $this->requirements->requiredResources($type)->modelKeys();
+        $requiredResources = $this->requirements->requiredResources($type);
+        $resourceKeys = $requiredResources
+            ->reject(fn (Resource $resource): bool => $resource->usesQuantityInventory())
+            ->modelKeys();
+        $hasQuantityManagedEquipment = $requiredResources->contains(
+            fn (Resource $resource): bool => $resource->usesQuantityInventory(),
+        );
         $hasReplacementGroups = $this->requirements->replacementGroups($type)->isNotEmpty();
 
         $query = BookingHold::query()
@@ -313,7 +344,7 @@ class AvailabilityService
 
         if ($resourceKeys !== []) {
             $query->whereHas('resources', fn ($q) => $q->whereIn('resources.id', $resourceKeys));
-        } elseif ($hasReplacementGroups) {
+        } elseif ($hasReplacementGroups || $hasQuantityManagedEquipment) {
             $query->whereRaw('1 = 0');
         } else {
             $query->where('appointment_type_id', $type->getKey());
@@ -334,7 +365,7 @@ class AvailabilityService
 
         if ($resourceKeys !== []) {
             $appointmentQuery->whereHas('resources', fn ($q) => $q->whereIn('resources.id', $resourceKeys));
-        } elseif ($hasReplacementGroups) {
+        } elseif ($hasReplacementGroups || $hasQuantityManagedEquipment) {
             $appointmentQuery->whereRaw('1 = 0');
         } else {
             $appointmentQuery->where('appointment_type_id', $type->getKey());

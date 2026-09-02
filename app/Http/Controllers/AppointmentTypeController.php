@@ -11,6 +11,7 @@ use App\Domain\Bookings\ShortNoticeFeeRuleService;
 use App\Domain\Conferences\ConferenceProviderCatalog;
 use App\Domain\Money\MoneyService;
 use App\Domain\Questionnaires\PercentageService;
+use App\Domain\Resources\EquipmentPricingService;
 use App\Enums\AppointmentVisibility;
 use App\Enums\AttendanceMode;
 use App\Enums\AttendeePricingMode;
@@ -18,6 +19,7 @@ use App\Enums\BookingNoticeUnit;
 use App\Enums\DurationMode;
 use App\Enums\DurationUnit;
 use App\Enums\EmailVerificationMode;
+use App\Enums\EquipmentPricingMode;
 use App\Enums\PricingMode;
 use App\Enums\PaymentCollectionMode;
 use App\Enums\RetainerType;
@@ -42,7 +44,7 @@ class AppointmentTypeController extends Controller
     public function index(OrganizationContext $context, AppointmentTypeSummaryService $summary): View
     {
         $appointmentTypes = $context->organization()->appointmentTypes()
-            ->with('organization')
+            ->with(['organization', 'resources'])
             ->withCount(['resources', 'bookings'])
             ->withExists(['contractTemplate as has_contract'])
             ->orderBy('name')
@@ -66,6 +68,7 @@ class AppointmentTypeController extends Controller
             'staffRefundPercentageInput' => '100',
             'shortNoticeFeeInputs' => [],
             'ticketSeatBlockInputs' => [],
+            'resourceEquipmentPricingInputs' => [],
         ]));
     }
 
@@ -100,10 +103,10 @@ class AppointmentTypeController extends Controller
         ));
 
         $appointmentType->resources()->sync($this->resourceSyncData(
-            $data['resource_uuids'] ?? [],
-            $data['resource_requirement_modes'] ?? [],
-            $data['resource_replacement_groups'] ?? [],
+            $data,
             $organization->getKey(),
+            $organization->currency,
+            $money,
         ));
         $shortNoticeFees->sync($appointmentType, $data['short_notice_fees'] ?? [], $organization->currency);
 
@@ -175,6 +178,11 @@ class AppointmentTypeController extends Controller
                         ? $money->decimal((int) $block['seat_fee_minor'], $context->organization()->currency)
                         : '',
                 ], $appointmentType->ticket_seat_blocks ?? []),
+                'resourceEquipmentPricingInputs' => $this->equipmentPricingInputs(
+                    $appointmentType,
+                    $money,
+                    $context->organization()->currency,
+                ),
             ],
         ));
     }
@@ -216,10 +224,10 @@ class AppointmentTypeController extends Controller
         ));
 
         $appointmentType->resources()->sync($this->resourceSyncData(
-            $data['resource_uuids'] ?? [],
-            $data['resource_requirement_modes'] ?? [],
-            $data['resource_replacement_groups'] ?? [],
+            $data,
             $context->organization()->getKey(),
+            $context->organization()->currency,
+            $money,
         ));
         $shortNoticeFees->sync(
             $appointmentType,
@@ -308,6 +316,7 @@ class AppointmentTypeController extends Controller
             'attendeePricingModes' => AttendeePricingMode::cases(),
             'shortNoticeAdjustmentTypes' => [PricingAdjustmentType::Fixed, PricingAdjustmentType::Percentage],
             'resourceRequirementModes' => ResourceRequirementMode::cases(),
+            'equipmentPricingModes' => EquipmentPricingMode::cases(),
             'reminderThresholdBases' => ReminderThresholdBasis::cases(),
             'seasonRecurrences' => SeasonRecurrence::cases(),
             'ticketSeatingSchemes' => TicketSeatingScheme::cases(),
@@ -346,7 +355,12 @@ class AppointmentTypeController extends Controller
                 $data['pricing_mode'] === PricingMode::PerAttendee->value,
             )
             : null;
-        $paid = $data['pricing_mode'] !== PricingMode::Free->value;
+        $selectedResources = array_fill_keys($data['resource_uuids'] ?? [], true);
+        $hasPaidEquipment = collect($data['resource_equipment_pricing_modes'] ?? [])->contains(
+            fn (mixed $mode, string $uuid): bool => isset($selectedResources[$uuid])
+                && $mode !== EquipmentPricingMode::Free->value,
+        );
+        $paid = $data['pricing_mode'] !== PricingMode::Free->value || $hasPaidEquipment;
         $paymentCollectionMode = $paid
             ? PaymentCollectionMode::from($data['payment_collection_mode'] ?? PaymentCollectionMode::Full->value)
             : PaymentCollectionMode::Full;
@@ -446,11 +460,18 @@ class AppointmentTypeController extends Controller
         return $slug;
     }
 
-    private function resourceSyncData(array $uuids, array $modes, array $groups, string $organizationKey): array
-    {
+    private function resourceSyncData(
+        array $data,
+        string $organizationKey,
+        string $currency,
+        MoneyService $money,
+    ): array {
         $sync = [];
         $organization = Organization::query()->findOrFail($organizationKey);
         $canonicalGroupNames = [];
+        $uuids = $data['resource_uuids'] ?? [];
+        $modes = $data['resource_requirement_modes'] ?? [];
+        $groups = $data['resource_replacement_groups'] ?? [];
 
         foreach ($uuids as $uuid) {
             $mode = ResourceRequirementMode::tryFrom((string) ($modes[$uuid] ?? ResourceRequirementMode::Inherit->value));
@@ -483,14 +504,72 @@ class AppointmentTypeController extends Controller
                 $replacementGroup = $canonicalGroupNames[Str::lower($submittedName)] ?? null;
             }
 
+            $equipment = $resource->type === 'equipment';
+            $quantity = $resource->usesQuantityInventory() && $mode !== ResourceRequirementMode::Replacement
+                ? (int) ($data['resource_quantities'][$uuid] ?? 1)
+                : 1;
+            $pricingMode = $equipment
+                ? (EquipmentPricingMode::tryFrom((string) ($data['resource_equipment_pricing_modes'][$uuid] ?? 'free'))
+                    ?? EquipmentPricingMode::Free)
+                : EquipmentPricingMode::Free;
+            $unitPrice = $pricingMode === EquipmentPricingMode::PerUnit
+                ? $money->parse($data['resource_equipment_unit_prices'][$uuid], $currency)
+                : null;
+            $fixedPrice = $pricingMode === EquipmentPricingMode::Fixed
+                ? $money->parse($data['resource_equipment_fixed_prices'][$uuid], $currency)
+                : null;
+            $bundles = null;
+            if ($pricingMode === EquipmentPricingMode::Bundles) {
+                $bundles = array_map(fn (array $bundle): array => [
+                    'quantity' => (int) $bundle['quantity'],
+                    'amount_minor' => $money->parse($bundle['amount'], $currency),
+                ], array_values($data['resource_equipment_bundles'][$uuid] ?? []));
+                usort($bundles, fn (array $left, array $right): int => $left['quantity'] <=> $right['quantity']);
+            }
+
             $sync[$resource->getKey()] = [
                 'requirement_mode' => $mode->value,
                 'is_required' => $effectiveRequired,
                 'replacement_group' => $replacementGroup,
+                'quantity_required' => $quantity,
+                'equipment_pricing_mode' => $pricingMode->value,
+                'equipment_unit_price_minor' => $unitPrice,
+                'equipment_fixed_price_minor' => $fixedPrice,
+                'equipment_bundle_prices' => $bundles === null
+                    ? null
+                    : json_encode($bundles, JSON_THROW_ON_ERROR),
             ];
         }
 
         return $sync;
+    }
+
+    private function equipmentPricingInputs(
+        AppointmentType $type,
+        MoneyService $money,
+        string $currency,
+    ): array {
+        $inputs = [];
+        $pricing = app(EquipmentPricingService::class);
+
+        foreach ($type->resources->where('type', 'equipment') as $resource) {
+            $inputs[$resource->uuid] = [
+                'quantity' => max(1, (int) ($resource->pivot?->quantity_required ?? 1)),
+                'mode' => (string) ($resource->pivot?->equipment_pricing_mode ?? EquipmentPricingMode::Free->value),
+                'unit_price' => $resource->pivot?->equipment_unit_price_minor === null
+                    ? ''
+                    : $money->decimal((int) $resource->pivot->equipment_unit_price_minor, $currency),
+                'fixed_price' => $resource->pivot?->equipment_fixed_price_minor === null
+                    ? ''
+                    : $money->decimal((int) $resource->pivot->equipment_fixed_price_minor, $currency),
+                'bundles' => array_map(fn (array $bundle): array => [
+                    'quantity' => $bundle['quantity'],
+                    'amount' => $money->decimal($bundle['amount_minor'], $currency),
+                ], $pricing->bundles($resource->pivot?->equipment_bundle_prices)),
+            ];
+        }
+
+        return $inputs;
     }
 
     private function ensureSameOrganization(AppointmentType $appointmentType, OrganizationContext $context): void

@@ -17,6 +17,8 @@ class Resource extends Model
         'organization_id',
         'person_id',
         'type',
+        'inventory_quantity',
+        'quantity_enabled',
         'name',
         'timezone',
         'is_active',
@@ -32,6 +34,8 @@ class Resource extends Model
         return [
             'is_active' => 'boolean',
             'is_required_by_default' => 'boolean',
+            'inventory_quantity' => 'integer',
+            'quantity_enabled' => 'boolean',
         ];
     }
 
@@ -103,24 +107,43 @@ class Resource extends Model
     public function bookingHolds(): BelongsToMany
     {
         return $this->belongsToMany(BookingHold::class, 'booking_hold_resources', 'resource_id', 'booking_hold_id')
-            ->withPivot('is_required', 'replacement_group');
+            ->withPivot('is_required', 'replacement_group', 'quantity_reserved');
     }
 
     public function appointmentTypes(): BelongsToMany
     {
         return $this->belongsToMany(AppointmentType::class, 'appointment_type_resources')
-            ->withPivot('is_required', 'requirement_mode', 'replacement_group')
+            ->withPivot(
+                'is_required',
+                'requirement_mode',
+                'replacement_group',
+                'quantity_required',
+                'equipment_pricing_mode',
+                'equipment_unit_price_minor',
+                'equipment_fixed_price_minor',
+                'equipment_bundle_prices',
+            )
             ->withTimestamps();
     }
 
     public function appointments(): BelongsToMany
     {
         return $this->belongsToMany(Appointment::class, 'appointment_resources')
-            ->withPivot('is_required', 'replacement_group');
+            ->withPivot('is_required', 'replacement_group', 'quantity_reserved');
     }
 
     public function calendarConnections(): HasMany
     {
         return $this->hasMany(CalendarConnection::class);
+    }
+
+    public function confirmations(): HasMany
+    {
+        return $this->hasMany(ResourceConfirmation::class);
+    }
+
+    public function usesQuantityInventory(): bool
+    {
+        return $this->type === 'equipment' && (bool) $this->quantity_enabled;
     }
 }

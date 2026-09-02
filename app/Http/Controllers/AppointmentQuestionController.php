@@ -280,8 +280,10 @@ class AppointmentQuestionController extends Controller
             'position' => (int) ($data['position'] ?? ($appointmentType->questions()->max('position') + 1 ?: 1)),
             'configuration' => $configuration ?: null,
             'pricing_adjustment_type' => $pricing->value,
-            'pricing_application_mode' => $data['pricing_application_mode'] ?? PricingApplicationMode::PerUnit->value,
-            'pricing_amount_minor' => $pricing === PricingAdjustmentType::Fixed
+            'pricing_application_mode' => $pricing === PricingAdjustmentType::Rate
+                ? PricingApplicationMode::PerUnit->value
+                : ($data['pricing_application_mode'] ?? PricingApplicationMode::PerUnit->value),
+            'pricing_amount_minor' => in_array($pricing, [PricingAdjustmentType::Fixed, PricingAdjustmentType::Rate], true)
                 ? $money->parse($data['pricing_amount'] ?? '0', $context->organization()->currency)
                 : null,
             'pricing_percentage_bps' => $pricing === PricingAdjustmentType::Percentage
@@ -397,6 +399,11 @@ class AppointmentQuestionController extends Controller
             'question' => $question,
             'questionTypes' => QuestionType::cases(),
             'pricingTypes' => PricingAdjustmentType::cases(),
+            'optionPricingTypes' => [
+                PricingAdjustmentType::None,
+                PricingAdjustmentType::Fixed,
+                PricingAdjustmentType::Percentage,
+            ],
             'pricingModes' => PricingApplicationMode::cases(),
             'percentageBases' => PricingPercentageBasis::cases(),
             'organization' => $context->organization(),

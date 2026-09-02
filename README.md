@@ -1,6 +1,17 @@
-# Appointment Software — M9
+# Appointment Software — M9-R1
 
-M9 adds organization-owned Stripe and PayPal hosted checkout, full or retainer collection, client-paid balances, signed/idempotent webhook reconciliation, cancellation and manual refunds, and exact-email/domain allowlist and blocklist rules. See `docs/PAYMENTS.md`, `docs/CHANGES-M9.md`, and `docs/UPGRADE-M8-R1-TO-M9.md`.
+M9-R1 adds quantity-aware equipment inventory and free, per-piece, exact-bundle or fixed rental pricing to M9's organization-owned payment workflow. See `docs/EQUIPMENT-INVENTORY.md`, `docs/CHANGES-M9-R1.md`, and `docs/UPGRADE-M9-TO-M9-R1.md`.
+
+## M9-R1 equipment capabilities
+
+- Explicit quantity tracking and physical stock counts for interchangeable equipment, including shared resources.
+- Guarded deletion for resources that have never entered a booking hold or appointment.
+- Explicit numeric-question **Answer × rate** add-ons, including decimal answers and included units.
+- Per-appointment-type required quantities snapshotted onto holds and appointments.
+- Overlapping availability based on remaining pieces rather than binary busy/free state.
+- Public slot stock such as “19 of 20 available” plus the quantity the slot will reserve.
+- Free, per-piece, fixed-fee and cheapest-exact-bundle pricing.
+- Equipment price lines included in M9 checkout, retainers, balances and refunds.
 
 ## M9 payment capabilities
 

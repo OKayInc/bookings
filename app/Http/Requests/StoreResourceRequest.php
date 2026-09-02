@@ -19,6 +19,15 @@ class StoreResourceRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:180'],
             'type' => ['required', 'in:person,room,equipment,vehicle,other'],
+            'quantity_enabled' => ['nullable', 'boolean'],
+            'inventory_quantity' => [
+                'exclude_unless:type,equipment',
+                Rule::requiredIf(fn (): bool => $this->input('type') === 'equipment' && $this->boolean('quantity_enabled')),
+                'nullable',
+                'integer',
+                'min:1',
+                'max:'.config('equipment.max_inventory_quantity', 100000),
+            ],
             'person_uuid' => ['nullable', 'uuid'],
             'timezone' => ['nullable', new IanaTimezone()],
             'default_requirement' => ['nullable', 'in:required,optional'],

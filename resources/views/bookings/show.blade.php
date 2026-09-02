@@ -9,6 +9,18 @@
     <div class="card"><h3>Price</h3><p>{{ app(\App\Domain\Money\MoneyService::class)->format($booking->price_minor, $booking->currency) }}</p><p>{{ $booking->attendee_count }} attendee(s)</p></div>
 </div>
 
+@php $quantityEquipment = $booking->appointment->resources->filter(fn ($resource) => $resource->usesQuantityInventory()); @endphp
+@if($quantityEquipment->isNotEmpty())
+<div class="card">
+    <h2>Equipment allocation</h2>
+    <ul>
+        @foreach($quantityEquipment as $resource)
+            <li>{{ $resource->name }}: {{ (int) ($resource->pivot->quantity_reserved ?? 1) }} of {{ $resource->inventory_quantity }} pieces reserved</li>
+        @endforeach
+    </ul>
+</div>
+@endif
+
 @php
     $money = app(\App\Domain\Money\MoneyService::class);
 @endphp

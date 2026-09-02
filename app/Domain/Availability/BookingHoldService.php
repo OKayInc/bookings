@@ -7,6 +7,7 @@ use App\Models\AppointmentType;
 use App\Models\BookingHold;
 use App\Models\Resource;
 use App\Domain\Resources\ResourceRequirementService;
+use App\Domain\Resources\EquipmentInventoryService;
 use App\Domain\Calendars\CalendarAvailabilityService;
 use App\Domain\Tickets\TicketInventoryService;
 use Carbon\CarbonImmutable;
@@ -22,6 +23,7 @@ class BookingHoldService
         private readonly ResourceRequirementService $requirements,
         private readonly CalendarAvailabilityService $externalCalendars,
         private readonly TicketInventoryService $ticketInventory,
+        private readonly EquipmentInventoryService $equipmentInventory,
     ) {
     }
 
@@ -79,6 +81,9 @@ class BookingHoldService
                 $selectedResources[$resource->getKey()] = [
                     'is_required' => true,
                     'replacement_group' => null,
+                    'quantity_reserved' => $resource->usesQuantityInventory()
+                        ? $this->equipmentInventory->requiredQuantity($resource)
+                        : 1,
                 ];
             }
 
@@ -93,6 +98,7 @@ class BookingHoldService
                     $selectedResources[$resource->getKey()] = [
                         'is_required' => true,
                         'replacement_group' => $replacementGroup,
+                        'quantity_reserved' => 1,
                     ];
                     $availableInGroup++;
                 }
@@ -107,6 +113,9 @@ class BookingHoldService
                     $selectedResources[$resource->getKey()] = [
                         'is_required' => false,
                         'replacement_group' => null,
+                        'quantity_reserved' => $resource->usesQuantityInventory()
+                            ? $this->equipmentInventory->requiredQuantity($resource)
+                            : 1,
                     ];
                 }
             }

@@ -246,7 +246,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::get('/availability/preview', AvailabilityPreviewController::class)->name('availability.preview');
 
         Route::patch('/resources/{resource}/organization-settings', [ResourceController::class, 'updateOrganizationSettings'])->name('resources.organization-settings.update');
-        Route::resource('resources', ResourceController::class)->except(['show', 'destroy']);
+        Route::resource('resources', ResourceController::class)->except(['show']);
         Route::get('/organization-members', [OrganizationMemberController::class, 'index'])->name('organization-members.index');
         Route::post('/organization-member-invitations', [OrganizationMemberController::class, 'store'])->name('organization-members.invitations.store');
         Route::delete('/organization-member-invitations/{invitation}', [OrganizationMemberController::class, 'destroy'])->name('organization-members.invitations.destroy');

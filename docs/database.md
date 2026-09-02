@@ -1,4 +1,10 @@
-# Database — M9
+# Database — M9-R1
+
+## M9-R1 equipment inventory
+
+Migration `2026_09_02_000064_add_m9_r1_equipment_inventory.php` adds global physical stock to `resources.inventory_quantity`. Migration `2026_09_02_000065_add_quantity_enabled_to_equipment_resources.php` adds the explicit `resources.quantity_enabled` switch that distinguishes interchangeable stock from ordinary binary equipment. `appointment_type_resources` stores `quantity_required` plus free, per-unit, fixed or JSON bundle pricing in the appointment type's organization currency. `booking_hold_resources.quantity_reserved` and `appointment_resources.quantity_reserved` snapshot the allocation through checkout and scheduling.
+
+Inventory queries sum active unexpired holds with no existing appointment and scheduled appointments whose buffer-expanded intervals overlap the candidate interval. Group capacity holds linked to an existing appointment are excluded because the appointment row already owns the physical allocation. Existing rows default to quantity `1` and free pricing.
 
 ## M9 payment ledger
 

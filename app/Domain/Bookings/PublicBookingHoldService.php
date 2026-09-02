@@ -163,6 +163,7 @@ class PublicBookingHoldService
                 $resource->getKey() => [
                     'is_required' => (bool) $resource->pivot->is_required,
                     'replacement_group' => $resource->pivot->replacement_group,
+                    'quantity_reserved' => (int) ($resource->pivot->quantity_reserved ?? 1),
                 ],
             ])->all());
 

@@ -26,7 +26,7 @@ class PublicAppointmentTypeController extends Controller
     {
         $organization = Organization::where('slug', $organizationSlug)->firstOrFail();
         $appointmentTypes = $organization->appointmentTypes()
-            ->with('organization')
+            ->with(['organization', 'resources'])
             ->where('is_active', true)
             ->where('visibility', AppointmentVisibility::Public->value)
             ->orderBy('name')

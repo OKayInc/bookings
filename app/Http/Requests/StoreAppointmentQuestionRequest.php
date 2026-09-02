@@ -2,13 +2,16 @@
 
 namespace App\Http\Requests;
 
+use App\Domain\Money\MoneyService;
 use App\Enums\PricingAdjustmentType;
 use App\Enums\PricingApplicationMode;
 use App\Enums\PricingPercentageBasis;
 use App\Enums\QuestionType;
+use App\Support\Organizations\OrganizationContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
+use InvalidArgumentException;
 
 class StoreAppointmentQuestionRequest extends FormRequest
 {
@@ -64,7 +67,11 @@ class StoreAppointmentQuestionRequest extends FormRequest
             'options.*.uuid' => ['nullable', 'uuid'],
             'options.*.label' => ['required_with:options', 'string', 'max:255'],
             'options.*.value' => ['nullable', 'string', 'max:180'],
-            'options.*.pricing_adjustment_type' => ['nullable', Rule::enum(PricingAdjustmentType::class)],
+            'options.*.pricing_adjustment_type' => ['nullable', Rule::in([
+                PricingAdjustmentType::None->value,
+                PricingAdjustmentType::Fixed->value,
+                PricingAdjustmentType::Percentage->value,
+            ])],
             'options.*.pricing_amount' => ['nullable', 'string', 'max:40'],
             'options.*.pricing_percentage' => ['nullable', 'string', 'max:20'],
             'options.*.pricing_percentage_basis' => ['nullable', Rule::enum(PricingPercentageBasis::class)],
@@ -100,8 +107,24 @@ class StoreAppointmentQuestionRequest extends FormRequest
                 }
 
                 $pricingType = (string) $this->input('pricing_adjustment_type', 'none');
-                if ($pricingType === 'fixed' && trim((string) $this->input('pricing_amount')) === '') {
-                    $validator->errors()->add('pricing_amount', 'Enter the fixed extra charge.');
+                if (in_array($pricingType, ['fixed', 'rate'], true) && trim((string) $this->input('pricing_amount')) === '') {
+                    $validator->errors()->add(
+                        'pricing_amount',
+                        $pricingType === 'rate' ? 'Enter the rate per answer unit.' : 'Enter the fixed extra charge.',
+                    );
+                }
+                if ($pricingType === 'rate' && trim((string) $this->input('pricing_amount')) !== '') {
+                    try {
+                        $rate = app(MoneyService::class)->parse(
+                            (string) $this->input('pricing_amount'),
+                            app(OrganizationContext::class)->organization()->currency,
+                        );
+                        if ($rate <= 0) {
+                            $validator->errors()->add('pricing_amount', 'The rate per answer unit must be greater than zero.');
+                        }
+                    } catch (InvalidArgumentException $exception) {
+                        $validator->errors()->add('pricing_amount', $exception->getMessage());
+                    }
                 }
                 if ($pricingType === 'percentage' && trim((string) $this->input('pricing_percentage')) === '') {
                     $validator->errors()->add('pricing_percentage', 'Enter the percentage extra charge.');

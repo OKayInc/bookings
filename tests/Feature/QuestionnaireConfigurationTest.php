@@ -1,5 +1,7 @@
 <?php
 namespace Tests\Feature;
+use App\Domain\Questionnaires\QuestionnairePricingService;
+use App\Domain\Questionnaires\QuestionnaireSubmissionService;
 use App\Enums\MembershipRole;
 use App\Enums\MembershipStatus;
 use App\Enums\AppointmentStatus;
@@ -14,9 +16,48 @@ use App\Models\Organization;
 use App\Models\OrganizationMembership;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Tests\TestCase;
 class QuestionnaireConfigurationTest extends TestCase {
  use RefreshDatabase;
+ public function test_numeric_answer_rate_is_persisted_and_multiplied_by_the_answer(): void {
+  [$user,$org,$type]=$this->context();
+  $response=$this->actingAs($user)->withSession(['active_organization_uuid'=>$org->uuid])->post(route('appointment-types.questions.store',$type),[
+   'type'=>'number','label'=>'Additional hours','is_required'=>'1','is_active'=>'1','position'=>1,
+   'number_min'=>'0','number_step'=>'0.5','pricing_adjustment_type'=>'rate','pricing_amount'=>'2.50','pricing_included_units'=>1,
+  ]);
+
+  $response->assertSessionHasNoErrors()->assertRedirect(route('appointment-types.questionnaire.index',$type));
+  $question=AppointmentQuestion::firstOrFail();
+  $this->assertSame('rate',$question->pricing_adjustment_type->value);
+  $this->assertSame('per_unit',$question->pricing_application_mode->value);
+  $this->assertSame(250,$question->pricing_amount_minor);
+
+  $quote=app(QuestionnairePricingService::class)->quote($type->fresh(),60,[$question->uuid=>'4.5']);
+  $this->assertSame(10875,$quote->totalMinor);
+  $line=collect($quote->lines)->firstWhere('sourceUuid',$question->uuid);
+  $this->assertSame('rate',$line->lineType);
+  $this->assertSame('3.5',$line->quantity);
+  $this->assertSame(875,$line->amountMinor);
+  $this->assertSame('4.5',$line->metadata['entered_answer']);
+  $this->assertSame(250,$line->metadata['rate_amount_minor']);
+
+  $submission=app(QuestionnaireSubmissionService::class)->validateForBooking(
+   Request::create('/','POST',['answers'=>[$question->uuid=>'4.5']]),$type->fresh(),60,
+  );
+  $this->assertSame(10875,$submission->quote->totalMinor);
+
+  $this->actingAs($user)->withSession(['active_organization_uuid'=>$org->uuid])
+   ->get(route('appointment-types.questions.edit',[$type,$question]))
+   ->assertOk()->assertSee('Answer × rate')->assertSee('Rate per answer unit');
+ }
+ public function test_numeric_answer_rate_must_be_greater_than_zero(): void {
+  [$user,$org,$type]=$this->context();
+  $this->actingAs($user)->withSession(['active_organization_uuid'=>$org->uuid])->post(route('appointment-types.questions.store',$type),[
+   'type'=>'number','label'=>'Additional hours','is_active'=>'1','pricing_adjustment_type'=>'rate','pricing_amount'=>'0.00',
+  ])->assertSessionHasErrors('pricing_amount');
+  $this->assertDatabaseCount('appointment_questions',0);
+ }
  public function test_owner_can_add_select_question_with_fixed_and_percentage_option_charges(): void {
   [$user,$org,$type]=$this->context();
   $response=$this->actingAs($user)->withSession(['active_organization_uuid'=>$org->uuid])->post(route('appointment-types.questions.store',$type),[

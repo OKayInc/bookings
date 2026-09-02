@@ -8,6 +8,7 @@ use App\Domain\Availability\AvailabilityService;
 use App\Domain\Availability\BookableSlot;
 use App\Domain\Availability\OrganizationHolidayService;
 use App\Domain\Availability\ResourceHolidayService;
+use App\Domain\Resources\EquipmentInventoryService;
 use App\Enums\AppointmentStatus;
 use App\Enums\AttendanceMode;
 use App\Enums\BookingHoldStatus;
@@ -25,6 +26,7 @@ class PublicBookingAvailabilityService
         private readonly OrganizationHolidayService $holidays,
         private readonly ResourceHolidayService $resourceHolidays,
         private readonly AppointmentTypeSeasonService $seasons,
+        private readonly EquipmentInventoryService $equipmentInventory,
     ) {
     }
 
@@ -52,6 +54,7 @@ class PublicBookingAvailabilityService
                 $slot->endsAtUtc,
                 null,
                 (int) $type->capacity,
+                $slot->equipmentAvailability,
             );
         }
 
@@ -90,7 +93,18 @@ class PublicBookingAvailabilityService
             if ($this->resourceHolidays->assignedRequiredResourcesClosed($type->organization, $appointment->resources, $start, $end)) {
                 continue;
             }
-            $result[$start->format('Y-m-d\TH:i:s.u\Z')] = new BookableSlot($start, $end, $appointment, $remaining);
+            $result[$start->format('Y-m-d\TH:i:s.u\Z')] = new BookableSlot(
+                $start,
+                $end,
+                $appointment,
+                $remaining,
+                $this->equipmentInventory->snapshotsForTypeAt(
+                    $type,
+                    CarbonImmutable::instance($appointment->blocked_starts_at_utc)->utc(),
+                    CarbonImmutable::instance($appointment->blocked_ends_at_utc)->utc(),
+                    $appointment,
+                ),
+            );
         }
 
         ksort($result);

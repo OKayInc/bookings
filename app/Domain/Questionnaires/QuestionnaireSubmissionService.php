@@ -2,6 +2,7 @@
 
 namespace App\Domain\Questionnaires;
 
+use App\Enums\PricingAdjustmentType;
 use App\Enums\QuestionType;
 use App\Models\AppointmentType;
 use Carbon\CarbonImmutable;
@@ -33,6 +34,7 @@ class QuestionnaireSubmissionService
         ?CarbonImmutable $nowUtc = null,
         int $attendeeCount = 1,
         array $ticketSeats = [],
+        ?array $equipmentResourceQuantities = null,
     ): QuestionnaireQuote {
         $visibleQuestions = $this->visibility->visibleQuestions($type, $answers);
         $visibleAnswers = $this->visibleAnswers($visibleQuestions, $answers);
@@ -66,7 +68,17 @@ class QuestionnaireSubmissionService
             }
         }
 
-        return $this->pricing->quote($type, $duration, $visibleAnswers, $startsAtUtc, $nowUtc, $distanceMeters, $attendeeCount, $ticketSeats);
+        return $this->pricing->quote(
+            $type,
+            $duration,
+            $visibleAnswers,
+            $startsAtUtc,
+            $nowUtc,
+            $distanceMeters,
+            $attendeeCount,
+            $ticketSeats,
+            $equipmentResourceQuantities,
+        );
     }
 
     public function validateForBooking(
@@ -77,6 +89,7 @@ class QuestionnaireSubmissionService
         ?CarbonImmutable $nowUtc = null,
         int $attendeeCount = 1,
         array $ticketSeats = [],
+        ?array $equipmentResourceQuantities = null,
     ): QuestionnaireSubmission {
         $submittedAnswers = (array) $request->input('answers', []);
         $visibleQuestions = $this->visibility->visibleQuestions($type, $submittedAnswers);
@@ -94,7 +107,9 @@ class QuestionnaireSubmissionService
                 QuestionType::DateTime => [$required, 'date_format:Y-m-d\\TH:i'],
                 QuestionType::Number => array_values(array_filter([
                     $required,
-                    $question->pricing_adjustment_type->value !== 'none' ? 'integer' : 'numeric',
+                    in_array($question->pricing_adjustment_type, [PricingAdjustmentType::None, PricingAdjustmentType::Rate], true)
+                        ? 'numeric'
+                        : 'integer',
                     isset($question->configuration['min']) ? 'min:'.$question->configuration['min'] : null,
                     isset($question->configuration['max']) ? 'max:'.$question->configuration['max'] : null,
                 ])),
@@ -187,7 +202,17 @@ class QuestionnaireSubmissionService
         }
 
         try {
-            $quote = $this->pricing->quote($type, $duration, $raw, $startsAtUtc, $nowUtc, $distanceMeters, $attendeeCount, $ticketSeats);
+            $quote = $this->pricing->quote(
+                $type,
+                $duration,
+                $raw,
+                $startsAtUtc,
+                $nowUtc,
+                $distanceMeters,
+                $attendeeCount,
+                $ticketSeats,
+                $equipmentResourceQuantities,
+            );
         } catch (\InvalidArgumentException $exception) {
             throw ValidationException::withMessages(['questionnaire' => $exception->getMessage()]);
         }

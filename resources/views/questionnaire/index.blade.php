@@ -13,7 +13,8 @@
  <td>{{ $question->type->label() }}@if($question->type->hasOptions())<div class="muted">{{ $question->options->count() }} option(s)</div>@endif @if($question->numericConstraints->isNotEmpty())<div class="muted">{{ $question->numericConstraints->count() }} numeric constraint(s)</div>@endif</td>
  <td>{{ $question->is_required ? 'Yes' : 'No' }}</td>
  <td>
- @if($question->pricing_adjustment_type->value !== 'none'){{ ucfirst(str_replace('_',' ',$question->pricing_adjustment_type->value)) }} {{ str_replace('_',' ',$question->pricing_application_mode->value) }}
+ @if($question->pricing_adjustment_type->value === 'rate')Answer × rate
+ @elseif($question->pricing_adjustment_type->value !== 'none'){{ $question->pricing_adjustment_type->label() }} {{ str_replace('_',' ',$question->pricing_application_mode->value) }}
  @elseif($question->options->contains(fn($o)=>$o->pricing_adjustment_type->value!=='none'))Option charges
  @else None @endif
  </td><td>{{ $question->is_active ? 'Active' : 'Disabled' }}</td>

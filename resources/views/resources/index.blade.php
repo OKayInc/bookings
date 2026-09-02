@@ -2,9 +2,9 @@
 @section('title', 'Resources')
 @section('content')
 <div class="actions" style="justify-content:space-between"><h1>Resources</h1><a class="btn btn-primary" href="{{ route('resources.create') }}">Add resource</a></div>
-<div class="card"><div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Name</th><th>Type</th><th>Person</th><th>Timezone</th><th>Organization settings</th><th>Status</th><th></th></tr></thead><tbody>
+<div class="card"><div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Name</th><th>Type / stock</th><th>Person</th><th>Timezone</th><th>Organization settings</th><th>Status</th><th></th></tr></thead><tbody>
 @forelse($resources as $resource)
-<tr><td>{{ $resource->name }}</td><td>{{ $resource->type }}</td><td>{{ $resource->person?->full_name ?? '—' }}</td><td>{{ $resource->timezone ?? 'Organization default' }}</td><td>
+<tr><td>{{ $resource->name }}</td><td>{{ $resource->type }}@if($resource->usesQuantityInventory())<br><span class="badge">{{ $resource->inventory_quantity }} pieces</span>@elseif($resource->type === 'equipment')<br><span class="badge">Quantity tracking off</span>@endif</td><td>{{ $resource->person?->full_name ?? '—' }}</td><td>{{ $resource->timezone ?? 'Organization default' }}</td><td>
 @php
     $holidayRegion = $resource->pivot->holiday_region ?: ($resourceHolidaySuggestions[$resource->uuid] ?? null);
 @endphp
@@ -27,7 +27,7 @@
 <button class="btn btn-sm" type="submit">Save</button>
 </form>
 @endif
-</td><td><span class="badge">{{ $resource->is_active ? 'Active' : 'Inactive' }}</span></td><td>@if(hash_equals($resource->organization_id, $organization->getKey()))<a class="btn" href="{{ route('resources.edit', $resource) }}">Edit</a>@else<span class="badge">Shared from {{ $resource->organization->name }}</span>@endif</td></tr>
+</td><td><span class="badge">{{ $resource->is_active ? 'Active' : 'Inactive' }}</span></td><td>@if(hash_equals($resource->organization_id, $organization->getKey()))<div class="d-flex flex-wrap gap-1"><a class="btn" href="{{ route('resources.edit', $resource) }}">Edit</a>@if((int) $resource->appointments_count === 0 && (int) $resource->booking_holds_count === 0 && (int) $resource->confirmations_count === 0)<form method="post" action="{{ route('resources.destroy', $resource) }}" onsubmit="return confirm('Delete this unused resource? Its appointment-type assignments, availability, and calendar configuration will also be removed.');">@csrf @method('DELETE')<button class="btn btn-danger" type="submit">Delete</button></form>@endif</div>@else<span class="badge">Shared from {{ $resource->organization->name }}</span>@endif</td></tr>
 @empty<tr><td colspan="7">No resources yet.</td></tr>@endforelse
 </tbody></table></div></div>
 @endsection

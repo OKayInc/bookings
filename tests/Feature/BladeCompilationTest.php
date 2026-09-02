@@ -10,6 +10,8 @@ class BladeCompilationTest extends TestCase
     {
         foreach ([
             'questionnaire/partials/numeric-constraints.blade.php',
+            'questionnaire/partials/form.blade.php',
+            'questionnaire/index.blade.php',
             'public/bookings/partials/questionnaire.blade.php',
             'public/bookings/details.blade.php',
             'tickets/index.blade.php',
@@ -20,6 +22,9 @@ class BladeCompilationTest extends TestCase
             'bookings/show.blade.php',
             'public/bookings/received.blade.php',
             'public/payments/return.blade.php',
+            'resources/partials/form.blade.php',
+            'resources/index.blade.php',
+            'public/appointment-types/show.blade.php',
         ] as $view) {
             $path = resource_path('views/'.$view);
             $compiled = app('blade.compiler')->compileString(file_get_contents($path));

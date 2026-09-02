@@ -206,6 +206,9 @@ class BookingCreationService
                 CarbonImmutable::instance($hold->starts_at_utc)->utc(),
                 attendeeCount: (int) $hold->attendee_count,
                 ticketSeats: $ticketSeats,
+                equipmentResourceQuantities: $hold->resources->mapWithKeys(fn ($resource) => [
+                    $resource->getKey() => (int) ($resource->pivot->quantity_reserved ?? 1),
+                ])->all(),
             ));
             if ($questionnaire->quote->basePriceMinor !== $basePriceMinor) {
                 throw new RuntimeException('The appointment price has changed. Please review the price and submit the booking again.');
@@ -353,6 +356,7 @@ class BookingCreationService
                 $resource->getKey() => [
                     'is_required' => (bool) $resource->pivot->is_required,
                     'replacement_group' => $resource->pivot->replacement_group,
+                    'quantity_reserved' => (int) ($resource->pivot->quantity_reserved ?? 1),
                 ],
             ])->all(),
         );

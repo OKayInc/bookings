@@ -200,6 +200,7 @@ class PublicBookingManageController extends Controller
                 'starts_at_utc' => $slot->startsAtUtc->toIso8601String(),
                 'client_label' => $label,
                 'remaining_capacity' => $slot->remainingCapacity,
+                'equipment_availability' => $slot->equipmentAvailability,
             ];
         }, $slots)]);
     }

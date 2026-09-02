@@ -22,7 +22,11 @@ class ResourceController extends Controller
     public function index(OrganizationContext $context, HolidayRegionCatalog $holidayRegions): View
     {
         $organization = $context->organization();
-        $resources = $organization->resources()->with(['person', 'organization'])->orderBy('name')->get();
+        $resources = $organization->resources()
+            ->with(['person', 'organization'])
+            ->withCount(['appointments', 'bookingHolds', 'confirmations'])
+            ->orderBy('name')
+            ->get();
 
         return view('resources.index', [
             'organization' => $organization,
@@ -54,13 +58,16 @@ class ResourceController extends Controller
         $this->authorize('manageScheduling', $organization);
         $data = $request->validated();
         $personKey = $this->personKey($data, $organization);
+        $quantityEnabled = $data['type'] === 'equipment' && $request->boolean('quantity_enabled');
 
-        DB::transaction(function () use ($request, $organization, $data, $personKey): void {
+        DB::transaction(function () use ($request, $organization, $data, $personKey, $quantityEnabled): void {
             $resource = Resource::create([
                 'organization_id' => $organization->getKey(),
                 'person_id' => $personKey,
                 'name' => $data['name'],
                 'type' => $data['type'],
+                'inventory_quantity' => $quantityEnabled ? (int) $data['inventory_quantity'] : 1,
+                'quantity_enabled' => $quantityEnabled,
                 'timezone' => $data['timezone'] ?? null,
                 'is_active' => $request->boolean('is_active', true),
                 'is_required_by_default' => ($data['default_requirement'] ?? 'required') === 'required',
@@ -131,12 +138,15 @@ class ResourceController extends Controller
         $data = $request->validated();
         $personKey = $this->personKey($data, $organization);
         $defaultRequired = ($data['default_requirement'] ?? 'required') === 'required';
+        $quantityEnabled = $data['type'] === 'equipment' && $request->boolean('quantity_enabled');
 
-        DB::transaction(function () use ($request, $resource, $organization, $data, $personKey, $defaultRequired): void {
+        DB::transaction(function () use ($request, $resource, $organization, $data, $personKey, $defaultRequired, $quantityEnabled): void {
             $resource->update([
                 'person_id' => $personKey,
                 'name' => $data['name'],
                 'type' => $data['type'],
+                'inventory_quantity' => $quantityEnabled ? (int) $data['inventory_quantity'] : 1,
+                'quantity_enabled' => $quantityEnabled,
                 'timezone' => $data['timezone'] ?? null,
                 'is_active' => $request->boolean('is_active'),
                 'is_required_by_default' => $defaultRequired,
@@ -161,6 +171,32 @@ class ResourceController extends Controller
         });
 
         return redirect()->route('resources.index')->with('success', 'Resource updated.');
+    }
+
+    public function destroy(Resource $resource, OrganizationContext $context): RedirectResponse
+    {
+        $organization = $context->organization();
+        $this->ensureOwned($resource, $organization);
+        $this->authorize('manage', $resource);
+
+        return DB::transaction(function () use ($resource): RedirectResponse {
+            $locked = Resource::query()->whereKey($resource->getKey())->lockForUpdate()->firstOrFail();
+            if ($locked->appointments()->exists()
+                || $locked->bookingHolds()->exists()
+                || $locked->confirmations()->exists()) {
+                return redirect()->route('resources.index')->withErrors([
+                    'resource' => 'This resource cannot be deleted because it has booking or appointment history. Disable it instead.',
+                ]);
+            }
+
+            // Availability schedules use a polymorphic binary scope without a database
+            // foreign key, so remove them explicitly. Other resource configuration is
+            // protected by cascading foreign keys.
+            $locked->availabilitySchedules()->delete();
+            $locked->delete();
+
+            return redirect()->route('resources.index')->with('success', 'Unused resource deleted.');
+        });
     }
 
     private function formData(

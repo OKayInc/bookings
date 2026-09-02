@@ -38,6 +38,19 @@
     @endif
 </div>
 
+@php $quantityEquipment = $hold->resources->filter(fn ($resource) => $resource->usesQuantityInventory()); @endphp
+@if($quantityEquipment->isNotEmpty())
+<div class="card">
+    <h2>Equipment reserved</h2>
+    <ul>
+        @foreach($quantityEquipment as $resource)
+            <li>{{ $resource->name }}: {{ (int) ($resource->pivot->quantity_reserved ?? 1) }} piece(s)</li>
+        @endforeach
+    </ul>
+    <p class="muted">These quantities are held for this time while you finish checkout.</p>
+</div>
+@endif
+
 @if($hold->contractTemplate)
 <div class="card">
     <h2>Contract</h2>

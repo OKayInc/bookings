@@ -8,8 +8,8 @@
 - **M6 Confirmation + Policies — complete:** employee/resource acceptance, cancellation/rescheduling policy enforcement and reminders.
 - **M7 Calendars — complete:** Google Calendar and Microsoft Graph availability/synchronization with per-appointment-type calendar selection, followed by the M7 revision series through M7-R21.
 - **M8 Ticketing — complete through M8-R1:** ticketed-event timing, optional seat numbering, one ticket per attendee, printable Code 128 tickets, lifecycle handling, admission check-in, enforced ticket-compatible modes and paid seating-block fees.
-- **M9 Payments — complete:** organization-specific Stripe/PayPal hosted checkout, full/retainer collection, client-paid balances, automatic/manual refunds and allowlist/blocklist rules.
+- **M9 Payments — complete through M9-R1:** organization-specific Stripe/PayPal hosted checkout, full/retainer collection, client-paid balances, automatic/manual refunds, allowlist/blocklist rules, and quantity-aware equipment inventory with rental pricing.
 - **M10 API:** two-key client/organization API authentication, organization-role authorization and administrative purge commands.
 - **M11 Product plans:** free/paid capabilities, configurable free-plan caps, advertising and owner-granted forever-free unlimited accounts.
 
-M9 makes payment a tenant-owned workflow: every organization supplies its own encrypted merchant credentials and every booking keeps immutable collection/refund terms. See `docs/PAYMENTS.md` and `docs/UPGRADE-M8-R1-TO-M9.md`.
+M9 makes payment a tenant-owned workflow: every organization supplies its own encrypted merchant credentials and every booking keeps immutable collection/refund terms. M9-R1 adds globally shared physical equipment stock with organization-currency pricing on each appointment-type assignment. See `docs/PAYMENTS.md`, `docs/EQUIPMENT-INVENTORY.md`, and `docs/UPGRADE-M9-TO-M9-R1.md`.

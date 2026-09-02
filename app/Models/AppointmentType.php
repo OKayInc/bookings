@@ -176,7 +176,16 @@ class AppointmentType extends Model
     public function resources(): BelongsToMany
     {
         return $this->belongsToMany(Resource::class, 'appointment_type_resources')
-            ->withPivot('is_required', 'requirement_mode', 'replacement_group')
+            ->withPivot(
+                'is_required',
+                'requirement_mode',
+                'replacement_group',
+                'quantity_required',
+                'equipment_pricing_mode',
+                'equipment_unit_price_minor',
+                'equipment_fixed_price_minor',
+                'equipment_bundle_prices',
+            )
             ->withTimestamps();
     }
 

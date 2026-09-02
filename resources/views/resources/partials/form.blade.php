@@ -1,6 +1,15 @@
 <div class="row">
 <div class="field"><label>Name</label><input name="name" value="{{ old('name', $resource?->name) }}" required></div>
-<div class="field"><label>Type</label><select name="type">@foreach(['person','room','equipment','vehicle','other'] as $type)<option value="{{ $type }}" @selected(old('type', $resource?->type ?? 'person') === $type)>{{ ucfirst($type) }}</option>@endforeach</select></div>
+<div class="field"><label>Type</label><select id="resource-type" name="type">@foreach(['person','room','equipment','vehicle','other'] as $type)<option value="{{ $type }}" @selected(old('type', $resource?->type ?? 'person') === $type)>{{ ucfirst($type) }}</option>@endforeach</select></div>
+</div>
+<div class="field" id="equipment-inventory-field">
+<input type="hidden" name="quantity_enabled" value="0">
+<label class="inline-check"><input id="quantity_enabled" name="quantity_enabled" type="checkbox" value="1" @checked(old('quantity_enabled', $resource?->quantity_enabled ?? false))> Track a quantity of identical pieces</label>
+<div id="equipment-inventory-quantity-field">
+<label for="inventory_quantity">Equipment stock</label>
+<input id="inventory_quantity" name="inventory_quantity" type="number" min="1" max="{{ config('equipment.max_inventory_quantity', 100000) }}" value="{{ old('inventory_quantity', $resource?->inventory_quantity ?? 1) }}">
+<div class="muted">The number of identical physical pieces that can be allocated across overlapping appointments.</div>
+</div>
 </div>
 <div class="field">
 <label>Linked organization member (optional)</label>
@@ -44,10 +53,30 @@
 (() => {
     const enforce = document.getElementById('enforce-resource-holidays');
     const region = document.getElementById('resource-holiday-region');
-    if (!enforce || !region) return;
-    const refresh = () => region.required = enforce.checked;
-    enforce.addEventListener('change', refresh);
-    refresh();
+    if (enforce && region) {
+        const refreshHoliday = () => region.required = enforce.checked;
+        enforce.addEventListener('change', refreshHoliday);
+        refreshHoliday();
+    }
+
+    const type = document.getElementById('resource-type');
+    const inventoryField = document.getElementById('equipment-inventory-field');
+    const quantityEnabled = document.getElementById('quantity_enabled');
+    const inventoryQuantityField = document.getElementById('equipment-inventory-quantity-field');
+    const inventory = document.getElementById('inventory_quantity');
+    if (type && inventoryField && quantityEnabled && inventoryQuantityField && inventory) {
+        const refreshInventory = () => {
+            const equipment = type.value === 'equipment';
+            inventoryField.hidden = !equipment;
+            quantityEnabled.disabled = !equipment;
+            inventoryQuantityField.hidden = !equipment || !quantityEnabled.checked;
+            inventory.disabled = !equipment || !quantityEnabled.checked;
+            inventory.required = equipment && quantityEnabled.checked;
+        };
+        type.addEventListener('change', refreshInventory);
+        quantityEnabled.addEventListener('change', refreshInventory);
+        refreshInventory();
+    }
 })();
 </script>
 @endpush

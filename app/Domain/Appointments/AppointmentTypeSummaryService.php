@@ -4,6 +4,7 @@ namespace App\Domain\Appointments;
 
 use App\Domain\Bookings\BookingNoticeService;
 use App\Domain\Money\MoneyService;
+use App\Domain\Resources\EquipmentPricingService;
 use App\Enums\AttendanceMode;
 use App\Enums\AttendeePricingMode;
 use App\Enums\DurationMode;
@@ -18,6 +19,7 @@ class AppointmentTypeSummaryService
         private readonly MoneyService $money,
         private readonly AppointmentTypePricingService $pricing,
         private readonly BookingNoticeService $notice,
+        private readonly EquipmentPricingService $equipmentPricing,
     ) {
     }
 
@@ -60,13 +62,26 @@ class AppointmentTypeSummaryService
 
         $hasSeatingFees = $type->ticketing_enabled && collect($type->ticket_seat_blocks ?? [])
             ->contains(fn (array $block): bool => (int) ($block['seat_fee_minor'] ?? 0) > 0);
+        $equipmentTotal = $this->equipmentPricing->total($type);
+        if ($equipmentTotal > 0) {
+            $equipmentLabel = $this->money->format($equipmentTotal, $currency).' equipment';
+            $summary = $type->pricing_mode === PricingMode::Free
+                ? $equipmentLabel
+                : $summary.' + '.$equipmentLabel;
+        }
 
         return $hasSeatingFees ? $summary.' + allocated seating fees' : $summary;
     }
 
     public function examplePrice(AppointmentType $type): int
     {
-        return $this->pricing->priceForDuration($type);
+        $base = $this->pricing->priceForDuration($type);
+        $equipment = $this->equipmentPricing->total($type);
+        if ($equipment > PHP_INT_MAX - $base) {
+            throw new \InvalidArgumentException('The appointment price is too large.');
+        }
+
+        return $base + $equipment;
     }
 
     public function bookingNotice(AppointmentType $type): string

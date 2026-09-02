@@ -40,6 +40,8 @@ class ReplacementResourceTest extends TestCase
         [$owner, $organization] = $this->ownerContext();
         $first = $this->resource($organization, 'First photographer');
         $second = $this->resource($organization, 'Second photographer');
+        $this->assertFalse($first->usesQuantityInventory());
+        $this->assertFalse($second->usesQuantityInventory());
 
         $this->actingAs($owner)
             ->withSession(['active_organization_uuid' => $organization->uuid])

@@ -11,6 +11,7 @@ use App\Enums\DurationMode;
 use App\Enums\DurationUnit;
 use App\Enums\EmailVerificationMode;
 use App\Enums\ConferenceProvider;
+use App\Enums\EquipmentPricingMode;
 use App\Enums\PricingMode;
 use App\Enums\PaymentCollectionMode;
 use App\Enums\RetainerType;
@@ -183,18 +184,18 @@ class StoreAppointmentTypeRequest extends FormRequest
             ],
             'payment_collection_mode' => ['nullable', Rule::enum(PaymentCollectionMode::class)],
             'retainer_type' => [
-                Rule::requiredIf(fn (): bool => $this->input('pricing_mode') !== PricingMode::Free->value
+                Rule::requiredIf(fn (): bool => ($this->input('pricing_mode') !== PricingMode::Free->value || $this->hasPaidEquipment())
                     && $this->input('payment_collection_mode') === PaymentCollectionMode::Retainer->value),
                 'nullable', Rule::enum(RetainerType::class),
             ],
             'retainer_amount' => [
-                Rule::requiredIf(fn (): bool => $this->input('pricing_mode') !== PricingMode::Free->value
+                Rule::requiredIf(fn (): bool => ($this->input('pricing_mode') !== PricingMode::Free->value || $this->hasPaidEquipment())
                     && $this->input('payment_collection_mode') === PaymentCollectionMode::Retainer->value
                     && $this->input('retainer_type') === RetainerType::Fixed->value),
                 'nullable', new MoneyAmount($currency),
             ],
             'retainer_percentage' => [
-                Rule::requiredIf(fn (): bool => $this->input('pricing_mode') !== PricingMode::Free->value
+                Rule::requiredIf(fn (): bool => ($this->input('pricing_mode') !== PricingMode::Free->value || $this->hasPaidEquipment())
                     && $this->input('payment_collection_mode') === PaymentCollectionMode::Retainer->value
                     && $this->input('retainer_type') === RetainerType::Percentage->value),
                 'nullable', 'string', 'max:20',
@@ -210,6 +211,28 @@ class StoreAppointmentTypeRequest extends FormRequest
             'resource_requirement_modes.*' => ['nullable', Rule::enum(ResourceRequirementMode::class)],
             'resource_replacement_groups' => ['nullable', 'array'],
             'resource_replacement_groups.*' => ['nullable', 'string', 'max:80'],
+            'resource_quantities' => ['nullable', 'array'],
+            'resource_quantities.*' => [
+                'nullable',
+                'integer',
+                'min:1',
+                'max:'.config('equipment.max_inventory_quantity', 100000),
+            ],
+            'resource_equipment_pricing_modes' => ['nullable', 'array'],
+            'resource_equipment_pricing_modes.*' => ['nullable', Rule::enum(EquipmentPricingMode::class)],
+            'resource_equipment_unit_prices' => ['nullable', 'array'],
+            'resource_equipment_unit_prices.*' => ['nullable', new MoneyAmount($currency)],
+            'resource_equipment_fixed_prices' => ['nullable', 'array'],
+            'resource_equipment_fixed_prices.*' => ['nullable', new MoneyAmount($currency)],
+            'resource_equipment_bundles' => ['nullable', 'array'],
+            'resource_equipment_bundles.*' => ['nullable', 'array', 'max:'.config('equipment.max_bundle_tiers', 20)],
+            'resource_equipment_bundles.*.*.quantity' => [
+                'nullable',
+                'integer',
+                'min:1',
+                'max:'.config('equipment.max_inventory_quantity', 100000),
+            ],
+            'resource_equipment_bundles.*.*.amount' => ['nullable', new MoneyAmount($currency)],
             'requires_resource_confirmation' => ['nullable', 'boolean'],
             'email_verification_mode' => ['nullable', Rule::enum(EmailVerificationMode::class)],
 
@@ -411,6 +434,120 @@ class StoreAppointmentTypeRequest extends FormRequest
             $requirementModes = (array) $this->input('resource_requirement_modes', []);
             $replacementNames = (array) $this->input('resource_replacement_groups', []);
             $replacementGroups = [];
+            $organization = app(OrganizationContext::class)->organization();
+            $availableResources = $organization->resources()->get()->keyBy('uuid');
+            $money = app(MoneyService::class);
+
+            foreach ($selectedResourceUuids as $uuid) {
+                /** @var Resource|null $resource */
+                $resource = $availableResources->get($uuid);
+                if ($resource === null || $resource->type !== 'equipment') {
+                    continue;
+                }
+
+                $requirementMode = ResourceRequirementMode::tryFrom((string) ($requirementModes[$uuid] ?? ResourceRequirementMode::Inherit->value))
+                    ?? ResourceRequirementMode::Inherit;
+                // Replacement resources retain binary one-candidate semantics for
+                // backwards compatibility, even if the resource also has stock
+                // tracking enabled. The replacement group owns the selection.
+                $quantityManaged = $resource->usesQuantityInventory()
+                    && $requirementMode !== ResourceRequirementMode::Replacement;
+                if ($quantityManaged) {
+                    $quantity = filter_var(data_get($this->input('resource_quantities', []), $uuid), FILTER_VALIDATE_INT);
+                    if ($quantity === false || $quantity < 1) {
+                        $validator->errors()->add('resource_quantities.'.$uuid, 'Enter how many pieces this appointment requires.');
+                    } elseif ($quantity > (int) $resource->inventory_quantity) {
+                        $validator->errors()->add(
+                            'resource_quantities.'.$uuid,
+                            'The required quantity cannot exceed the equipment stock of '.$resource->inventory_quantity.'.',
+                        );
+                    }
+                }
+
+                $pricingMode = EquipmentPricingMode::tryFrom((string) data_get(
+                    $this->input('resource_equipment_pricing_modes', []),
+                    $uuid,
+                    EquipmentPricingMode::Free->value,
+                )) ?? EquipmentPricingMode::Free;
+                $effectiveRequired = match ($requirementMode) {
+                    ResourceRequirementMode::Required => true,
+                    ResourceRequirementMode::Replacement => true,
+                    ResourceRequirementMode::Optional => false,
+                    ResourceRequirementMode::Inherit => $resource->defaultRequiredForOrganization($organization),
+                };
+                if ($pricingMode !== EquipmentPricingMode::Free && ! $effectiveRequired) {
+                    $validator->errors()->add(
+                        'resource_equipment_pricing_modes.'.$uuid,
+                        'Paid equipment must be required so the displayed booking price is deterministic.',
+                    );
+                }
+
+                if ($pricingMode === EquipmentPricingMode::PerUnit) {
+                    $this->validatePositiveMoney(
+                        $validator,
+                        'resource_equipment_unit_prices.'.$uuid,
+                        data_get($this->input('resource_equipment_unit_prices', []), $uuid),
+                        $money,
+                        $organization->currency,
+                    );
+                }
+                if ($pricingMode === EquipmentPricingMode::Fixed) {
+                    $this->validatePositiveMoney(
+                        $validator,
+                        'resource_equipment_fixed_prices.'.$uuid,
+                        data_get($this->input('resource_equipment_fixed_prices', []), $uuid),
+                        $money,
+                        $organization->currency,
+                    );
+                }
+                if ($pricingMode === EquipmentPricingMode::Bundles) {
+                    $bundles = data_get($this->input('resource_equipment_bundles', []), $uuid, []);
+                    if (! is_array($bundles) || $bundles === []) {
+                        $validator->errors()->add('resource_equipment_bundles.'.$uuid, 'Add at least one equipment bundle.');
+                        continue;
+                    }
+
+                    $seenQuantities = [];
+                    foreach ($bundles as $index => $bundle) {
+                        if (! is_array($bundle)) {
+                            continue;
+                        }
+                        $bundleQuantity = filter_var($bundle['quantity'] ?? null, FILTER_VALIDATE_INT);
+                        if ($bundleQuantity === false || $bundleQuantity < 1) {
+                            $validator->errors()->add(
+                                'resource_equipment_bundles.'.$uuid.'.'.$index.'.quantity',
+                                'Enter a valid bundle quantity.',
+                            );
+                        } elseif ($bundleQuantity > (int) $resource->inventory_quantity) {
+                            $validator->errors()->add(
+                                'resource_equipment_bundles.'.$uuid.'.'.$index.'.quantity',
+                                'A bundle cannot exceed the equipment stock.',
+                            );
+                        } elseif (isset($seenQuantities[$bundleQuantity])) {
+                            $validator->errors()->add(
+                                'resource_equipment_bundles.'.$uuid.'.'.$index.'.quantity',
+                                'Each bundle quantity must be unique.',
+                            );
+                        } else {
+                            $seenQuantities[$bundleQuantity] = true;
+                        }
+
+                        $this->validatePositiveMoney(
+                            $validator,
+                            'resource_equipment_bundles.'.$uuid.'.'.$index.'.amount',
+                            $bundle['amount'] ?? null,
+                            $money,
+                            $organization->currency,
+                        );
+                    }
+                    if (! isset($seenQuantities[1])) {
+                        $validator->errors()->add(
+                            'resource_equipment_bundles.'.$uuid,
+                            'Bundle pricing requires a one-piece tier so every quantity has an exact price.',
+                        );
+                    }
+                }
+            }
 
             foreach ($selectedResourceUuids as $uuid) {
                 $mode = ResourceRequirementMode::tryFrom((string) ($requirementModes[$uuid] ?? ResourceRequirementMode::Inherit->value));
@@ -536,7 +673,7 @@ class StoreAppointmentTypeRequest extends FormRequest
             }
         }
 
-        if ($this->input('pricing_mode') === PricingMode::Free->value
+        if (($this->input('pricing_mode') === PricingMode::Free->value && ! $this->hasPaidEquipment())
             || $this->input('payment_collection_mode') !== PaymentCollectionMode::Retainer->value) {
             return;
         }
@@ -564,6 +701,40 @@ class StoreAppointmentTypeRequest extends FormRequest
             } catch (InvalidArgumentException $exception) {
                 $validator->errors()->add('retainer_percentage', $exception->getMessage());
             }
+        }
+    }
+
+    private function hasPaidEquipment(): bool
+    {
+        $selected = array_fill_keys((array) $this->input('resource_uuids', []), true);
+        foreach ((array) $this->input('resource_equipment_pricing_modes', []) as $uuid => $mode) {
+            if (isset($selected[$uuid]) && $mode !== EquipmentPricingMode::Free->value) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function validatePositiveMoney(
+        Validator $validator,
+        string $field,
+        mixed $value,
+        MoneyService $money,
+        string $currency,
+    ): void {
+        if (! is_string($value) && ! is_int($value)) {
+            $validator->errors()->add($field, 'Enter an amount greater than zero.');
+
+            return;
+        }
+
+        try {
+            if ($money->parse($value, $currency) <= 0) {
+                $validator->errors()->add($field, 'The amount must be greater than zero.');
+            }
+        } catch (InvalidArgumentException) {
+            // MoneyAmount provides the field-specific formatting error.
         }
     }
 
