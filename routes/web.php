@@ -24,6 +24,8 @@ use App\Http\Controllers\PaymentRuleController;
 use App\Http\Controllers\PublicPaymentController;
 use App\Http\Controllers\PaymentWebhookController;
 use App\Http\Controllers\BookingRefundController;
+use App\Http\Controllers\CouponController;
+use App\Http\Controllers\PublicCouponController;
 use App\Http\Controllers\PublicAppointmentTypeController;
 use App\Http\Controllers\PublicBookingController;
 use App\Http\Controllers\PublicBookingManageController;
@@ -52,6 +54,15 @@ Route::middleware('guest')->group(function (): void {
 
 Route::get('/o/{organizationSlug}', [PublicAppointmentTypeController::class, 'index'])
     ->name('public.appointment-types.index');
+Route::get('/o/{organizationSlug}/gift-cards', [PublicCouponController::class, 'index'])->name('public.coupons.index');
+Route::get('/o/{organizationSlug}/gift-cards/{couponOffer}', [PublicCouponController::class, 'show'])->name('public.coupons.show');
+Route::post('/o/{organizationSlug}/gift-cards/{couponOffer}', [PublicCouponController::class, 'purchase'])->middleware('throttle:20,1')->name('public.coupons.purchase');
+Route::get('/gift-card/{token}', [PublicCouponController::class, 'view'])->name('public.coupons.view');
+Route::post('/gift-card/{token}/unlock', [PublicCouponController::class, 'unlock'])->middleware('throttle:10,1')->name('public.coupons.unlock');
+Route::get('/gift-card/{token}/qr.svg', [PublicCouponController::class, 'qr'])->name('public.coupons.qr');
+Route::get('/coupon-payment/{payment}/{token}/stripe-return', [PublicCouponController::class, 'stripeReturn'])->middleware('throttle:30,1')->name('public.coupon-payments.stripe.return');
+Route::get('/coupon-payment/{payment}/{token}/paypal-return', [PublicCouponController::class, 'paypalReturn'])->middleware('throttle:30,1')->name('public.coupon-payments.paypal.return');
+Route::get('/coupon-payment/{payment}/{token}/cancel', [PublicCouponController::class, 'cancelPayment'])->middleware('throttle:30,1')->name('public.coupon-payments.cancel');
 Route::get('/o/{organizationSlug}/a/{appointmentSlug}', [PublicAppointmentTypeController::class, 'show'])
     ->name('public.appointment-types.show');
 Route::post('/o/{organizationSlug}/a/{appointmentSlug}/unlock', [PublicAppointmentTypeController::class, 'unlockPassword'])
@@ -198,6 +209,13 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::post('/payment-rules', [PaymentRuleController::class, 'store'])->name('payment-rules.store');
         Route::patch('/payment-rules/{paymentRule}/toggle', [PaymentRuleController::class, 'toggle'])->name('payment-rules.toggle');
         Route::delete('/payment-rules/{paymentRule}', [PaymentRuleController::class, 'destroy'])->name('payment-rules.destroy');
+        Route::get('/coupons', [CouponController::class, 'index'])->name('coupons.index');
+        Route::post('/coupons/offers', [CouponController::class, 'storeOffer'])->name('coupons.offers.store');
+        Route::patch('/coupons/offers/{couponOffer}/toggle', [CouponController::class, 'toggleOffer'])->name('coupons.offers.toggle');
+        Route::post('/coupons/manual', [CouponController::class, 'storeManual'])->name('coupons.manual.store');
+        Route::get('/coupons/{coupon}', [CouponController::class, 'show'])->name('coupons.show');
+        Route::delete('/coupons/{coupon}', [CouponController::class, 'destroy'])->name('coupons.destroy');
+        Route::post('/coupons/{coupon}/refunds/{refund}/retry', [CouponController::class, 'retryRefund'])->name('coupons.refunds.retry');
 
         Route::get('/calendar-connections', [CalendarConnectionController::class, 'index'])->name('calendar-connections.index');
         Route::get('/calendar-connections/resources/{resource}/{provider}/connect', [CalendarConnectionController::class, 'connect'])->name('calendar-connections.connect');

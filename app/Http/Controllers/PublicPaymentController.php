@@ -29,7 +29,7 @@ class PublicPaymentController extends Controller
         $this->authorizeManageToken($booking, $token);
         $data = $request->validate([
             'provider' => ['required', Rule::enum(PaymentProvider::class)],
-            'purpose' => ['required', Rule::enum(PaymentPurpose::class)],
+            'purpose' => ['required', Rule::in([PaymentPurpose::Initial->value, PaymentPurpose::Balance->value])],
         ]);
 
         try {

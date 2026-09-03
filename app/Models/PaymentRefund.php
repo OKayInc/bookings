@@ -13,16 +13,25 @@ class PaymentRefund extends Model
     use HasBinaryUuid;
 
     protected $fillable = [
-        'organization_id', 'booking_id', 'payment_transaction_id', 'requested_by_person_id',
+        'organization_id', 'booking_id', 'coupon_id', 'payment_transaction_id', 'requested_by_person_id',
         'provider', 'status', 'amount_minor', 'currency', 'idempotency_key', 'provider_refund_id',
         'reason', 'failure_message', 'provider_payload', 'completed_at_utc',
     ];
 
     protected $hidden = [
-        'id', 'organization_id', 'booking_id', 'payment_transaction_id', 'requested_by_person_id', 'provider_payload',
+        'id', 'organization_id', 'booking_id', 'coupon_id', 'payment_transaction_id', 'requested_by_person_id', 'provider_payload',
     ];
 
     protected $appends = ['uuid'];
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $refund): void {
+            if (($refund->booking_id === null) === ($refund->coupon_id === null)) {
+                throw new \InvalidArgumentException('A refund must belong to exactly one booking or coupon.');
+            }
+        });
+    }
 
     protected function casts(): array
     {
@@ -43,6 +52,11 @@ class PaymentRefund extends Model
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);
+    }
+
+    public function coupon(): BelongsTo
+    {
+        return $this->belongsTo(Coupon::class);
     }
 
     public function transaction(): BelongsTo

@@ -32,6 +32,9 @@ class PaymentCheckoutService
 
     public function start(Booking $booking, PaymentProvider $provider, PaymentPurpose $purpose): PaymentTransaction
     {
+        if ($purpose === PaymentPurpose::CouponPurchase) {
+            throw new RuntimeException('Coupon purchases must start from the public gift-card page.');
+        }
         $booking->loadMissing('organization.paymentSettings');
         if (! $this->providers->isAvailable($booking->organization, $provider)) {
             throw new RuntimeException($provider->label().' is not configured for this organization.');

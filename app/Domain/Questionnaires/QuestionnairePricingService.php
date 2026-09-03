@@ -73,7 +73,7 @@ class QuestionnairePricingService {
      $raw=$answers[$q->uuid] ?? null;
      if ($q->type->hasOptions()) {
        $ids=$q->type===QuestionType::Checkboxes ? (array)$raw : ($raw ? [(string)$raw] : []);
-       foreach ($q->options->where('is_active',true)->filter(fn ($o) => in_array($o->uuid, $ids, true))->sortBy('position') as $opt) {
+       foreach ($q->options->where('is_active',true)->filter(fn ($o) => in_array($o->uuid, $ids, true))->sort(fn ($a,$b): int => ($a->position <=> $b->position) ?: strcasecmp($a->label,$b->label) ?: strcmp($a->label,$b->label)) as $opt) {
          $amount=$this->adjustment($opt->pricing_adjustment_type,$opt->pricing_amount_minor,$opt->pricing_percentage_bps,$opt->pricing_percentage_basis,$base,$total,1);
          if ($amount>0) { $total=$this->safeAdd($total,$amount); $lines[]=new QuestionnairePriceLine('question_option',$opt->uuid,$q->label.': '.$opt->label,$opt->pricing_adjustment_type->value,'1',$amount,['question_uuid'=>$q->uuid]); }
        }

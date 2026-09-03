@@ -17,7 +17,7 @@
 <?php if ($booking->priceLines->isNotEmpty()): ?>
 <div class="card"><h2>Price breakdown</h2>
 <?php foreach ($booking->priceLines as $line): ?>
-<div class="price-line"><span><?= e($line->label) ?></span><strong><?= e(app(\App\Domain\Money\MoneyService::class)->format($line->amount_minor, $booking->currency)) ?></strong></div>
+<div class="price-line"><span><?= e($line->label) ?></span><strong><?= $line->line_type === 'coupon_discount' ? '−' : '' ?><?= e(app(\App\Domain\Money\MoneyService::class)->format($line->amount_minor, $booking->currency)) ?></strong></div>
 <?php endforeach; ?>
 <div class="price-line total"><span>Total</span><strong><?= e(app(\App\Domain\Money\MoneyService::class)->format($booking->price_minor, $booking->currency)) ?></strong></div></div>
 <?php endif; ?>

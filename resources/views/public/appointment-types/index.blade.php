@@ -2,6 +2,7 @@
 @section('title', $organization->name.' appointments')
 @section('content')
 <div class="card"><h1>{{ $organization->name }}</h1><p class="muted">Available public appointment types</p></div>
+@if($hasCouponOffers)<div class="card"><h2>Gift cards &amp; coupons</h2><p>Purchase a fixed-value gift card or percentage coupon for yourself or someone else.</p><a class="btn" href="{{ route('public.coupons.index', $organization->slug) }}">View gift cards &amp; coupons</a></div>@endif
 <div class="grid">
 @forelse($appointmentTypes as $type)
     <div class="card">

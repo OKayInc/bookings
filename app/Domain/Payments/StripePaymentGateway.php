@@ -18,14 +18,17 @@ class StripePaymentGateway
         string $successUrl,
         string $cancelUrl,
     ): array {
-        $booking = $payment->booking()->with('appointmentType')->firstOrFail();
+        $booking = $payment->booking()->with(['appointmentType', 'organization'])->first();
+        $coupon = $booking === null ? $payment->coupon()->with(['offer', 'organization'])->firstOrFail() : null;
+        $email = $booking?->email ?? $coupon->purchaser_email;
+        $name = $booking ? $booking->appointmentType->name.' — '.$payment->purpose->label() : ($coupon->offer?->name ?? 'Gift card / coupon');
         $response = $this->request($settings)
             ->withHeaders(['Idempotency-Key' => $payment->idempotency_key])
             ->asForm()
             ->post($this->url('/v1/checkout/sessions'), [
                 'mode' => 'payment',
                 'client_reference_id' => $payment->uuid,
-                'customer_email' => $booking->email,
+                'customer_email' => $email,
                 'success_url' => $successUrl,
                 'cancel_url' => $cancelUrl,
                 'line_items' => [[
@@ -34,20 +37,22 @@ class StripePaymentGateway
                         'currency' => strtolower($payment->currency),
                         'unit_amount' => (int) $payment->amount_minor,
                         'product_data' => [
-                            'name' => $booking->appointmentType->name.' — '.$payment->purpose->label(),
+                            'name' => $name,
                         ],
                     ],
                 ]],
                 'metadata' => [
                     'payment_uuid' => $payment->uuid,
-                    'booking_uuid' => $booking->uuid,
-                    'organization_uuid' => $booking->organization->uuid,
+                    'booking_uuid' => $booking?->uuid,
+                    'coupon_uuid' => $coupon?->uuid,
+                    'organization_uuid' => ($booking?->organization ?? $coupon->organization)->uuid,
                 ],
                 'payment_intent_data' => [
-                    'receipt_email' => $booking->email,
+                    'receipt_email' => $email,
                     'metadata' => [
                         'payment_uuid' => $payment->uuid,
-                        'booking_uuid' => $booking->uuid,
+                        'booking_uuid' => $booking?->uuid,
+                        'coupon_uuid' => $coupon?->uuid,
                     ],
                 ],
             ]);
@@ -92,7 +97,8 @@ class StripePaymentGateway
                     'amount' => (int) $refund->amount_minor,
                     'metadata' => [
                         'refund_uuid' => $refund->uuid,
-                        'booking_uuid' => $refund->booking->uuid,
+                        'booking_uuid' => $refund->booking?->uuid,
+                        'coupon_uuid' => $refund->coupon?->uuid,
                     ],
                 ]),
             'Stripe could not create the refund.',

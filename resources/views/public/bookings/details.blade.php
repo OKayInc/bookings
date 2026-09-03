@@ -76,6 +76,12 @@
 
     @include('public.bookings.partials.questionnaire')
 
+    <div class="section-card">
+        <h2>Gift card or coupon</h2>
+        <div class="field"><label for="coupon_code">Code <span class="muted">optional</span></label><input id="coupon_code" name="coupon_code" value="{{ old('coupon_code') }}" maxlength="80" autocomplete="off" placeholder="ABCD-EFGH-IJKL"></div>
+        <p class="muted">The discount is verified again when the booking is submitted. Fixed-value cards retain any unused balance.</p>
+    </div>
+
     @if($hold->attendee_count > 1)
     <div class="section-card">
         <h2>{{ $eventTiming ? 'Additional ticket holders' : 'Additional attendees' }}</h2>
@@ -106,7 +112,6 @@
 
     <div class="actions"><button class="btn btn-primary" type="submit">Submit booking</button><a class="btn" href="javascript:history.back()">Choose another time</a></div>
 </form>
-@if($type->questions->where('is_active',true)->isNotEmpty() || $type->shortNoticeFeeRules->where('is_active',true)->isNotEmpty() || $type->pricing_mode->value === 'per_attendee')
 <script src="{{ asset('js/numeric-question-constraints.js') }}?v=m7-r21"></script>
 <script src="{{ asset('js/question-visibility.js') }}?v=m9-r2"></script>
 <script>
@@ -134,12 +139,11 @@
  function refreshVisibility(){questionElements.forEach(element=>{const show=expressionMatches(element._visibilityConditions);const wasHidden=element.hidden;if(!show&&!wasHidden)element.querySelectorAll('input,select,textarea').forEach(clearControl);element.hidden=!show;element.setAttribute('aria-hidden',show?'false':'true');element.querySelectorAll('input,select,textarea').forEach(control=>{control.disabled=!show;control.required=show&&control.dataset.visibilityRequired==='1';});});}
  async function updateQuote(){
    const source=new FormData(form), body=new FormData(); body.append('_token',source.get('_token'));
-   for(const [key,value] of source.entries()) if(key.startsWith('answers[') && !(value instanceof File)) body.append(key,value);
+   for(const [key,value] of source.entries()) if((key.startsWith('answers[')||key==='coupon_code') && !(value instanceof File)) body.append(key,value);
    try { const response=await fetch(@json(route('public.booking-holds.quote',$holdToken)),{method:'POST',headers:{'Accept':'application/json'},body}); const data=await response.json(); if(!response.ok) throw new Error(data.message||'Unable to calculate price.'); total.textContent=data.total_display; lines.innerHTML=data.lines.map(l=>`<div class="price-line"><span>${escapeHtml(l.label)}${l.quantity !== '1.0000' && l.quantity !== '1' ? ' × '+escapeHtml(l.quantity) : ''}</span><strong>${escapeHtml(l.amount_display)}</strong></div>`).join(''); } catch(e){ total.textContent=e.message; }
  }
  function escapeHtml(v){const d=document.createElement('div');d.textContent=String(v);return d.innerHTML;}
- form.addEventListener('change',e=>{if(e.target.name?.startsWith('answers[')){refreshVisibility();refreshNumericConstraints();clearTimeout(timer);timer=setTimeout(updateQuote,100);}}); form.addEventListener('input',e=>{if(e.target.type==='number' && e.target.name?.startsWith('answers[')){refreshNumericConstraints();clearTimeout(timer);timer=setTimeout(updateQuote,250);}}); refreshVisibility(); refreshNumericConstraints(); updateQuote();
+ form.addEventListener('change',e=>{if(e.target.name?.startsWith('answers[')||e.target.name==='coupon_code'){refreshVisibility();refreshNumericConstraints();clearTimeout(timer);timer=setTimeout(updateQuote,100);}}); form.addEventListener('input',e=>{if((e.target.type==='number'&&e.target.name?.startsWith('answers['))||e.target.name==='coupon_code'){refreshNumericConstraints();clearTimeout(timer);timer=setTimeout(updateQuote,350);}}); refreshVisibility(); refreshNumericConstraints(); updateQuote();
 })();
 </script>
-@endif
 @endsection

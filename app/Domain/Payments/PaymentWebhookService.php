@@ -9,6 +9,7 @@ use App\Models\Organization;
 use App\Models\PaymentRefund;
 use App\Models\PaymentTransaction;
 use App\Models\PaymentWebhookEvent;
+use App\Enums\CouponStatus;
 use RuntimeException;
 
 class PaymentWebhookService
@@ -70,14 +71,27 @@ class PaymentWebhookService
                 ->where('provider', PaymentProvider::Stripe->value)
                 ->where('provider_external_id', (string) ($object['id'] ?? ''))
                 ->firstOrFail();
-            $this->state->complete(
-                $payment,
-                (string) ($object['payment_intent'] ?? $payment->provider_capture_id),
-                (int) ($object['amount_total'] ?? 0),
-                (string) ($object['currency'] ?? ''),
-                $object,
-            );
-            $this->refundLateCapture($payment);
+            if ($payment->coupon_id !== null) {
+                $coupon = $this->state->completeCoupon(
+                    $payment,
+                    (string) ($object['payment_intent'] ?? $payment->provider_capture_id),
+                    (int) ($object['amount_total'] ?? 0),
+                    (string) ($object['currency'] ?? ''),
+                    $object,
+                );
+                if ($coupon->status !== CouponStatus::Active) {
+                    $this->refunds->refundCouponPurchase($coupon, 'Automatic refund: coupon payment completed after checkout cancellation or administrative destruction.');
+                }
+            } else {
+                $this->state->complete(
+                    $payment,
+                    (string) ($object['payment_intent'] ?? $payment->provider_capture_id),
+                    (int) ($object['amount_total'] ?? 0),
+                    (string) ($object['currency'] ?? ''),
+                    $object,
+                );
+                $this->refundLateCapture($payment);
+            }
         } elseif (in_array($eventType, ['checkout.session.expired', 'checkout.session.async_payment_failed'], true)) {
             $payment = PaymentTransaction::query()
                 ->where('organization_id', $organization->getKey())
@@ -117,8 +131,15 @@ class PaymentWebhookService
                 ->firstOrFail();
             $currency = (string) data_get($resource, 'amount.currency_code', '');
             $amount = $this->money->parse((string) data_get($resource, 'amount.value', ''), $currency);
-            $this->state->complete($payment, (string) ($resource['id'] ?? ''), $amount, $currency, $resource);
-            $this->refundLateCapture($payment);
+            if ($payment->coupon_id !== null) {
+                $coupon = $this->state->completeCoupon($payment, (string) ($resource['id'] ?? ''), $amount, $currency, $resource);
+                if ($coupon->status !== CouponStatus::Active) {
+                    $this->refunds->refundCouponPurchase($coupon, 'Automatic refund: coupon payment completed after checkout cancellation or administrative destruction.');
+                }
+            } else {
+                $this->state->complete($payment, (string) ($resource['id'] ?? ''), $amount, $currency, $resource);
+                $this->refundLateCapture($payment);
+            }
         } elseif ($eventType === 'PAYMENT.CAPTURE.DENIED') {
             $orderId = (string) data_get($resource, 'supplementary_data.related_ids.order_id', '');
             $payment = PaymentTransaction::query()
@@ -174,11 +195,18 @@ class PaymentWebhookService
             'failure_message' => $failed ? 'The provider reported that the refund failed.' : null,
             'completed_at_utc' => $succeeded || $failed ? now('UTC') : null,
         ]);
-        $this->state->refresh($refund->booking);
+        if ($refund->booking !== null) {
+            $this->state->refresh($refund->booking);
+        } elseif ($refund->coupon !== null && $succeeded) {
+            $refund->coupon->update(['refunded_at_utc' => now('UTC')]);
+        }
     }
 
     private function refundLateCapture(PaymentTransaction $payment): void
     {
+        if ($payment->coupon_id !== null) {
+            return;
+        }
         $booking = $payment->booking()->firstOrFail();
         if (in_array($booking->status->value, ['cancelled', 'declined'], true)) {
             $this->refunds->refundTransactionBalance($payment, 'Automatic refund: payment completed after booking cancellation.');

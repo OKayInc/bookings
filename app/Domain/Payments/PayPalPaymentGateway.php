@@ -24,16 +24,20 @@ class PayPalPaymentGateway
         string $returnUrl,
         string $cancelUrl,
     ): array {
-        $booking = $payment->booking()->with('appointmentType')->firstOrFail();
+        $booking = $payment->booking()->with(['appointmentType', 'organization'])->first();
+        $coupon = $booking === null ? $payment->coupon()->with(['offer', 'organization'])->firstOrFail() : null;
+        $subjectUuid = $booking?->uuid ?? $coupon->uuid;
+        $reference = $booking?->reference ?? 'COUPON-'.Str::upper(Str::substr(str_replace('-', '', $coupon->uuid), -12));
+        $description = $booking ? $booking->appointmentType->name.' — '.$payment->purpose->label() : ($coupon->offer?->name ?? 'Gift card / coupon');
         $response = $this->request($settings)
             ->withHeaders(['PayPal-Request-Id' => $payment->idempotency_key, 'Prefer' => 'return=representation'])
             ->post($this->url($settings, '/v2/checkout/orders'), [
                 'intent' => 'CAPTURE',
                 'purchase_units' => [[
                     'reference_id' => $payment->uuid,
-                    'custom_id' => $booking->uuid,
-                    'invoice_id' => $booking->reference.'-'.Str::upper(Str::substr(str_replace('-', '', $payment->uuid), -12)),
-                    'description' => Str::limit($booking->appointmentType->name.' — '.$payment->purpose->label(), 127, ''),
+                    'custom_id' => $subjectUuid,
+                    'invoice_id' => $reference.'-'.Str::upper(Str::substr(str_replace('-', '', $payment->uuid), -12)),
+                    'description' => Str::limit($description, 127, ''),
                     'amount' => [
                         'currency_code' => Str::upper($payment->currency),
                         'value' => $this->money->decimal((int) $payment->amount_minor, $payment->currency),
@@ -45,7 +49,7 @@ class PayPalPaymentGateway
                             'user_action' => 'PAY_NOW',
                             'return_url' => $returnUrl,
                             'cancel_url' => $cancelUrl,
-                            'brand_name' => Str::limit($booking->organization->name, 127, ''),
+                            'brand_name' => Str::limit(($booking?->organization ?? $coupon->organization)->name, 127, ''),
                         ],
                     ],
                 ],
@@ -93,7 +97,7 @@ class PayPalPaymentGateway
                         'currency_code' => Str::upper($refund->currency),
                         'value' => $this->money->decimal((int) $refund->amount_minor, $refund->currency),
                     ],
-                    'note_to_payer' => Str::limit((string) ($refund->reason ?: 'Booking refund'), 255, ''),
+                    'note_to_payer' => Str::limit((string) ($refund->reason ?: 'Payment refund'), 255, ''),
                 ]),
             'PayPal could not create the refund.',
         );

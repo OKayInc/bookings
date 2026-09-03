@@ -18,6 +18,8 @@ use App\Domain\Tickets\TicketEventService;
 use App\Domain\Tickets\TicketInventoryService;
 use App\Domain\Payments\PaymentRuleService;
 use App\Domain\Payments\BookingPaymentSnapshotService;
+use App\Domain\Coupons\CouponApplication;
+use App\Domain\Coupons\CouponRedemptionService;
 use App\Enums\AppointmentStatus;
 use App\Enums\BookingHoldStatus;
 use App\Enums\BookingStatus;
@@ -53,6 +55,7 @@ class BookingCreationService
         private readonly TicketInventoryService $ticketInventory,
         private readonly PaymentRuleService $paymentRules,
         private readonly BookingPaymentSnapshotService $paymentSnapshots,
+        private readonly CouponRedemptionService $coupons,
     ) {
     }
 
@@ -67,6 +70,7 @@ class BookingCreationService
         array $additionalAttendees = [],
         array $contractFiles = [],
         ?QuestionnaireSubmission $questionnaire = null,
+        ?string $couponCode = null,
     ): BookingCreationResult {
         $emailVerificationToken = null;
         $manageToken = Str::random(64);
@@ -79,6 +83,7 @@ class BookingCreationService
             &$emailVerificationToken,
             $manageToken,
             $questionnaire,
+            $couponCode,
         ): Booking {
             $hold = BookingHold::query()
                 ->where('token_hash', hash('sha256', $holdToken, true))
@@ -213,6 +218,11 @@ class BookingCreationService
             if ($questionnaire->quote->basePriceMinor !== $basePriceMinor) {
                 throw new RuntimeException('The appointment price has changed. Please review the price and submit the booking again.');
             }
+            $couponApplication = null;
+            if (trim((string) $couponCode) !== '') {
+                $couponApplication = $this->coupons->apply($couponCode, $type, $questionnaire, true);
+                $questionnaire = $couponApplication->submission;
+            }
             $priceMinor = $questionnaire->quote->totalMinor;
             $paymentSnapshot = $this->paymentSnapshots->snapshot(
                 $type,
@@ -296,6 +306,10 @@ class BookingCreationService
             );
 
             $this->questionnairePersistence->persist($booking->load('organization'), $questionnaire);
+
+            if ($couponApplication instanceof CouponApplication) {
+                $this->coupons->record($couponApplication, $booking);
+            }
 
             if ($hold->appointment_type_invitation_id !== null) {
                 $invitation = AppointmentTypeInvitation::query()

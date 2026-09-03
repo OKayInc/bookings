@@ -10,6 +10,8 @@ use App\Models\Booking;
 use App\Models\PaymentRefund;
 use App\Models\Person;
 use App\Models\PaymentTransaction;
+use App\Models\Coupon;
+use App\Enums\CouponStatus;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -168,6 +170,76 @@ class PaymentRefundService
     }
 
     /** @return Collection<int,PaymentRefund> */
+    public function refundCouponPurchase(Coupon $coupon, string $reason, ?Person $requestedBy = null): Collection
+    {
+        $prepared = DB::transaction(function () use ($coupon, $reason, $requestedBy): Collection {
+            $locked = Coupon::query()->whereKey($coupon->getKey())->lockForUpdate()->firstOrFail();
+            return $this->prepareCouponRefund($locked, $reason, $requestedBy);
+        }, 3);
+
+        return $this->sendPrepared($prepared);
+    }
+
+    /** @return Collection<int,PaymentRefund> */
+    public function destroyCoupon(Coupon $coupon, string $reason, Person $destroyedBy): Collection
+    {
+        $prepared = DB::transaction(function () use ($coupon, $reason, $destroyedBy): Collection {
+            $locked = Coupon::query()->whereKey($coupon->getKey())->lockForUpdate()->firstOrFail();
+            if ($locked->redemptions()->exists() || $locked->status === CouponStatus::Used) {
+                throw new RuntimeException('A gift card or coupon that has been used cannot be destroyed.');
+            }
+            if ($locked->status === CouponStatus::Destroyed) {
+                throw new RuntimeException('This gift card or coupon is already destroyed.');
+            }
+            $locked->update([
+                'status' => CouponStatus::Destroyed->value,
+                'destroyed_at_utc' => now('UTC'),
+                'destroyed_by_person_id' => $destroyedBy->getKey(),
+                'destruction_reason' => $reason,
+            ]);
+
+            return $this->prepareCouponRefund($locked, 'Administrative coupon destruction: '.$reason, $destroyedBy);
+        }, 3);
+
+        return $this->sendPrepared($prepared);
+    }
+
+    /** @return Collection<int,PaymentRefund> */
+    private function prepareCouponRefund(Coupon $coupon, string $reason, ?Person $requestedBy): Collection
+    {
+        if ($coupon->redemptions()->exists()) {
+            throw new RuntimeException('A gift card or coupon that has been used cannot be destroyed or refunded.');
+        }
+        $transaction = $coupon->payments()
+            ->where('status', PaymentTransactionStatus::Succeeded->value)
+            ->lockForUpdate()
+            ->first();
+        if ($transaction === null) {
+            return collect();
+        }
+        $allocated = (int) $transaction->refunds()
+            ->whereIn('status', [PaymentRefundStatus::Pending->value, PaymentRefundStatus::Succeeded->value])
+            ->sum('amount_minor');
+        $amount = max(0, (int) $transaction->amount_minor - $allocated);
+        if ($amount === 0) {
+            return collect();
+        }
+
+        return collect([PaymentRefund::create([
+            'organization_id' => $coupon->organization_id,
+            'coupon_id' => $coupon->getKey(),
+            'payment_transaction_id' => $transaction->getKey(),
+            'requested_by_person_id' => $requestedBy?->getKey(),
+            'provider' => $transaction->provider->value,
+            'status' => PaymentRefundStatus::Pending->value,
+            'amount_minor' => $amount,
+            'currency' => $transaction->currency,
+            'idempotency_key' => (string) Str::uuid(),
+            'reason' => $reason,
+        ])]);
+    }
+
+    /** @return Collection<int,PaymentRefund> */
     private function prepareRefunds(
         Booking $booking,
         int $amountMinor,
@@ -245,7 +317,7 @@ class PaymentRefundService
     private function sendPrepared(Collection $refunds): Collection
     {
         return $refunds->map(fn (PaymentRefund $refund): PaymentRefund => $this->send(
-            $refund->load(['transaction', 'booking', 'organization.paymentSettings']),
+            $refund->load(['transaction', 'booking', 'coupon', 'organization.paymentSettings']),
         ));
     }
 
@@ -291,7 +363,11 @@ class PaymentRefundService
             ]);
         }
 
-        $this->state->refresh($refund->booking);
+        if ($refund->booking !== null) {
+            $this->state->refresh($refund->booking);
+        } elseif ($refund->coupon !== null && $refund->status === PaymentRefundStatus::Succeeded) {
+            $refund->coupon->update(['refunded_at_utc' => now('UTC')]);
+        }
 
         return $refund->fresh();
     }

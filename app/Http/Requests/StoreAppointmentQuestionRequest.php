@@ -67,6 +67,7 @@ class StoreAppointmentQuestionRequest extends FormRequest
             'options.*.uuid' => ['nullable', 'uuid'],
             'options.*.label' => ['required_with:options', 'string', 'max:255'],
             'options.*.value' => ['nullable', 'string', 'max:180'],
+            'options.*.position' => ['nullable', 'integer', 'min:0', 'max:100000'],
             'options.*.pricing_adjustment_type' => ['nullable', Rule::in([
                 PricingAdjustmentType::None->value,
                 PricingAdjustmentType::Fixed->value,

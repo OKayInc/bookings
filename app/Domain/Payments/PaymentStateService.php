@@ -8,13 +8,47 @@ use App\Enums\PaymentRefundStatus;
 use App\Enums\PaymentTransactionStatus;
 use App\Models\Booking;
 use App\Models\PaymentTransaction;
+use App\Models\Coupon;
+use App\Enums\CouponStatus;
+use App\Domain\Coupons\CouponIssuanceService;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 class PaymentStateService
 {
-    public function __construct(private readonly BookingWorkflowService $workflow)
+    public function __construct(private readonly BookingWorkflowService $workflow, private readonly CouponIssuanceService $coupons)
     {
+    }
+
+    /** @param array<string,mixed> $payload */
+    public function completeCoupon(PaymentTransaction $payment, string $captureId, int $amountMinor, string $currency, array $payload): Coupon
+    {
+        if (trim($captureId) === '' || $amountMinor !== (int) $payment->amount_minor || strtoupper($currency) !== strtoupper($payment->currency)) {
+            throw new RuntimeException('The provider coupon payment does not match the immutable purchase request.');
+        }
+        $coupon = DB::transaction(function () use ($payment, $captureId, $payload): Coupon {
+            $coupon = Coupon::query()->whereKey($payment->coupon_id)->lockForUpdate()->firstOrFail();
+            $locked = PaymentTransaction::query()->whereKey($payment->getKey())->lockForUpdate()->firstOrFail();
+            if ($locked->status !== PaymentTransactionStatus::Succeeded) {
+                $locked->update([
+                    'status' => PaymentTransactionStatus::Succeeded->value,
+                    'provider_capture_id' => $captureId,
+                    'provider_payload' => $payload,
+                    'failure_message' => null,
+                    'checkout_url' => null,
+                    'completed_at_utc' => now('UTC'),
+                ]);
+                if ($coupon->status === CouponStatus::Pending) {
+                    $coupon->update(['status' => CouponStatus::Active->value, 'activated_at_utc' => now('UTC')]);
+                }
+            }
+            return $coupon->fresh(['organization', 'appointmentTypes']);
+        }, 3);
+        if ($coupon->status === CouponStatus::Active) {
+            $this->coupons->deliver($coupon);
+        }
+
+        return $coupon->fresh();
     }
 
     /** @param array<string,mixed> $payload */
@@ -83,6 +117,10 @@ class PaymentStateService
                 'completed_at_utc' => now('UTC'),
                 'updated_at' => now(),
             ]);
+        if ($payment->coupon_id !== null) {
+            Coupon::query()->whereKey($payment->coupon_id)->where('status', CouponStatus::Pending->value)
+                ->update(['status' => CouponStatus::Cancelled->value, 'updated_at' => now()]);
+        }
     }
 
     public function refresh(Booking $booking): Booking

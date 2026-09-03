@@ -250,3 +250,7 @@ Appointment types can issue one ticket per attendee. Ticketed events force group
 ## M9: organization-owned payments
 
 Payment terms are configured on each appointment type and copied to the booking after the final price is calculated. A successful full payment or retainer satisfies `pending_payment`; any remaining balance stays visible and payable from the passwordless management page. Provider events are tenant-scoped, signature-verified and deduplicated. Refunds return through the original capture and are serialized per booking to prevent double refunds. See `docs/PAYMENTS.md`.
+
+## M9-R3: ordered choices and gift cards/coupons
+
+Questionnaire choices now have an explicit numeric order with case-insensitive alphabetic tie-breaking. Organizations can sell fixed-value gift cards or percentage coupons, issue them manually, limit them to selected appointment types, set optional expirations, deliver password-protected printable/link/QR versions, redeem them during booking, and administratively destroy/refund only never-used purchased codes. See `docs/CHANGES-M9-R3.md` and `docs/UPGRADE-M9-R2-TO-M9-R3.md`.

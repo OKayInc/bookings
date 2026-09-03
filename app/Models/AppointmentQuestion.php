@@ -28,7 +28,13 @@ class AppointmentQuestion extends Model
     ]; }
     public function appointmentType(): BelongsTo { return $this->belongsTo(AppointmentType::class); }
     public function reusableQuestion(): BelongsTo { return $this->belongsTo(ReusableQuestion::class); }
-    public function options(): HasMany { return $this->hasMany(QuestionOption::class)->orderBy('position'); }
+    public function options(): HasMany
+    {
+        return $this->hasMany(QuestionOption::class)
+            ->orderBy('position')
+            ->orderByRaw('LOWER(label)')
+            ->orderBy('label');
+    }
     public function answers(): HasMany { return $this->hasMany(BookingAnswer::class); }
     public function visibilityConditions(): HasMany { return $this->hasMany(AppointmentQuestionVisibilityCondition::class)->orderBy('position'); }
     public function dependentVisibilityConditions(): HasMany { return $this->hasMany(AppointmentQuestionVisibilityCondition::class, 'source_question_id'); }

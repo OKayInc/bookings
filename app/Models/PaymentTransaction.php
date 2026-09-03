@@ -16,14 +16,23 @@ class PaymentTransaction extends Model
     use HasBinaryUuid;
 
     protected $fillable = [
-        'organization_id', 'booking_id', 'provider', 'purpose', 'status', 'amount_minor', 'currency',
+        'organization_id', 'booking_id', 'coupon_id', 'provider', 'purpose', 'status', 'amount_minor', 'currency',
         'idempotency_key', 'return_token_hash', 'provider_external_id', 'provider_capture_id', 'checkout_url',
         'failure_message', 'provider_payload', 'expires_at_utc', 'completed_at_utc',
     ];
 
-    protected $hidden = ['id', 'organization_id', 'booking_id', 'return_token_hash', 'provider_payload'];
+    protected $hidden = ['id', 'organization_id', 'booking_id', 'coupon_id', 'return_token_hash', 'provider_payload'];
 
     protected $appends = ['uuid'];
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $payment): void {
+            if (($payment->booking_id === null) === ($payment->coupon_id === null)) {
+                throw new \InvalidArgumentException('A payment must belong to exactly one booking or coupon.');
+            }
+        });
+    }
 
     protected function casts(): array
     {
@@ -46,6 +55,11 @@ class PaymentTransaction extends Model
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);
+    }
+
+    public function coupon(): BelongsTo
+    {
+        return $this->belongsTo(Coupon::class);
     }
 
     public function refunds(): HasMany

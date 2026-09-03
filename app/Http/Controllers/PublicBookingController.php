@@ -12,6 +12,8 @@ use App\Domain\Resources\EquipmentPricingService;
 use App\Domain\Questionnaires\QuestionnaireSubmissionService;
 use App\Domain\Tickets\TicketEventService;
 use App\Domain\Tickets\TicketInventoryService;
+use App\Domain\Coupons\CouponRedemptionService;
+use App\Domain\Questionnaires\QuestionnaireSubmission;
 use App\Enums\AttendanceMode;
 use App\Models\AppointmentType;
 use App\Models\BookingHold;
@@ -218,6 +220,7 @@ class PublicBookingController extends Controller
         string $token,
         QuestionnaireSubmissionService $questionnaires,
         MoneyService $money,
+        CouponRedemptionService $coupons,
     ): JsonResponse {
         $hold = $this->holdByToken($token);
         $hold->load(['resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.questions.visibilityConditions.expectedOptions', 'appointmentType.shortNoticeFeeRules']);
@@ -234,7 +237,14 @@ class PublicBookingController extends Controller
                     $resource->getKey() => (int) ($resource->pivot->quantity_reserved ?? 1),
                 ])->all(),
             );
-        } catch (\InvalidArgumentException $exception) {
+            if (trim((string) $request->input('coupon_code')) !== '') {
+                $quote = $coupons->apply(
+                    (string) $request->input('coupon_code'),
+                    $hold->appointmentType,
+                    new QuestionnaireSubmission([], $quote),
+                )->submission->quote;
+            }
+        } catch (\InvalidArgumentException|RuntimeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
         return response()->json([
@@ -245,7 +255,7 @@ class PublicBookingController extends Controller
                 'label' => $line->label,
                 'quantity' => $line->quantity,
                 'amount_minor' => $line->amountMinor,
-                'amount_display' => $money->format($line->amountMinor, $hold->organization->currency),
+                'amount_display' => ($line->lineType === 'coupon_discount' ? '−' : '').$money->format($line->amountMinor, $hold->organization->currency),
             ], $quote->lines),
         ]);
     }
@@ -268,6 +278,7 @@ class PublicBookingController extends Controller
             'attendees.*.first_name' => ['nullable', 'string', 'max:120'],
             'attendees.*.last_name' => ['nullable', 'string', 'max:120'],
             'attendees.*.email' => ['nullable', 'email:rfc', 'max:254'],
+            'coupon_code' => ['nullable', 'string', 'max:80'],
         ];
 
         if ($hold->contract_template_id !== null) {
@@ -306,6 +317,7 @@ class PublicBookingController extends Controller
                 array_values($data['attendees'] ?? []),
                 $files,
                 $questionnaire,
+                $data['coupon_code'] ?? null,
             );
         } catch (RuntimeException $exception) {
             return back()->withInput()->withErrors(['booking' => $exception->getMessage()]);

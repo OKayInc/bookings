@@ -353,7 +353,7 @@ class AppointmentQuestionController extends Controller
             $normalized[] = ['model' => $model, 'data' => [
                 'label' => $label,
                 'value' => $value,
-                'position' => $index + 1,
+                'position' => (int) ($option['position'] ?? 0),
                 'is_active' => true,
                 'pricing_adjustment_type' => $pricing->value,
                 'pricing_amount_minor' => $pricing === PricingAdjustmentType::Fixed

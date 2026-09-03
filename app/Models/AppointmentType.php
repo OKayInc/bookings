@@ -173,6 +173,16 @@ class AppointmentType extends Model
         return $this->belongsTo(Organization::class);
     }
 
+    public function couponOffers(): BelongsToMany
+    {
+        return $this->belongsToMany(CouponOffer::class, 'coupon_offer_appointment_type');
+    }
+
+    public function coupons(): BelongsToMany
+    {
+        return $this->belongsToMany(Coupon::class, 'coupon_appointment_type');
+    }
+
     public function resources(): BelongsToMany
     {
         return $this->belongsToMany(Resource::class, 'appointment_type_resources')

@@ -158,7 +158,9 @@ class QuestionnaireSubmissionService
                 $selected = $question->options
                     ->where('is_active', true)
                     ->filter(fn ($option) => in_array($option->uuid, $ids, true))
-                    ->sortBy('position');
+                    ->sort(fn ($a, $b): int => ($a->position <=> $b->position)
+                        ?: strcasecmp($a->label, $b->label)
+                        ?: strcmp($a->label, $b->label));
                 $value = $question->type === QuestionType::Checkboxes
                     ? $selected->map(fn ($option) => ['uuid' => $option->uuid, 'value' => $option->value, 'label' => $option->label])->values()->all()
                     : ($selected->first() ? ['uuid' => $selected->first()->uuid, 'value' => $selected->first()->value, 'label' => $selected->first()->label] : null);

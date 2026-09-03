@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Booking extends Model
 {
@@ -154,6 +155,11 @@ class Booking extends Model
     public function refunds(): HasMany
     {
         return $this->hasMany(PaymentRefund::class)->latest();
+    }
+
+    public function couponRedemption(): HasOne
+    {
+        return $this->hasOne(CouponRedemption::class);
     }
 
     public function netPaidMinor(): int

@@ -13,5 +13,5 @@
 @endforeach</div>
 @endif
 @if($booking->priceLines->isNotEmpty())
-<div class="card"><h2>Price breakdown</h2>@foreach($booking->priceLines as $line)<div class="price-line"><span>{{ $line->label }} @if((float)$line->quantity != 1) × {{ rtrim(rtrim($line->quantity,'0'),'.') }} @endif</span><strong>{{ app(\App\Domain\Money\MoneyService::class)->format($line->amount_minor,$booking->currency) }}</strong></div>@endforeach<div class="price-line total"><span>Total</span><strong>{{ app(\App\Domain\Money\MoneyService::class)->format($booking->price_minor,$booking->currency) }}</strong></div></div>
+<div class="card"><h2>Price breakdown</h2>@foreach($booking->priceLines as $line)<div class="price-line"><span>{{ $line->label }} @if((float)$line->quantity != 1) × {{ rtrim(rtrim($line->quantity,'0'),'.') }} @endif</span><strong>{{ $line->line_type === 'coupon_discount' ? '−' : '' }}{{ app(\App\Domain\Money\MoneyService::class)->format($line->amount_minor,$booking->currency) }}</strong></div>@endforeach<div class="price-line total"><span>Total</span><strong>{{ app(\App\Domain\Money\MoneyService::class)->format($booking->price_minor,$booking->currency) }}</strong></div></div>
 @endif

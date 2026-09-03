@@ -126,6 +126,16 @@ class Organization extends Model
         return $this->hasMany(PaymentRefund::class);
     }
 
+    public function couponOffers(): HasMany
+    {
+        return $this->hasMany(CouponOffer::class);
+    }
+
+    public function coupons(): HasMany
+    {
+        return $this->hasMany(Coupon::class);
+    }
+
     public function reusableQuestions(): HasMany
     {
         return $this->hasMany(ReusableQuestion::class);

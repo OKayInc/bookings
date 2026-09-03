@@ -48,7 +48,10 @@ class ReusableQuestion extends Model
 
     public function options(): HasMany
     {
-        return $this->hasMany(ReusableQuestionOption::class)->orderBy('position');
+        return $this->hasMany(ReusableQuestionOption::class)
+            ->orderBy('position')
+            ->orderByRaw('LOWER(label)')
+            ->orderBy('label');
     }
 
     public function attachments(): HasMany

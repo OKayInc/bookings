@@ -42,6 +42,14 @@ Authorized staff may issue an additional amount from the booking ledger. A refun
 
 A capture received after cancellation is fully refunded. Refund and capture provider calls happen after the booking transaction commits, so network failures never roll back the cancellation itself.
 
+## Gift cards and coupons (M9-R3)
+
+Public gift-card/coupon purchases use the same organization-owned Stripe and PayPal accounts, return verification, signed webhooks, exact amount/currency checks and immutable transaction ledger. Purchased codes stay pending until capture succeeds. Manual codes are active immediately.
+
+Issued codes snapshot a fixed value or percentage, optional expiry and appointment-type applicability. A fixed code can be partially redeemed and retains its remaining balance; a percentage code is consumed by its first booking. The discount is applied after all appointment/questionnaire/equipment/event price lines and before the booking's full-payment or retainer snapshot is calculated.
+
+There is deliberately no buyer cancellation or refund endpoint. An owner or administrator can destroy only a never-redeemed code. A purchased code then receives one full, idempotent refund against its original capture; manual codes are simply marked destroyed. The code, destruction reason, payment and refund records remain available for audit.
+
 ## Allowlist and blocklist rules
 
 Rules match either a normalized exact email address or its exact domain.

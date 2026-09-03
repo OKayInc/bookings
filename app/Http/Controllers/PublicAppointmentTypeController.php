@@ -33,8 +33,13 @@ class PublicAppointmentTypeController extends Controller
             ->get()
             ->filter(fn (AppointmentType $type): bool => $seasons->isOpenAt($type, CarbonImmutable::now('UTC')))
             ->values();
+        $hasCouponOffers = $organization->couponOffers()
+            ->where('is_public', true)
+            ->where('is_active', true)
+            ->where(fn ($query) => $query->whereNull('expires_on')->orWhereDate('expires_on', '>=', now($organization->timezone)->toDateString()))
+            ->exists();
 
-        return view('public.appointment-types.index', compact('organization', 'appointmentTypes', 'summary'));
+        return view('public.appointment-types.index', compact('organization', 'appointmentTypes', 'summary', 'hasCouponOffers'));
     }
 
     public function show(
