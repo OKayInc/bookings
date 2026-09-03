@@ -269,6 +269,14 @@ AND binds within a group and OR separates alternative groups. The first connecto
 
 Dependencies belong to the appointment-type attachment rather than its organization-wide reusable template because they reference other attachments in one ordered questionnaire. A newly attached reusable question therefore starts without display dependencies.
 
+### `appointment_question_resource_rules`
+
+M9-R4 stores at most one conditional resource rule per appointment question. `trigger_option_id` identifies the answer that promotes resources, `unavailable_default_option_id` identifies the authoritative answer used when the selected-time hold cannot fulfill the group, `group_name` is the human-readable resource group, and `fulfillment_mode` is `one_of` or `all`. Both options must belong to the same choice question and must be different.
+
+### `appointment_question_resource_rule_resources`
+
+Links a conditional rule to one or more resources already assigned as optional to the same appointment type. A resource may participate in only one conditional group per appointment type. Quantity-managed equipment is permitted in `all` mode but not as an interchangeable `one_of` candidate.
+
 ### `reusable_questions`
 
 Organization-scoped reusable question templates. Stores the default required state, question definition, validation configuration, optional number-field pricing rule, and any M7-R12 address distance-pricing configuration. Templates are copied into `appointment_questions` when attached.

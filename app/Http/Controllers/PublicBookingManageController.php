@@ -7,12 +7,13 @@ use App\Domain\Bookings\BookingCancellationService;
 use App\Domain\Bookings\BookingPolicyService;
 use App\Domain\Bookings\BookingRescheduleService;
 use App\Domain\Bookings\BookingScheduleProposalService;
+use App\Domain\Bookings\ContractSubmissionService;
 use App\Domain\Bookings\PublicBookingAvailabilityService;
 use App\Domain\Bookings\PublicBookingHoldService;
-use App\Domain\Bookings\ContractSubmissionService;
+use App\Domain\Resources\ConditionalResourceRequirementService;
+use App\Domain\Payments\PaymentCheckoutService;
 use App\Domain\Tickets\TicketBarcodeService;
 use App\Domain\Tickets\TicketEventService;
-use App\Domain\Payments\PaymentCheckoutService;
 use App\Enums\ContractReviewStatus;
 use App\Models\Booking;
 use App\Models\BookingContractFile;
@@ -20,12 +21,12 @@ use App\Models\BookingAnswerFile;
 use App\Models\BookingScheduleProposal;
 use App\Models\Ticket;
 use App\Notifications\BookingAccessEmail;
+use App\Rules\IanaTimezone;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Carbon\CarbonImmutable;
-use App\Rules\IanaTimezone;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -160,6 +161,7 @@ class PublicBookingManageController extends Controller
         BookingPolicyService $policy,
         PublicBookingAvailabilityService $availability,
         TicketEventService $ticketEvents,
+        ConditionalResourceRequirementService $conditionalResources,
     ): JsonResponse {
         $this->authorizeToken($booking, $token);
         if ($booking->scheduleProposals()->where('status', 'pending')->where('expires_at_utc', '>', now('UTC'))->exists()) {
@@ -185,6 +187,7 @@ class PublicBookingManageController extends Controller
             $data['timezone'],
             (int) $booking->attendee_count,
         );
+        $slots = $conditionalResources->filterSlotsForStoredBookingAnswers($booking, $slots);
 
         return response()->json(['slots' => array_map(function ($slot) use ($booking, $data, $ticketEvents): array {
             $clientStart = $slot->startsAtUtc->setTimezone($data['timezone']);

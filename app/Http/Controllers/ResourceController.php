@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Availability\HolidayRegionCatalog;
+use App\Enums\ConditionalResourceFulfillmentMode;
 use App\Enums\MembershipRole;
 use App\Enums\MembershipStatus;
 use App\Http\Requests\StoreResourceRequest;
@@ -97,6 +98,11 @@ class ResourceController extends Controller
         ]);
         $required = $data['default_requirement'] === 'required';
         $enforceHolidays = $request->boolean('enforce_holidays');
+        if ($required && $this->conditionalRuleUsesInheritedRequirement($resource, $organization)) {
+            return back()->withErrors([
+                'default_requirement' => 'This resource must remain optional while an appointment question promotes it conditionally. Change those appointment assignments to explicitly optional before changing the organization default.',
+            ]);
+        }
 
         $resource->organizations()->updateExistingPivot($organization->getKey(), [
             'is_required_by_default' => $required,
@@ -139,6 +145,17 @@ class ResourceController extends Controller
         $personKey = $this->personKey($data, $organization);
         $defaultRequired = ($data['default_requirement'] ?? 'required') === 'required';
         $quantityEnabled = $data['type'] === 'equipment' && $request->boolean('quantity_enabled');
+        if ($defaultRequired && $this->conditionalRuleUsesInheritedRequirement($resource, $organization)) {
+            return back()->withErrors([
+                'default_requirement' => 'This resource must remain optional while an appointment question promotes it conditionally. Change those appointment assignments to explicitly optional before changing the organization default.',
+            ]);
+        }
+        if ($quantityEnabled && $resource->conditionalRequirementRules()
+            ->where('fulfillment_mode', ConditionalResourceFulfillmentMode::OneOf->value)->exists()) {
+            return back()->withErrors([
+                'quantity_enabled' => 'Quantity tracking cannot be enabled while this resource belongs to a one-of-N conditional group.',
+            ]);
+        }
 
         DB::transaction(function () use ($request, $resource, $organization, $data, $personKey, $defaultRequired, $quantityEnabled): void {
             $resource->update([
@@ -186,6 +203,11 @@ class ResourceController extends Controller
                 || $locked->confirmations()->exists()) {
                 return redirect()->route('resources.index')->withErrors([
                     'resource' => 'This resource cannot be deleted because it has booking or appointment history. Disable it instead.',
+                ]);
+            }
+            if ($locked->conditionalRequirementRules()->exists()) {
+                return redirect()->route('resources.index')->withErrors([
+                    'resource' => 'Remove this resource from its conditional questionnaire group before deleting it.',
                 ]);
             }
 
@@ -236,6 +258,24 @@ class ResourceController extends Controller
                 ? $resource->organizations()->where('organizations.id', '!=', $organization->getKey())->pluck('organizations.id')->all()
                 : [],
         ];
+    }
+
+    private function conditionalRuleUsesInheritedRequirement(Resource $resource, Organization $organization): bool
+    {
+        return $resource->conditionalRequirementRules()
+            ->with('question.appointmentType')
+            ->get()
+            ->contains(function ($rule) use ($resource, $organization): bool {
+                $type = $rule->question?->appointmentType;
+                if ($type === null || ! hash_equals($type->organization_id, $organization->getKey())) {
+                    return false;
+                }
+
+                return $resource->appointmentTypes()
+                    ->whereKey($type->getKey())
+                    ->wherePivot('requirement_mode', 'inherit')
+                    ->exists();
+            });
     }
 
     private function requestedActiveMemberUuid(Request $request, Organization $organization): ?string

@@ -576,6 +576,41 @@ class StoreAppointmentTypeRequest extends FormRequest
                 }
             }
 
+            $appointmentType = $this->route('appointmentType') ?? $this->route('appointment_type');
+            if ($appointmentType instanceof AppointmentType) {
+                $appointmentType->loadMissing('questions.resourceRequirementRule.resources');
+                foreach ($appointmentType->questions as $question) {
+                    $conditionalRule = $question->resourceRequirementRule;
+                    if ($conditionalRule === null) {
+                        continue;
+                    }
+
+                    foreach ($conditionalRule->resources as $resource) {
+                        if (! in_array($resource->uuid, $selectedResourceUuids, true)) {
+                            $validator->errors()->add(
+                                'resource_uuids',
+                                'The optional resource “'.$resource->name.'” is used by the conditional group “'.$conditionalRule->group_name.'” and cannot be unassigned.',
+                            );
+                            continue;
+                        }
+
+                        $mode = ResourceRequirementMode::tryFrom((string) ($requirementModes[$resource->uuid] ?? ResourceRequirementMode::Inherit->value))
+                            ?? ResourceRequirementMode::Inherit;
+                        $effectiveRequired = match ($mode) {
+                            ResourceRequirementMode::Required, ResourceRequirementMode::Replacement => true,
+                            ResourceRequirementMode::Optional => false,
+                            ResourceRequirementMode::Inherit => $resource->defaultRequiredForOrganization($organization),
+                        };
+                        if ($effectiveRequired) {
+                            $validator->errors()->add(
+                                'resource_requirement_modes.'.$resource->uuid,
+                                'The resource “'.$resource->name.'” must remain optional because the question “'.$question->label.'” promotes it conditionally.',
+                            );
+                        }
+                    }
+                }
+            }
+
             if ($this->boolean('requires_resource_confirmation')) {
                 $resourceUuids = $selectedResourceUuids;
 

@@ -8,6 +8,9 @@ use App\Domain\Questionnaires\PercentageService;
 use App\Domain\Questionnaires\PhoneValidationService;
 use App\Domain\Questionnaires\QuestionVisibilityService;
 use App\Domain\Questionnaires\ReusableQuestionService;
+use App\Domain\Resources\ConditionalResourceRequirementService;
+use App\Domain\Resources\ResourceRequirementService;
+use App\Enums\ConditionalResourceFulfillmentMode;
 use App\Enums\PricingAdjustmentType;
 use App\Enums\PricingApplicationMode;
 use App\Enums\PricingPercentageBasis;
@@ -57,17 +60,19 @@ class AppointmentQuestionController extends Controller
         ReusableQuestionService $reusableQuestions,
         QuestionVisibilityService $visibility,
         NumericQuestionConstraintService $numericConstraints,
+        ConditionalResourceRequirementService $conditionalResources,
     ): RedirectResponse {
         $this->guard($appointmentType, $context);
         $data = $request->validated();
 
         try {
-            DB::transaction(function () use ($appointmentType, $data, $request, $context, $money, $percent, $reusableQuestions, $visibility, $numericConstraints): void {
+            DB::transaction(function () use ($appointmentType, $data, $request, $context, $money, $percent, $reusableQuestions, $visibility, $numericConstraints, $conditionalResources): void {
                 AppointmentType::query()->whereKey($appointmentType->getKey())->lockForUpdate()->firstOrFail();
                 $question = $appointmentType->questions()->create(
                     $this->questionData($data, $request, $context, $money, $percent, $appointmentType),
                 );
-                $this->syncOptions($question, $data, $context, $money, $percent);
+                $optionsByInputIndex = $this->syncOptions($question, $data, $context, $money, $percent);
+                $conditionalResources->sync($appointmentType, $question, $data, $optionsByInputIndex);
                 $visibility->sync($appointmentType, $question, (array) ($data['visibility_conditions'] ?? []));
                 $numericConstraints->sync($appointmentType, $question, (array) ($data['numeric_constraints'] ?? []));
                 $reusableQuestions->createFromAttachment($question, $context->organization());
@@ -118,6 +123,9 @@ class AppointmentQuestionController extends Controller
             'visibilityConditions.expectedOption',
             'visibilityConditions.expectedOptions',
             'numericConstraints.sourceQuestion',
+            'resourceRequirementRule.triggerOption',
+            'resourceRequirementRule.unavailableDefaultOption',
+            'resourceRequirementRule.resources',
         ]);
 
         return view('questionnaire.edit', $this->formData($appointmentType, $question, $context, $phones));
@@ -133,15 +141,21 @@ class AppointmentQuestionController extends Controller
         ReusableQuestionService $reusableQuestions,
         QuestionVisibilityService $visibility,
         NumericQuestionConstraintService $numericConstraints,
+        ConditionalResourceRequirementService $conditionalResources,
     ): RedirectResponse {
         $this->guardQuestion($appointmentType, $question, $context);
         $data = $request->validated();
 
         try {
-            DB::transaction(function () use ($question, $data, $request, $context, $money, $percent, $appointmentType, $reusableQuestions, $visibility, $numericConstraints): void {
+            DB::transaction(function () use ($question, $data, $request, $context, $money, $percent, $appointmentType, $reusableQuestions, $visibility, $numericConstraints, $conditionalResources): void {
                 AppointmentType::query()->whereKey($appointmentType->getKey())->lockForUpdate()->firstOrFail();
+                if (! $request->boolean('resource_requirement_enabled')) {
+                    $question->resourceRequirementRule()->delete();
+                    $question->unsetRelation('resourceRequirementRule');
+                }
                 $question->update($this->questionData($data, $request, $context, $money, $percent, $appointmentType));
-                $this->syncOptions($question, $data, $context, $money, $percent);
+                $optionsByInputIndex = $this->syncOptions($question, $data, $context, $money, $percent);
+                $conditionalResources->sync($appointmentType, $question, $data, $optionsByInputIndex);
                 $visibility->sync($appointmentType, $question, (array) ($data['visibility_conditions'] ?? []));
                 $numericConstraints->sync($appointmentType, $question, (array) ($data['numeric_constraints'] ?? []));
 
@@ -308,26 +322,31 @@ class AppointmentQuestionController extends Controller
         OrganizationContext $context,
         MoneyService $money,
         PercentageService $percent,
-    ): void {
+    ): array {
         $existing = $question->options()
-            ->with(['visibilityConditions', 'matchingVisibilityConditions'])
+            ->with([
+                'visibilityConditions',
+                'matchingVisibilityConditions',
+                'triggeredResourceRequirementRule',
+                'unavailableDefaultResourceRequirementRule',
+            ])
             ->get()
             ->keyBy('uuid');
 
         if (! $question->type->hasOptions()) {
             if ($existing->contains(fn ($option): bool => $this->optionIsUsedByVisibilityCondition($option))) {
-                throw new InvalidArgumentException('This question type cannot change while one of its answers is used by a dependency.');
+                throw new InvalidArgumentException('This question type cannot change while one of its answers is used by a dependency or conditional resource rule.');
             }
             $question->options()->delete();
 
-            return;
+            return [];
         }
 
         $usedValues = [];
         $usedUuids = [];
         $normalized = [];
 
-        foreach (array_values($data['options'] ?? []) as $index => $option) {
+        foreach ((array) ($data['options'] ?? []) as $index => $option) {
             $label = trim($option['label']);
             $base = Str::slug($option['value'] ?? $label, '_') ?: 'option_'.($index + 1);
             $value = $base;
@@ -350,7 +369,7 @@ class AppointmentQuestionController extends Controller
                 $usedUuids[$uuid] = true;
             }
 
-            $normalized[] = ['model' => $model, 'data' => [
+            $normalized[] = ['input_index' => (int) $index, 'model' => $model, 'data' => [
                 'label' => $label,
                 'value' => $value,
                 'position' => (int) ($option['position'] ?? 0),
@@ -368,7 +387,7 @@ class AppointmentQuestionController extends Controller
 
         $removed = $existing->reject(fn ($option, string $uuid): bool => isset($usedUuids[$uuid]));
         if ($removed->contains(fn ($option): bool => $this->optionIsUsedByVisibilityCondition($option))) {
-            throw new InvalidArgumentException('An answer used by a dependency cannot be removed. Update the dependent question first.');
+            throw new InvalidArgumentException('An answer used by a dependency or conditional resource rule cannot be removed. Update that rule first.');
         }
 
         foreach ($normalized as $row) {
@@ -379,21 +398,28 @@ class AppointmentQuestionController extends Controller
         foreach ($removed as $option) {
             $option->delete();
         }
+        $optionsByInputIndex = [];
         foreach ($normalized as $row) {
             if ($row['model'] === null) {
-                $question->options()->create($row['data']);
+                $model = $question->options()->create($row['data']);
             } else {
                 $row['model']->update($row['data']);
+                $model = $row['model'];
             }
+            $optionsByInputIndex[$row['input_index']] = $model;
         }
 
         $question->unsetRelation('options');
+
+        return $optionsByInputIndex;
     }
 
     private function optionIsUsedByVisibilityCondition(QuestionOption $option): bool
     {
         return $option->visibilityConditions->isNotEmpty()
-            || $option->matchingVisibilityConditions->isNotEmpty();
+            || $option->matchingVisibilityConditions->isNotEmpty()
+            || $option->triggeredResourceRequirementRule !== null
+            || $option->unavailableDefaultResourceRequirementRule !== null;
     }
 
     private function formData(
@@ -402,6 +428,11 @@ class AppointmentQuestionController extends Controller
         OrganizationContext $context,
         PhoneValidationService $phones,
     ): array {
+        $appointmentType->loadMissing(['organization', 'resources']);
+        $requirements = app(ResourceRequirementService::class);
+        $conditionalResources = $appointmentType->resources
+            ->reject(fn ($resource): bool => $requirements->isRequired($resource, $appointmentType))
+            ->values();
         $dependencyQuestions = $appointmentType->questions()
             ->where('is_active', true)
             ->with('options')
@@ -433,6 +464,8 @@ class AppointmentQuestionController extends Controller
                 ->filter(fn (AppointmentQuestion $candidate): bool => $question === null
                     || ($candidate->position < $question->position && ! hash_equals($candidate->getKey(), $question->getKey())))
                 ->values(),
+            'conditionalResources' => $conditionalResources,
+            'conditionalResourceFulfillmentModes' => ConditionalResourceFulfillmentMode::cases(),
         ];
     }
 

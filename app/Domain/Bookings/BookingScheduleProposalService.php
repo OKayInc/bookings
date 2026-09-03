@@ -2,6 +2,7 @@
 
 namespace App\Domain\Bookings;
 
+use App\Domain\Resources\ConditionalResourceRequirementService;
 use App\Enums\BookingHoldStatus;
 use App\Enums\BookingStatus;
 use App\Enums\ScheduleProposalStatus;
@@ -24,6 +25,7 @@ class BookingScheduleProposalService
         private readonly PublicBookingHoldService $holds,
         private readonly BookingRescheduleService $reschedules,
         private readonly BookingCancellationService $cancellations,
+        private readonly ConditionalResourceRequirementService $conditionalResourceRequirements,
     ) {
     }
 
@@ -68,6 +70,12 @@ class BookingScheduleProposalService
             false,
             $holdTtlMinutes,
         );
+        try {
+            $this->conditionalResourceRequirements->applyStoredBookingAnswersToHold($booking, $lease->hold);
+        } catch (\Throwable $exception) {
+            $this->releaseHold($lease->hold);
+            throw $exception;
+        }
 
         $token = Str::random(64);
         try {

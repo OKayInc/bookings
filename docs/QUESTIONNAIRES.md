@@ -23,6 +23,19 @@ The browser hides, disables, and clears a dependent answer as soon as its expres
 
 Source option UUIDs remain stable when their labels or values are edited. Every option in a multi-answer condition is protected: a referenced option or source question cannot be removed, disabled, moved after its dependent question, or changed to a non-choice type until the dependency is updated.
 
+## Conditional resource requirements
+
+M9-R4 allows one checkbox, radio or select question to promote a named set of normally optional appointment resources when a configured answer is selected. The rule is specific to the appointment-type copy because resource assignments do not belong to an organization-wide reusable template.
+
+The fulfillment mode is either:
+
+- `one_of`: at least one held member is required; every available candidate is snapshotted under the named replacement group so the existing first-acceptance workflow can select one;
+- `all`: every configured member must be present in the selected-time hold and each is promoted to an independent required resource.
+
+Questions remain in their existing ordered questionnaire position. After the customer selects a time, the hold already contains every optional resource that was available for the full appointment interval and buffers. If that snapshot contains no `one_of` candidate, or does not contain every `all` member, the question is hidden. The server inserts the configured unavailable option (normally **No**) before visibility, validation, pricing and persistence. A submitted trigger value cannot override that server-owned default.
+
+When the trigger answer is accepted, booking creation promotes the appropriate hold rows before holiday and external-calendar rechecks and copies the effective flags to the appointment. Existing group appointments are promoted without downgrading requirements established by another booking. Rescheduling and staff schedule proposals reuse the saved booking answer and fail closed when a new time cannot satisfy it.
+
 ## Verification
 
 - Email: RFC syntax plus MX/A/AAAA DNS existence check.

@@ -9,6 +9,7 @@ use App\Models\BookingAttendee;
 use App\Models\BookingContractFile;
 use App\Models\BookingContractSubmission;
 use App\Models\AppointmentQuestion;
+use App\Models\AppointmentQuestionResourceRule;
 use App\Models\QuestionOption;
 use App\Models\ReusableQuestion;
 use App\Models\ReusableQuestionOption;
@@ -79,6 +80,7 @@ class ModelTableNameTest extends TestCase
             [BookingContractSubmission::class, 'booking_contract_submissions'],
             [BookingContractFile::class, 'booking_contract_files'],
             [AppointmentQuestion::class, 'appointment_questions'],
+            [AppointmentQuestionResourceRule::class, 'appointment_question_resource_rules'],
             [QuestionOption::class, 'question_options'],
             [ReusableQuestion::class, 'reusable_questions'],
             [ReusableQuestionOption::class, 'reusable_question_options'],

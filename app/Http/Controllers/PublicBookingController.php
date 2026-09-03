@@ -9,6 +9,7 @@ use App\Domain\Bookings\PublicBookingAvailabilityService;
 use App\Domain\Bookings\PublicBookingHoldService;
 use App\Domain\Money\MoneyService;
 use App\Domain\Resources\EquipmentPricingService;
+use App\Domain\Resources\ConditionalResourceRequirementService;
 use App\Domain\Questionnaires\QuestionnaireSubmissionService;
 use App\Domain\Tickets\TicketEventService;
 use App\Domain\Tickets\TicketInventoryService;
@@ -195,7 +196,11 @@ class PublicBookingController extends Controller
         ]);
     }
 
-    public function editHold(string $token, TicketEventService $ticketEvents): View
+    public function editHold(
+        string $token,
+        TicketEventService $ticketEvents,
+        ConditionalResourceRequirementService $conditionalResources,
+    ): View
     {
         $hold = $this->holdByToken($token);
         $hold->load(['organization', 'resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.questions.visibilityConditions.expectedOptions', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
@@ -205,6 +210,7 @@ class PublicBookingController extends Controller
             'type' => $hold->appointmentType,
             'hold' => $hold,
             'holdToken' => $token,
+            'resourceUnavailableDefaults' => $conditionalResources->unavailableDefaultAnswers($hold),
             'eventTiming' => $hold->appointmentType->ticketing_enabled
                 ? $ticketEvents->appointmentAttributes(
                     $hold->appointmentType,
@@ -221,6 +227,7 @@ class PublicBookingController extends Controller
         QuestionnaireSubmissionService $questionnaires,
         MoneyService $money,
         CouponRedemptionService $coupons,
+        ConditionalResourceRequirementService $conditionalResources,
     ): JsonResponse {
         $hold = $this->holdByToken($token);
         $hold->load(['resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.questions.visibilityConditions.expectedOptions', 'appointmentType.shortNoticeFeeRules']);
@@ -236,6 +243,7 @@ class PublicBookingController extends Controller
                 equipmentResourceQuantities: $hold->resources->mapWithKeys(fn ($resource) => [
                     $resource->getKey() => (int) ($resource->pivot->quantity_reserved ?? 1),
                 ])->all(),
+                forcedAnswers: $conditionalResources->unavailableDefaultAnswers($hold),
             );
             if (trim((string) $request->input('coupon_code')) !== '') {
                 $quote = $coupons->apply(
@@ -265,6 +273,7 @@ class PublicBookingController extends Controller
         string $token,
         BookingCreationService $bookings,
         QuestionnaireSubmissionService $questionnaires,
+        ConditionalResourceRequirementService $conditionalResources,
     ): RedirectResponse {
         $hold = $this->holdByToken($token);
         $hold->load(['resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.questions.visibilityConditions.expectedOptions', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
@@ -301,6 +310,7 @@ class PublicBookingController extends Controller
             equipmentResourceQuantities: $hold->resources->mapWithKeys(fn ($resource) => [
                 $resource->getKey() => (int) ($resource->pivot->quantity_reserved ?? 1),
             ])->all(),
+            forcedAnswers: $conditionalResources->unavailableDefaultAnswers($hold),
         );
         $files = array_values($request->file('contract_files', []));
         $this->validateContractSet($files);

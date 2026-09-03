@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class QuestionOption extends Model
 {
@@ -26,5 +27,13 @@ class QuestionOption extends Model
             'question_option_id',
             'visibility_condition_id',
         );
+    }
+    public function triggeredResourceRequirementRule(): HasOne
+    {
+        return $this->hasOne(AppointmentQuestionResourceRule::class, 'trigger_option_id');
+    }
+    public function unavailableDefaultResourceRequirementRule(): HasOne
+    {
+        return $this->hasOne(AppointmentQuestionResourceRule::class, 'unavailable_default_option_id');
     }
 }

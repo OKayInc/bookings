@@ -118,7 +118,7 @@
 (function(){
  const form=document.querySelector('form.form-stack'); const total=document.getElementById('questionnaire-total'); const lines=document.getElementById('questionnaire-price-lines'); const questionElements=Array.from(document.querySelectorAll('.questionnaire-question')); let timer;
  const questions=new Map(questionElements.map(element=>[element.dataset.questionUuid,element]));
- questionElements.forEach(element=>{element._visibilityConditions=JSON.parse(element.dataset.visibilityConditions||'[]');element.querySelectorAll('input,select,textarea').forEach(control=>{control.dataset.visibilityRequired=control.required?'1':'0';});});
+ questionElements.forEach(element=>{element._visibilityConditions=JSON.parse(element.dataset.visibilityConditions||'[]');element._resourceUnavailable=element.dataset.resourceUnavailable==='1';element.querySelectorAll('input,select,textarea').forEach(control=>{control.dataset.visibilityRequired=control.required?'1':'0';});});
  questionElements.forEach(element=>{element._numericConstraints=JSON.parse(element.dataset.numericConstraints||'[]');});
  function readNumericAnswer(uuid){const element=questions.get(uuid);if(!element||element.hidden||element.dataset.questionType!=='number')return null;const control=element.querySelector('input[type="number"]');return control&&!control.disabled?control.value:null;}
  function refreshNumericConstraints(){
@@ -133,10 +133,11 @@
      element.querySelector('.numeric-constraint-error').textContent=message;
    });
  }
- function hasAnswer(questionUuid,optionUuid){const source=questions.get(questionUuid);if(!source||source.hidden)return false;return Array.from(source.querySelectorAll('input,select,textarea')).some(control=>!control.disabled&&control.value===optionUuid&&(!['checkbox','radio'].includes(control.type)||control.checked));}
+ function hasAnswer(questionUuid,optionUuid){const source=questions.get(questionUuid);if(!source||source.dataset.conditionVisible==='0')return false;return Array.from(source.querySelectorAll('input,select,textarea')).some(control=>!control.disabled&&control.value===optionUuid&&(!['checkbox','radio'].includes(control.type)||control.checked));}
  function expressionMatches(conditions){return QuestionVisibility.expressionMatches(conditions,hasAnswer);}
- function clearControl(control){if(control.type==='checkbox'||control.type==='radio')control.checked=false;else if(control.type==='file')control.value='';else control.value='';}
- function refreshVisibility(){questionElements.forEach(element=>{const show=expressionMatches(element._visibilityConditions);const wasHidden=element.hidden;if(!show&&!wasHidden)element.querySelectorAll('input,select,textarea').forEach(clearControl);element.hidden=!show;element.setAttribute('aria-hidden',show?'false':'true');element.querySelectorAll('input,select,textarea').forEach(control=>{control.disabled=!show;control.required=show&&control.dataset.visibilityRequired==='1';});});}
+ function isResourceDefault(control){return control.dataset?.resourceDefaultControl!==undefined;}
+ function clearControl(control){if(isResourceDefault(control))return;if(control.type==='checkbox'||control.type==='radio')control.checked=false;else if(control.type==='file')control.value='';else control.value='';}
+ function refreshVisibility(){questionElements.forEach(element=>{const conditionVisible=expressionMatches(element._visibilityConditions);const display=conditionVisible&&!element._resourceUnavailable;element.dataset.conditionVisible=conditionVisible?'1':'0';if(!display)element.querySelectorAll('input,select,textarea').forEach(clearControl);element.hidden=!display;element.setAttribute('aria-hidden',display?'false':'true');element.querySelectorAll('input,select,textarea').forEach(control=>{const useDefault=isResourceDefault(control)&&conditionVisible&&element._resourceUnavailable;control.disabled=useDefault?false:!display;control.required=display&&control.dataset.visibilityRequired==='1';});});}
  async function updateQuote(){
    const source=new FormData(form), body=new FormData(); body.append('_token',source.get('_token'));
    for(const [key,value] of source.entries()) if((key.startsWith('answers[')||key==='coupon_code') && !(value instanceof File)) body.append(key,value);

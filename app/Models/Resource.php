@@ -142,6 +142,16 @@ class Resource extends Model
         return $this->hasMany(ResourceConfirmation::class);
     }
 
+    public function conditionalRequirementRules(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            AppointmentQuestionResourceRule::class,
+            'appointment_question_resource_rule_resources',
+            'resource_id',
+            'resource_rule_id',
+        );
+    }
+
     public function usesQuantityInventory(): bool
     {
         return $this->type === 'equipment' && (bool) $this->quantity_enabled;

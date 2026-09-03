@@ -35,7 +35,9 @@ class QuestionnaireSubmissionService
         int $attendeeCount = 1,
         array $ticketSeats = [],
         ?array $equipmentResourceQuantities = null,
+        array $forcedAnswers = [],
     ): QuestionnaireQuote {
+        $answers = array_replace($answers, $forcedAnswers);
         $visibleQuestions = $this->visibility->visibleQuestions($type, $answers);
         $visibleAnswers = $this->visibleAnswers($visibleQuestions, $answers);
         $errors = $this->numericConstraints->errors($type, $visibleQuestions, $visibleAnswers, $attendeeCount);
@@ -90,8 +92,9 @@ class QuestionnaireSubmissionService
         int $attendeeCount = 1,
         array $ticketSeats = [],
         ?array $equipmentResourceQuantities = null,
+        array $forcedAnswers = [],
     ): QuestionnaireSubmission {
-        $submittedAnswers = (array) $request->input('answers', []);
+        $submittedAnswers = array_replace((array) $request->input('answers', []), $forcedAnswers);
         $visibleQuestions = $this->visibility->visibleQuestions($type, $submittedAnswers);
         $rules = [];
 
@@ -138,7 +141,9 @@ class QuestionnaireSubmissionService
             }
         }
 
-        $validated = Validator::make($request->all(), $rules)->validate();
+        $validationInput = $request->all();
+        $validationInput['answers'] = $submittedAnswers;
+        $validated = Validator::make($validationInput, $rules)->validate();
         $raw = (array) ($validated['answers'] ?? []);
         $errors = $this->numericConstraints->errors($type, $visibleQuestions, $raw, $attendeeCount);
         if ($errors !== []) {

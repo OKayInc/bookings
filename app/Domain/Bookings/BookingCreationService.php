@@ -20,6 +20,7 @@ use App\Domain\Payments\PaymentRuleService;
 use App\Domain\Payments\BookingPaymentSnapshotService;
 use App\Domain\Coupons\CouponApplication;
 use App\Domain\Coupons\CouponRedemptionService;
+use App\Domain\Resources\ConditionalResourceRequirementService;
 use App\Enums\AppointmentStatus;
 use App\Enums\BookingHoldStatus;
 use App\Enums\BookingStatus;
@@ -56,6 +57,7 @@ class BookingCreationService
         private readonly PaymentRuleService $paymentRules,
         private readonly BookingPaymentSnapshotService $paymentSnapshots,
         private readonly CouponRedemptionService $coupons,
+        private readonly ConditionalResourceRequirementService $conditionalResourceRequirements,
     ) {
     }
 
@@ -95,6 +97,7 @@ class BookingCreationService
             }
 
             $hold->load(['appointmentType.organization', 'resources', 'invitation', 'contractTemplate']);
+            $this->conditionalResourceRequirements->applySubmissionToHold($hold, $questionnaire);
             $type = $hold->appointmentType;
             $organization = $type->organization;
             if (! $this->seasons->contains(

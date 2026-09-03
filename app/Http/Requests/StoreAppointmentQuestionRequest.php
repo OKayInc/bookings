@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Domain\Money\MoneyService;
+use App\Enums\ConditionalResourceFulfillmentMode;
 use App\Enums\PricingAdjustmentType;
 use App\Enums\PricingApplicationMode;
 use App\Enums\PricingPercentageBasis;
@@ -83,6 +84,13 @@ class StoreAppointmentQuestionRequest extends FormRequest
             'visibility_conditions.*.question_option_uuid' => ['nullable', 'uuid'],
             'visibility_conditions.*.question_option_uuids' => ['nullable', 'array', 'max:500'],
             'visibility_conditions.*.question_option_uuids.*' => ['required', 'uuid', 'distinct'],
+            'resource_requirement_enabled' => ['nullable', 'boolean'],
+            'resource_requirement_trigger_option_index' => ['nullable', 'integer', 'min:0', 'max:499'],
+            'resource_unavailable_default_option_index' => ['nullable', 'integer', 'min:0', 'max:499'],
+            'resource_requirement_group_name' => ['nullable', 'string', 'max:80'],
+            'resource_requirement_fulfillment_mode' => ['nullable', Rule::enum(ConditionalResourceFulfillmentMode::class)],
+            'resource_requirement_resource_uuids' => ['nullable', 'array', 'max:500'],
+            'resource_requirement_resource_uuids.*' => ['uuid', 'distinct'],
         ];
     }
 
@@ -186,6 +194,42 @@ class StoreAppointmentQuestionRequest extends FormRequest
                         "visibility_conditions.$index.question_option_uuids",
                         'Choose at least one answer for this display condition.',
                     );
+                }
+            }
+
+            if ($this->boolean('resource_requirement_enabled')) {
+                if (! $type?->hasOptions()) {
+                    $validator->errors()->add(
+                        'resource_requirement_enabled',
+                        'Conditional resource requirements can only be configured on a choice question.',
+                    );
+                }
+
+                $options = (array) $this->input('options', []);
+                $triggerIndex = filter_var($this->input('resource_requirement_trigger_option_index'), FILTER_VALIDATE_INT);
+                $defaultIndex = filter_var($this->input('resource_unavailable_default_option_index'), FILTER_VALIDATE_INT);
+                if ($triggerIndex === false || ! isset($options[$triggerIndex])
+                    || trim((string) ($options[$triggerIndex]['label'] ?? '')) === '') {
+                    $validator->errors()->add('resource_requirement_trigger_option_index', 'Choose the answer that requires the resource group.');
+                }
+                if ($defaultIndex === false || ! isset($options[$defaultIndex])
+                    || trim((string) ($options[$defaultIndex]['label'] ?? '')) === '') {
+                    $validator->errors()->add('resource_unavailable_default_option_index', 'Choose the answer used when the resource group is unavailable.');
+                }
+                if ($triggerIndex !== false && $defaultIndex !== false && $triggerIndex === $defaultIndex) {
+                    $validator->errors()->add(
+                        'resource_unavailable_default_option_index',
+                        'The unavailable default must be different from the answer that requires resources.',
+                    );
+                }
+                if (trim((string) $this->input('resource_requirement_group_name')) === '') {
+                    $validator->errors()->add('resource_requirement_group_name', 'Enter a conditional resource group name.');
+                }
+                if (ConditionalResourceFulfillmentMode::tryFrom((string) $this->input('resource_requirement_fulfillment_mode')) === null) {
+                    $validator->errors()->add('resource_requirement_fulfillment_mode', 'Choose whether one or all selected resources are required.');
+                }
+                if ((array) $this->input('resource_requirement_resource_uuids', []) === []) {
+                    $validator->errors()->add('resource_requirement_resource_uuids', 'Choose at least one optional resource.');
                 }
             }
         });

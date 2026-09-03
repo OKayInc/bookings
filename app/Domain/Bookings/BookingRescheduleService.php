@@ -10,6 +10,7 @@ use App\Domain\Availability\AvailabilityInterval;
 use App\Domain\Availability\AppointmentTypeSeasonService;
 use App\Domain\Availability\OrganizationHolidayService;
 use App\Domain\Availability\ResourceHolidayService;
+use App\Domain\Resources\ConditionalResourceRequirementService;
 use App\Enums\BookingHoldStatus;
 use App\Enums\BookingStatus;
 use App\Models\Appointment;
@@ -41,6 +42,7 @@ class BookingRescheduleService
         private readonly AppointmentTypeSeasonService $seasons,
         private readonly TicketAllocationService $ticketAllocation,
         private readonly TicketEventService $ticketEvents,
+        private readonly ConditionalResourceRequirementService $conditionalResourceRequirements,
     ) {
     }
 
@@ -121,6 +123,7 @@ class BookingRescheduleService
                 throw new RuntimeException('The organization is now closed on the proposed date. Please choose another time.');
             }
             $hold->loadMissing(['resources', 'appointmentType.organization']);
+            $this->conditionalResourceRequirements->applyStoredBookingAnswersToHold($lockedBooking, $hold);
             if (! $this->seasons->contains(
                 $hold->appointmentType,
                 CarbonImmutable::instance($hold->starts_at_utc)->utc(),

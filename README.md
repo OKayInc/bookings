@@ -1,6 +1,14 @@
-# Appointment Software — M9-R1
+# Appointment Software — M9-R4
 
-M9-R1 adds quantity-aware equipment inventory and free, per-piece, exact-bundle or fixed rental pricing to M9's organization-owned payment workflow. See `docs/EQUIPMENT-INVENTORY.md`, `docs/CHANGES-M9-R1.md`, and `docs/UPGRADE-M9-TO-M9-R1.md`.
+M9-R4 adds answer-driven resource requirements to the existing M9 payment, coupon and equipment release line. Choice questions can promote normally optional resources as either one-of-N or all-required for the selected time. See `docs/CHANGES-M9-R4.md` and `docs/UPGRADE-M9-R3-TO-M9-R4.md`.
+
+## M9-R4 conditional resource requirements
+
+- A checkbox, radio or select answer can promote a configured group of optional resources to required.
+- The group can require one available candidate (1 of N) or every selected member.
+- Questions remain in their normal ordered questionnaire position after time selection.
+- If the selected-time hold cannot fulfill the group, the question is hidden and its configured unavailable answer is saved automatically.
+- Server-owned defaults override forged answers; final booking creation, staff proposals and rescheduling recheck the promoted resource snapshot.
 
 ## M9-R1 equipment capabilities
 
@@ -254,3 +262,7 @@ Payment terms are configured on each appointment type and copied to the booking 
 ## M9-R3: ordered choices and gift cards/coupons
 
 Questionnaire choices now have an explicit numeric order with case-insensitive alphabetic tie-breaking. Organizations can sell fixed-value gift cards or percentage coupons, issue them manually, limit them to selected appointment types, set optional expirations, deliver password-protected printable/link/QR versions, redeem them during booking, and administratively destroy/refund only never-used purchased codes. See `docs/CHANGES-M9-R3.md` and `docs/UPGRADE-M9-R2-TO-M9-R3.md`.
+
+## M9-R4: answer-driven resource requirements
+
+Choice questions can conditionally require a named group of otherwise optional appointment resources. The trigger answer may require one available candidate or every configured member. Availability is evaluated from the selected-time hold; an unfulfillable question stays in its normal questionnaire position but is hidden and authoritatively answered with its configured default. See `docs/CHANGES-M9-R4.md` and `docs/UPGRADE-M9-R3-TO-M9-R4.md`.

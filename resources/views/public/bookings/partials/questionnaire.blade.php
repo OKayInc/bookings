@@ -2,6 +2,7 @@
 $money=app(\App\Domain\Money\MoneyService::class);
 $numericService=app(\App\Domain\Questionnaires\NumericQuestionConstraintService::class);
 $type->loadMissing('questions.numericConstraints.sourceQuestion');
+$resourceUnavailableDefaults=$resourceUnavailableDefaults ?? [];
 $hasQuestions=$type->questions->where('is_active',true)->isNotEmpty();
 $hasShortNoticeFees=$type->shortNoticeFeeRules->where('is_active',true)->isNotEmpty();
 @endphp
@@ -19,8 +20,13 @@ $visibilityConditions=$question->visibilityConditions->sortBy('position')->map(f
 ])->values()->all();
 $numericConstraints=$numericService->publicRules($question);
 $numericMessage=$numericConstraints !== [] ? $numericService->message($question) : '';
+$resourceUnavailableDefault=$resourceUnavailableDefaults[$question->uuid] ?? null;
+$resourceUnavailable=array_key_exists($question->uuid,$resourceUnavailableDefaults);
 @endphp
-<div class="field questionnaire-question" data-question-uuid="{{ $question->uuid }}" data-question-type="{{ $question->type->value }}" data-visibility-conditions='@json($visibilityConditions)' data-numeric-constraints='@json($numericConstraints)' data-numeric-message="{{ $numericMessage }}">
+<div class="field questionnaire-question" data-question-uuid="{{ $question->uuid }}" data-question-type="{{ $question->type->value }}" data-visibility-conditions='@json($visibilityConditions)' data-numeric-constraints='@json($numericConstraints)' data-numeric-message="{{ $numericMessage }}" data-resource-unavailable="{{ $resourceUnavailable ? '1' : '0' }}" @if($resourceUnavailable) hidden aria-hidden="true" @endif>
+@if($resourceUnavailable)
+@foreach((array)$resourceUnavailableDefault as $defaultOptionUuid)<input type="hidden" name="answers[{{ $question->uuid }}]{{ $question->type->acceptsMultipleAnswers() ? '[]' : '' }}" value="{{ $defaultOptionUuid }}" data-resource-default-control>@endforeach
+@endif
 <label for="q_{{ $question->uuid }}">{{ $question->label }} @if($question->is_required)<span aria-label="required">*</span>@endif</label>
 @if($question->description)<div class="muted">{{ $question->description }}</div>@endif
 @switch($question->type->value)

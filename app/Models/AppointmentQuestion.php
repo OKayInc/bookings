@@ -10,6 +10,7 @@ use App\Models\Concerns\HasBinaryUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class AppointmentQuestion extends Model
 {
@@ -40,4 +41,5 @@ class AppointmentQuestion extends Model
     public function dependentVisibilityConditions(): HasMany { return $this->hasMany(AppointmentQuestionVisibilityCondition::class, 'source_question_id'); }
     public function numericConstraints(): HasMany { return $this->hasMany(AppointmentQuestionNumericConstraint::class)->orderBy('position'); }
     public function dependentNumericConstraints(): HasMany { return $this->hasMany(AppointmentQuestionNumericConstraint::class, 'source_question_id'); }
+    public function resourceRequirementRule(): HasOne { return $this->hasOne(AppointmentQuestionResourceRule::class); }
 }
