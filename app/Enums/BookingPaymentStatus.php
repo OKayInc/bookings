@@ -22,4 +22,15 @@ enum BookingPaymentStatus: string
             self::Waived => 'Payment waived',
         };
     }
+
+    public function badgeClass(): string
+    {
+        return match ($this) {
+            self::Unpaid => 'text-bg-danger',
+            self::PartiallyPaid => 'text-bg-warning',
+            self::Paid => 'text-bg-success',
+            self::PartiallyRefunded => 'text-bg-info',
+            self::Refunded, self::Waived => 'text-bg-secondary',
+        };
+    }
 }

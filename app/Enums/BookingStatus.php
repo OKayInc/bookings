@@ -29,4 +29,17 @@ enum BookingStatus: string
     {
         return ! in_array($this, [self::Cancelled, self::Declined], true);
     }
+
+    public function badgeClass(): string
+    {
+        return match ($this) {
+            self::Confirmed => 'text-bg-success',
+            self::Cancelled => 'text-bg-danger',
+            self::Declined => 'text-bg-dark',
+            self::PendingEmailVerification,
+            self::PendingContractReview,
+            self::PendingStaffConfirmation,
+            self::PendingPayment => 'text-bg-warning',
+        };
+    }
 }

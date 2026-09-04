@@ -1,6 +1,16 @@
-# Appointment Software — M9-R4
+# Appointment Software — M9-R5
 
-M9-R4 adds answer-driven resource requirements to the existing M9 payment, coupon and equipment release line. Choice questions can promote normally optional resources as either one-of-N or all-required for the selected time. See `docs/CHANGES-M9-R4.md` and `docs/UPGRADE-M9-R3-TO-M9-R4.md`.
+M9-R5 adds upcoming bookings to `/dashboard`, with separate colour-coded booking and payment statuses, organization-local date filters, and selectable page sizes. See `docs/CHANGES-M9-R5.md`, `docs/UPGRADE-M9-R4-TO-M9-R5.md`, and `docs/VERIFICATION-M9-R5.md`.
+
+## M9-R5 dashboard
+
+- Upcoming and in-progress bookings appear in chronological order, with links to their details.
+- The top-right date selector offers Today, Today and tomorrow, From today to 1 week, From today to next month, and All.
+- Default: the coming week, 10 bookings per page. Choose 10, 25, 50, or 100; pagination preserves both selections.
+- Booking and payment states use separate coloured text badges, including pending reasons, cancellation, partial payment, refunds, and waived/free bookings.
+- Dates and daylight-saving boundaries follow the active organization's timezone; overnight events display both dates.
+- Owners, administrators, and managers see organization bookings. Employees see only bookings assigned to their person resources, matching existing booking permissions.
+- No new migration, dependency, background task, or configuration variable is required.
 
 ## M9-R4 conditional resource requirements
 
