@@ -274,7 +274,7 @@
     @forelse($booking->contractSubmissions as $submission)
         <div class="card compact">
             <p><strong>{{ ucfirst($submission->status->value) }}</strong> · submitted {{ $submission->submitted_at_utc->format('Y-m-d H:i') }} UTC</p>
-            <ul>@foreach($submission->files as $file)<li><a href="{{ route('bookings.signed-file', [$booking, $file]) }}">{{ $file->original_name }}</a> <span class="muted">({{ number_format($file->size_bytes / 1024, 1) }} KiB)</span></li>@endforeach</ul>
+            <ul>@foreach($submission->files as $file)<li><a href="{{ route('bookings.signed-file', [$booking, $file]) }}" download>{{ $file->original_name }}</a> <span class="muted">({{ number_format($file->size_bytes / 1024, 1) }} KiB)</span></li>@endforeach</ul>
             @if($submission->review_notes)<p><strong>Notes:</strong> {{ $submission->review_notes }}</p>@endif
             @if($submission->status->value === 'pending' && $canManage)
                 <form method="post" action="{{ route('bookings.contract.review', [$booking, $submission]) }}">

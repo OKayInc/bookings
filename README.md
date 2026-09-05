@@ -1,6 +1,12 @@
-# Appointment Software — M9-R5
+# Appointment Software — M9-R6
 
-M9-R5 adds upcoming bookings to `/dashboard`, with separate colour-coded booking and payment statuses, organization-local date filters, and selectable page sizes. See `docs/CHANGES-M9-R5.md`, `docs/UPGRADE-M9-R4-TO-M9-R5.md`, and `docs/VERIFICATION-M9-R5.md`.
+M9-R6 adds a global, accessible loading overlay for backend and public page navigation. It appears during internal link navigation, valid form submission, reloads and page restoration, while safely excluding downloads, fragments, external destinations and new tabs. The release also reduces the three dashboard-total database queries to one aggregate query and preconnects to the Bootstrap CDN. See `docs/CHANGES-M9-R6.md`, `docs/UPGRADE-M9-R5-TO-M9-R6.md`, and `docs/VERIFICATION-M9-R6.md`.
+
+## M9-R6 global page loader
+
+Both shared Blade layouts now display a responsive loading overlay while a destination page is being prepared. The indicator includes visible status text, screen-reader status semantics, `aria-busy` state, dark-mode-compatible Bootstrap variables, and reduced-motion support. Browser back/forward restoration clears the overlay, and cancelled confirmations or invalid forms do not leave it active.
+
+The first request can show the indicator only after the server has delivered the shared layout markup; server time-to-first-byte still requires backend profiling and optimization.
 
 ## M9-R5 dashboard
 

@@ -200,7 +200,7 @@ $requiredDeclined = $requiredConfirmations->where('status', \App\Enums\ResourceC
 <?php if ($booking->contractTemplate): ?>
 <div class="card">
     <h2>Contract</h2>
-    <p><a class="btn" href="<?= e(route('public.bookings.contract-template', [$booking, $manageToken])) ?>">Download contract template</a></p>
+    <p><a class="btn" href="<?= e(route('public.bookings.contract-template', [$booking, $manageToken])) ?>" download>Download contract template</a></p>
     <?php if ($latestSubmission): ?>
         <p>Status: <span class="badge"><?= e(ucfirst($latestSubmission->status->value)) ?></span></p>
         <?php if ($latestSubmission->review_notes): ?>
@@ -208,7 +208,7 @@ $requiredDeclined = $requiredConfirmations->where('status', \App\Enums\ResourceC
         <?php endif; ?>
         <ul>
             <?php foreach ($latestSubmission->files as $file): ?>
-                <li><a href="<?= e(route('public.bookings.signed-file', [$booking, $manageToken, $file])) ?>"><?= e($file->original_name) ?></a></li>
+                <li><a href="<?= e(route('public.bookings.signed-file', [$booking, $manageToken, $file])) ?>" download><?= e($file->original_name) ?></a></li>
             <?php endforeach; ?>
         </ul>
     <?php endif; ?>

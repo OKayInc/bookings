@@ -59,6 +59,10 @@ class DashboardController extends Controller
         $upcomingBookings = $query->paginate($perPage)
             ->appends(['range' => $range, 'per_page' => $perPage]);
 
+        // Fetch all dashboard totals with one aggregate query instead of one
+        // count query per relationship.
+        $organization->loadCount(['resources', 'appointmentTypes', 'memberships']);
+
         return view('dashboard', [
             'organization' => $organization,
             'upcomingBookings' => $upcomingBookings,
@@ -69,9 +73,9 @@ class DashboardController extends Controller
             'perPage' => $perPage,
             'now' => $now,
             'rangeEnd' => $rangeEnd,
-            'resourceCount' => $organization->resources()->count(),
-            'appointmentTypeCount' => $organization->appointmentTypes()->count(),
-            'memberCount' => $organization->memberships()->count(),
+            'resourceCount' => $organization->resources_count,
+            'appointmentTypeCount' => $organization->appointment_types_count,
+            'memberCount' => $organization->memberships_count,
         ]);
     }
 }

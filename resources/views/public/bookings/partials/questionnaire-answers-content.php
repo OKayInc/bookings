@@ -4,7 +4,7 @@
 <div class="answer-block"><strong><?= e($answer->question_label) ?></strong>
 <?php $v = data_get($answer->value_json, 'value'); ?>
 <?php if ($answer->question_type === 'file'): ?>
- <ul><?php foreach ($answer->files as $file): ?><li><a href="<?= e(route('public.bookings.answer-file', [$booking, $manageToken, $file])) ?>"><?= e($file->original_name) ?></a></li><?php endforeach; ?></ul>
+ <ul><?php foreach ($answer->files as $file): ?><li><a href="<?= e(route('public.bookings.answer-file', [$booking, $manageToken, $file])) ?>" download><?= e($file->original_name) ?></a></li><?php endforeach; ?></ul>
 <?php elseif (is_array($v)): ?>
  <div><?= e(collect($v)->map(fn ($x) => is_array($x) ? ($x['label'] ?? json_encode($x)) : $x)->implode(', ')) ?></div>
 <?php else: ?>

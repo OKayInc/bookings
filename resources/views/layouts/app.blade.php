@@ -5,11 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', config('app.name'))</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=m9-r6">
+    <script src="{{ asset('js/page-loader.js') }}?v=m9-r6" defer></script>
     @stack('head')
 </head>
 <body class="bg-body-tertiary">
+@include('layouts.partials.page-loader')
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm" aria-label="Backend navigation">
     <div class="container-fluid px-lg-4">
         <a class="navbar-brand fw-semibold d-flex align-items-center gap-2" href="{{ auth()->check() ? route('dashboard') : route('login') }}">@if($activeOrganization?->logo_url)<img src="{{ $activeOrganization->logo_url }}" alt="{{ $activeOrganization->name }} logo" style="height:32px;width:auto;max-width:120px;object-fit:contain">@endif<span>{{ config('app.name') }}</span></a>

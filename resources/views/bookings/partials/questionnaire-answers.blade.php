@@ -4,7 +4,7 @@
 <div class="answer-block"><strong>{{ $answer->question_label }}</strong>
 @php $v=data_get($answer->value_json,'value'); @endphp
 @if($answer->question_type === 'file')
- <ul>@foreach($answer->files as $file)<li><a href="{{ route('bookings.answer-file',[$booking,$file]) }}">{{ $file->original_name }}</a> <span class="muted">({{ number_format($file->size_bytes/1024,1) }} KiB)</span></li>@endforeach</ul>
+ <ul>@foreach($answer->files as $file)<li><a href="{{ route('bookings.answer-file',[$booking,$file]) }}" download>{{ $file->original_name }}</a> <span class="muted">({{ number_format($file->size_bytes/1024,1) }} KiB)</span></li>@endforeach</ul>
 @elseif(is_array($v))
  <div>{{ collect($v)->map(fn($x)=>is_array($x)?($x['label']??json_encode($x)):($x))->implode(', ') }}</div>
 @else <div>{{ $v }}</div>@endif

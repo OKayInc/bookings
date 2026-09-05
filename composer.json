@@ -2,7 +2,7 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "appointment-software/application",
     "type": "project",
-    "description": "Multi-organization appointment, ticketing and payment platform - M9-R1",
+    "description": "Multi-organization appointment, ticketing and payment platform - M9-R6",
     "keywords": [
         "laravel",
         "appointments",

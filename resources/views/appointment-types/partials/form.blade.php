@@ -820,7 +820,7 @@
                 <strong>{{ $appointmentType->contractTemplate->original_name }}</strong>
                 <div class="muted">{{ number_format($appointmentType->contractTemplate->size_bytes / 1024, 1) }} KiB · {{ $appointmentType->contractTemplate->mime_type ?: 'unknown type' }}</div>
                 <div class="actions" style="margin-top:8px">
-                    <a class="btn" href="{{ route('appointment-types.contract-template.download', $appointmentType) }}">Download current contract</a>
+                    <a class="btn" href="{{ route('appointment-types.contract-template.download', $appointmentType) }}" download>Download current contract</a>
                     <label class="inline-check"><input type="checkbox" name="remove_contract" value="1"> Remove current contract</label>
                 </div>
             </div>
