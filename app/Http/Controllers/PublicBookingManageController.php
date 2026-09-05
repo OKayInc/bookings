@@ -78,7 +78,7 @@ class PublicBookingManageController extends Controller
     ): View {
         $this->authorizeToken($booking, $token);
         $proposals->expireForBooking($booking);
-        $booking->load(['organization.paymentSettings', 'appointmentType', 'appointment', 'attendees', 'tickets.attendee', 'contractTemplate', 'contractSubmissions.files', 'answers.files', 'priceLines', 'resourceConfirmations', 'reschedules', 'scheduleProposals.proposedBy', 'payments.refunds', 'refunds.transaction']);
+        $booking->load(['organization.paymentSettings', 'appointmentType', 'appointment', 'attendees', 'tickets.attendee', 'contractTemplate', 'contractSubmissions.files', 'answers.files', 'priceLines', 'resourceDeposits', 'resourceConfirmations', 'reschedules', 'scheduleProposals.proposedBy', 'payments.refunds', 'refunds.transaction']);
 
         $pendingProposal = $booking->scheduleProposals->first(function (BookingScheduleProposal $proposal): bool {
             return $proposal->status->value === 'pending' && $proposal->expires_at_utc->isFuture();

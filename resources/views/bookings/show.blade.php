@@ -9,7 +9,10 @@
     <div class="card"><h3>Price</h3><p>{{ app(\App\Domain\Money\MoneyService::class)->format($booking->price_minor, $booking->currency) }}</p><p>{{ $booking->attendee_count }} attendee(s)</p></div>
 </div>
 
-@php $quantityEquipment = $booking->appointment->resources->filter(fn ($resource) => $resource->usesQuantityInventory()); @endphp
+@php
+    $money = app(\App\Domain\Money\MoneyService::class);
+    $quantityEquipment = $booking->appointment->resources->filter(fn ($resource) => $resource->usesQuantityInventory());
+@endphp
 @if($quantityEquipment->isNotEmpty())
 <div class="card">
     <h2>Equipment allocation</h2>
@@ -21,9 +24,29 @@
 </div>
 @endif
 
-@php
-    $money = app(\App\Domain\Money\MoneyService::class);
-@endphp
+@if($booking->deposit_minor > 0)
+<div class="card">
+    <div class="d-flex justify-content-between gap-3 align-items-start"><div><h2>Refundable resource deposit</h2><p class="mb-0">Collected with the initial payment and returned through the same payment method.</p></div><span class="badge">{{ $money->format($booking->depositRemainingMinor(), $booking->currency) }} remaining</span></div>
+    @if($booking->resourceDeposits->isNotEmpty())
+    <div class="table-responsive mt-3"><table class="table table-sm align-middle"><thead><tr><th>Resource</th><th>Quantity</th><th>Deposit each</th><th>Total</th><th>Configuration</th></tr></thead><tbody>
+    @foreach($booking->resourceDeposits as $deposit)<tr><td>{{ $deposit->resource_name }}@if($deposit->question_label)<div class="small text-body-secondary">Triggered by: {{ $deposit->question_label }}</div>@endif</td><td>{{ $deposit->quantity }}</td><td>{{ $money->format($deposit->unit_amount_minor, $deposit->currency) }}</td><td>{{ $money->format($deposit->amount_minor, $deposit->currency) }}</td><td>{{ $deposit->configuration_source === 'question_override' ? 'Question override' : 'Resource default' }}</td></tr>@endforeach
+    </tbody></table></div>
+    @endif
+    <p class="mt-3 mb-1">Original deposit: {{ $money->format($booking->deposit_minor, $booking->currency) }} · Successfully refunded: {{ $money->format($booking->deposit_refunded_minor, $booking->currency) }}</p>
+    @if($canManage && $refundableDepositMinor > 0)
+    <form class="mt-3" method="post" action="{{ route('bookings.deposit-refunds.store', $booking) }}" data-deposit-refund-form onsubmit="return confirm('Refund this deposit through the original payment method?');">@csrf
+        <div class="field"><label for="deposit_refund_mode">Refund amount</label><select id="deposit_refund_mode" name="refund_mode" data-deposit-refund-mode><option value="full">Refund all remaining ({{ $money->format($refundableDepositMinor, $booking->currency) }})</option><option value="partial" @selected(old('refund_mode') === 'partial')>Partial refund</option></select></div>
+        <div data-partial-deposit-fields>
+            <div class="row"><div class="field"><label for="deposit_refund_amount">Partial amount ({{ $booking->currency }})</label><input id="deposit_refund_amount" inputmode="decimal" name="amount" value="{{ old('amount') }}"></div><div class="field"><label for="deposit_refund_reason">Reason for partial refund</label><input id="deposit_refund_reason" name="reason" maxlength="5000" value="{{ old('reason') }}"><div class="muted">Required so the retained portion has an audit record.</div></div></div>
+        </div>
+        <button class="btn btn-outline-primary" type="submit">Refund deposit</button>
+    </form>
+    @elseif($canManage && $booking->depositRemainingMinor() > 0)
+    <p class="alert alert-info mt-3 mb-0">No additional collected deposit is available right now. A deposit refund may already be pending, or the deposit has not been paid online.</p>
+    @endif
+</div>
+@endif
+
 <div class="card">
     <div class="d-flex justify-content-between gap-3 align-items-start"><div><h2>Payment ledger</h2><p>Total {{ $money->format($booking->price_minor, $booking->currency) }} · Net captured {{ $money->format($booking->netPaidMinor(), $booking->currency) }} · Outstanding {{ $money->format($booking->outstandingMinor(), $booking->currency) }}</p></div><span class="badge">{{ $booking->payment_status->label() }}</span></div>
     @if($booking->payment_exempt)<div class="alert alert-info">Online prepayment was waived by an allowlist rule. Price history was retained.</div>@endif
@@ -33,20 +56,40 @@
         </tbody></table></div>
     @elseif($canManage)<p class="muted">No online payment attempt has been recorded.</p>@endif
     @if($canManage && $booking->refunds->isNotEmpty())
-        <h3 class="h5">Refunds</h3><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Created</th><th>Amount</th><th>Status</th><th>Requested by</th><th>Reason</th></tr></thead><tbody>
-        @foreach($booking->refunds as $refund)<tr><td>{{ $refund->created_at->setTimezone($booking->organization->timezone)->format('Y-m-d H:i') }}</td><td>{{ $money->format($refund->amount_minor, $refund->currency) }}</td><td>{{ ucfirst($refund->status->value) }}@if($refund->failure_message)<div class="small text-danger">{{ $refund->failure_message }}</div>@endif @if($refund->status->value !== 'succeeded')<form class="mt-1" method="post" action="{{ route('bookings.refunds.retry', [$booking, $refund]) }}">@csrf<button class="btn btn-sm" type="submit">Retry</button></form>@endif</td><td>{{ $refund->requestedBy?->full_name ?? 'Automatic' }}</td><td>{{ $refund->reason }}</td></tr>@endforeach
+        <h3 class="h5">Refunds</h3><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Created</th><th>Type</th><th>Amount</th><th>Status</th><th>Requested by</th><th>Reason</th></tr></thead><tbody>
+        @foreach($booking->refunds as $refund)<tr><td>{{ $refund->created_at->setTimezone($booking->organization->timezone)->format('Y-m-d H:i') }}</td><td>{{ $refund->refund_type->label() }}</td><td>{{ $money->format($refund->amount_minor, $refund->currency) }}</td><td>{{ ucfirst($refund->status->value) }}@if($refund->failure_message)<div class="small text-danger">{{ $refund->failure_message }}</div>@endif @if($refund->status->value !== 'succeeded')<form class="mt-1" method="post" action="{{ route('bookings.refunds.retry', [$booking, $refund]) }}">@csrf<button class="btn btn-sm" type="submit">Retry</button></form>@endif</td><td>{{ $refund->requestedBy?->full_name ?? 'Automatic' }}</td><td>{{ $refund->reason }}</td></tr>@endforeach
         </tbody></table></div>
     @endif
-    @if($canManage && $booking->netPaidMinor() > 0)
+    @if($canManage && $refundablePriceMinor > 0)
         <hr><h3 class="h5">Issue manual refund</h3>
         <form method="post" action="{{ route('bookings.refunds.store', $booking) }}" onsubmit="return confirm('Submit this refund through the original payment provider?');">@csrf
-            <div class="row"><div class="field"><label for="refund_amount">Amount ({{ $booking->currency }})</label><input id="refund_amount" inputmode="decimal" name="amount" value="{{ old('amount', $money->decimal($booking->netPaidMinor(), $booking->currency)) }}" required></div><div class="field"><label for="refund_reason">Reason (visible to client)</label><input id="refund_reason" name="reason" maxlength="5000" required></div></div>
+            <div class="row"><div class="field"><label for="refund_amount">Amount ({{ $booking->currency }})</label><input id="refund_amount" inputmode="decimal" name="amount" value="{{ old('amount', $money->decimal($refundablePriceMinor, $booking->currency)) }}" required></div><div class="field"><label for="refund_reason">Reason (visible to client)</label><input id="refund_reason" name="reason" maxlength="5000" required></div></div>
             <button class="btn btn-outline-danger" type="submit">Issue refund</button>
         </form>
     @elseif(! $canManage)
         <p class="muted">Detailed provider and refund records are available to organization managers.</p>
     @endif
 </div>
+
+@push('scripts')
+<script>
+document.querySelectorAll('[data-deposit-refund-form]').forEach((form) => {
+    const mode = form.querySelector('[data-deposit-refund-mode]');
+    const partial = form.querySelector('[data-partial-deposit-fields]');
+    const controls = partial.querySelectorAll('input');
+    const refresh = () => {
+        const enabled = mode.value === 'partial';
+        partial.hidden = !enabled;
+        controls.forEach((control) => {
+            control.disabled = !enabled;
+            control.required = enabled;
+        });
+    };
+    mode.addEventListener('change', refresh);
+    refresh();
+});
+</script>
+@endpush
 
 @if($booking->tickets->isNotEmpty())
 <div class="card table-scroll">
@@ -274,7 +317,7 @@
     @forelse($booking->contractSubmissions as $submission)
         <div class="card compact">
             <p><strong>{{ ucfirst($submission->status->value) }}</strong> · submitted {{ $submission->submitted_at_utc->format('Y-m-d H:i') }} UTC</p>
-            <ul>@foreach($submission->files as $file)<li><a href="{{ route('bookings.signed-file', [$booking, $file]) }}" download>{{ $file->original_name }}</a> <span class="muted">({{ number_format($file->size_bytes / 1024, 1) }} KiB)</span></li>@endforeach</ul>
+            <ul>@foreach($submission->files as $file)<li><a href="{{ route('bookings.signed-file', [$booking, $file]) }}">{{ $file->original_name }}</a> <span class="muted">({{ number_format($file->size_bytes / 1024, 1) }} KiB)</span></li>@endforeach</ul>
             @if($submission->review_notes)<p><strong>Notes:</strong> {{ $submission->review_notes }}</p>@endif
             @if($submission->status->value === 'pending' && $canManage)
                 <form method="post" action="{{ route('bookings.contract.review', [$booking, $submission]) }}">

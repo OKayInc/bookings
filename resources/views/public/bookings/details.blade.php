@@ -55,7 +55,7 @@
 <div class="card">
     <h2>Contract</h2>
     <p>Download and sign this exact contract version, then upload either one signed PDF or photos/scans of the signed pages.</p>
-    <a class="btn" href="{{ route('public.booking-holds.contract', $holdToken) }}" download>Download {{ $hold->contractTemplate->original_name }}</a>
+    <a class="btn" href="{{ route('public.booking-holds.contract', $holdToken) }}">Download {{ $hold->contractTemplate->original_name }}</a>
 </div>
 @endif
 

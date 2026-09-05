@@ -148,6 +148,12 @@ $qType=old('type',$question?->type?->value ?? 'text');
         'resource_requirement_resource_uuids',
         $resourceRule?->resources?->pluck('uuid')->all() ?? [],
     );
+    $storedConditionalResourceDeposits = $resourceRule?->resources?->mapWithKeys(fn ($resource): array => [
+        $resource->uuid => $resource->pivot?->deposit_amount_minor === null
+            ? ''
+            : $money->decimal((int) $resource->pivot->deposit_amount_minor, $organization->currency),
+    ])->all() ?? [];
+    $conditionalResourceDeposits = old('resource_requirement_deposits', $storedConditionalResourceDeposits);
 @endphp
 <div class="section-card conditional" data-types="checkboxes,radio,select" id="conditional-resource-requirement">
 <h2>Conditional resource requirement</h2>
@@ -163,7 +169,10 @@ $qType=old('type',$question?->type?->value ?? 'text');
 <div class="field"><label for="resource-requirement-fulfillment">Resources required after the trigger answer</label><select id="resource-requirement-fulfillment" name="resource_requirement_fulfillment_mode" required>@foreach($conditionalResourceFulfillmentModes as $mode)<option value="{{ $mode->value }}" @selected($resourceFulfillmentMode === $mode->value)>{{ $mode->label() }}</option>@endforeach</select></div>
 <div class="field"><label>Optional resources in this group</label>
 @forelse($conditionalResources as $resource)
- <label class="inline-check"><input type="checkbox" name="resource_requirement_resource_uuids[]" value="{{ $resource->uuid }}" @checked(in_array($resource->uuid, (array)$selectedConditionalResourceUuids, true))> {{ $resource->name }} <span class="muted">({{ $resource->type }})</span></label>
+ <div class="card compact">
+  <label class="inline-check"><input type="checkbox" name="resource_requirement_resource_uuids[]" value="{{ $resource->uuid }}" @checked(in_array($resource->uuid, (array)$selectedConditionalResourceUuids, true))> {{ $resource->name }} <span class="muted">({{ $resource->type }})</span></label>
+  <div class="field mb-0"><label>Refundable deposit override ({{ $organization->currency }})</label><input inputmode="decimal" name="resource_requirement_deposits[{{ $resource->uuid }}]" value="{{ $conditionalResourceDeposits[$resource->uuid] ?? '' }}" placeholder="Use resource default{{ $resource->deposit_amount_minor === null ? '' : ': '.$money->decimal((int) $resource->deposit_amount_minor, $organization->currency) }}"><div class="muted">Blank uses the resource default. Enter 0 to explicitly waive it for this answer.@if($resource->usesQuantityInventory()) The amount applies per reserved piece.@endif</div></div>
+ </div>
 @empty
  <p class="muted">Assign at least one optional resource to this appointment type before configuring this rule.</p>
 @endforelse

@@ -33,3 +33,11 @@ Paid equipment must be required. Optional paid equipment is rejected because the
 The checkout quote stores one `equipment_resource` price line per charged resource, including its resource UUID, reserved quantity, pricing mode and unit/bundle breakdown. The total then follows the standard M9 full-payment or retainer workflow and its refund policy.
 
 The rate is intentionally attached to the appointment-type assignment rather than the resource itself. The same shared chairs can therefore be free for one appointment type, `$3` per piece for another, or use a different bundle schedule in another organization and currency.
+
+## Refundable deposits (M9-R6)
+
+Every resource, including equipment without a linked person, can define a default refundable deposit. For quantity-tracked equipment the configured amount is per reserved piece.
+
+A conditional resource requirement on a questionnaire choice can override the default for each assigned resource. A blank override inherits the resource value, an explicit zero removes the deposit for that question assignment, and blank at both levels means zero. The effective deposit is itemized separately from rental revenue and is frozen on the booking so later configuration edits do not change an existing rental.
+
+The booking ledger provides full and partial deposit returns. Partial returns require a reason, and all returns are sent through the same Stripe or PayPal transaction that originally collected the deposit.

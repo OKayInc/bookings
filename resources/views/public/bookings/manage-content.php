@@ -26,10 +26,21 @@
     </div>
 </div>
 
+<?php if ($booking->deposit_minor > 0): ?>
+<div class="card">
+    <h2>Refundable resource deposit</h2>
+    <p>Your total includes a refundable deposit of <strong><?= e(app(\App\Domain\Money\MoneyService::class)->format($booking->deposit_minor, $booking->currency)) ?></strong>. It is returned by the organization through the same payment method after the resource is returned.</p>
+    <?php if ($booking->resourceDeposits->isNotEmpty()): ?>
+    <ul><?php foreach ($booking->resourceDeposits as $deposit): ?><li><?= e($deposit->resource_name) ?><?php if ($deposit->quantity > 1): ?>: <?= e($deposit->quantity) ?> × <?= e(app(\App\Domain\Money\MoneyService::class)->format($deposit->unit_amount_minor, $deposit->currency)) ?><?php endif; ?> — <?= e(app(\App\Domain\Money\MoneyService::class)->format($deposit->amount_minor, $deposit->currency)) ?></li><?php endforeach; ?></ul>
+    <?php endif; ?>
+    <p class="muted">Successfully refunded: <?= e(app(\App\Domain\Money\MoneyService::class)->format($booking->deposit_refunded_minor, $booking->currency)) ?> · Remaining deposit: <?= e(app(\App\Domain\Money\MoneyService::class)->format($booking->depositRemainingMinor(), $booking->currency)) ?></p>
+</div>
+<?php endif; ?>
+
 <?php
 $money = app(\App\Domain\Money\MoneyService::class);
 $netPaid = $booking->netPaidMinor();
-$initialOutstanding = max(0, (int) $booking->initial_payment_due_minor - $netPaid);
+$initialOutstanding = $booking->initialOutstandingMinor();
 $outstanding = $booking->outstandingMinor();
 $activeBooking = !in_array($booking->status->value, ['cancelled', 'declined'], true);
 $paymentPurpose = $initialOutstanding > 0 ? 'initial' : 'balance';
@@ -42,7 +53,7 @@ $mayPay = $activeBooking && $paymentAmount > 0
 <div class="card">
     <h2>Payments</h2>
     <?php if ($booking->payment_exempt): ?>
-        <div class="alert alert-info">Online prepayment was waived by an organization allowlist rule. Once the booking prerequisites are complete, you may still pay the outstanding balance here.</div>
+        <div class="alert alert-info">Online prepayment for the appointment price was waived by an organization allowlist rule.<?php if ($booking->initialOutstandingMinor() > 0): ?> The refundable resource deposit must still be paid.<?php else: ?> Once the booking prerequisites are complete, you may still pay the outstanding appointment balance here.<?php endif; ?></div>
     <?php elseif ($outstanding === 0): ?>
         <div class="alert alert-success">No payment balance is outstanding.</div>
     <?php elseif ($initialOutstanding > 0): ?>
@@ -77,8 +88,8 @@ $mayPay = $activeBooking && $paymentAmount > 0
         </tbody></table></div>
     <?php endif; ?>
     <?php if ($booking->refunds->isNotEmpty()): ?>
-        <h3 class="h5 mt-3">Refunds</h3><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Created</th><th>Amount</th><th>Status</th><th>Reason</th></tr></thead><tbody>
-        <?php foreach ($booking->refunds as $refund): ?><tr><td><?= e($refund->created_at->setTimezone($organization->timezone)->format('Y-m-d H:i')) ?></td><td><?= e($money->format($refund->amount_minor, $refund->currency)) ?></td><td><?= e(ucfirst($refund->status->value)) ?></td><td><?= e($refund->reason) ?></td></tr><?php endforeach; ?>
+        <h3 class="h5 mt-3">Refunds</h3><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Created</th><th>Type</th><th>Amount</th><th>Status</th><th>Reason</th></tr></thead><tbody>
+        <?php foreach ($booking->refunds as $refund): ?><tr><td><?= e($refund->created_at->setTimezone($organization->timezone)->format('Y-m-d H:i')) ?></td><td><?= e($refund->refund_type->label()) ?></td><td><?= e($money->format($refund->amount_minor, $refund->currency)) ?></td><td><?= e(ucfirst($refund->status->value)) ?></td><td><?= e($refund->reason) ?></td></tr><?php endforeach; ?>
         </tbody></table></div>
     <?php endif; ?>
 </div>
@@ -200,7 +211,7 @@ $requiredDeclined = $requiredConfirmations->where('status', \App\Enums\ResourceC
 <?php if ($booking->contractTemplate): ?>
 <div class="card">
     <h2>Contract</h2>
-    <p><a class="btn" href="<?= e(route('public.bookings.contract-template', [$booking, $manageToken])) ?>" download>Download contract template</a></p>
+    <p><a class="btn" href="<?= e(route('public.bookings.contract-template', [$booking, $manageToken])) ?>">Download contract template</a></p>
     <?php if ($latestSubmission): ?>
         <p>Status: <span class="badge"><?= e(ucfirst($latestSubmission->status->value)) ?></span></p>
         <?php if ($latestSubmission->review_notes): ?>
@@ -208,7 +219,7 @@ $requiredDeclined = $requiredConfirmations->where('status', \App\Enums\ResourceC
         <?php endif; ?>
         <ul>
             <?php foreach ($latestSubmission->files as $file): ?>
-                <li><a href="<?= e(route('public.bookings.signed-file', [$booking, $manageToken, $file])) ?>" download><?= e($file->original_name) ?></a></li>
+                <li><a href="<?= e(route('public.bookings.signed-file', [$booking, $manageToken, $file])) ?>"><?= e($file->original_name) ?></a></li>
             <?php endforeach; ?>
         </ul>
     <?php endif; ?>

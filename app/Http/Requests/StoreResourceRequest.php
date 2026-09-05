@@ -4,6 +4,8 @@ namespace App\Http\Requests;
 
 use App\Domain\Availability\HolidayRegionCatalog;
 use App\Rules\IanaTimezone;
+use App\Rules\MoneyAmount;
+use App\Support\Organizations\OrganizationContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -16,6 +18,8 @@ class StoreResourceRequest extends FormRequest
 
     public function rules(): array
     {
+        $currency = app(OrganizationContext::class)->organization()->currency;
+
         return [
             'name' => ['required', 'string', 'max:180'],
             'type' => ['required', 'in:person,room,equipment,vehicle,other'],
@@ -28,6 +32,7 @@ class StoreResourceRequest extends FormRequest
                 'min:1',
                 'max:'.config('equipment.max_inventory_quantity', 100000),
             ],
+            'default_deposit' => ['nullable', new MoneyAmount($currency, allowZero: true)],
             'person_uuid' => ['nullable', 'uuid'],
             'timezone' => ['nullable', new IanaTimezone()],
             'default_requirement' => ['nullable', 'in:required,optional'],

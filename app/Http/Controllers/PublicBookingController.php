@@ -9,6 +9,7 @@ use App\Domain\Bookings\PublicBookingAvailabilityService;
 use App\Domain\Bookings\PublicBookingHoldService;
 use App\Domain\Money\MoneyService;
 use App\Domain\Resources\EquipmentPricingService;
+use App\Domain\Resources\ResourceDepositService;
 use App\Domain\Resources\ConditionalResourceRequirementService;
 use App\Domain\Questionnaires\QuestionnaireSubmissionService;
 use App\Domain\Tickets\TicketEventService;
@@ -45,6 +46,7 @@ class PublicBookingController extends Controller
         TicketEventService $ticketEvents,
         TicketInventoryService $ticketInventory,
         EquipmentPricingService $equipmentPricing,
+        ResourceDepositService $resourceDeposits,
     ): JsonResponse {
         $data = $request->validate([
             'access_mode' => ['required', Rule::in(['direct', 'unlisted', 'invitation'])],
@@ -77,11 +79,16 @@ class PublicBookingController extends Controller
                 (int) $data['attendee_count'],
             );
             $equipmentTotal = $equipmentPricing->total($appointmentType);
+            $depositTotal = $resourceDeposits->total($appointmentType);
             $price = $pricing->priceForBooking($appointmentType, $duration, $appointmentType->duration_unit, (int) $data['attendee_count']);
             if ($equipmentTotal > PHP_INT_MAX - $price) {
                 throw new \InvalidArgumentException('The appointment price is too large.');
             }
             $price += $equipmentTotal;
+            if ($depositTotal > PHP_INT_MAX - $price) {
+                throw new \InvalidArgumentException('The appointment price is too large.');
+            }
+            $price += $depositTotal;
             if ($appointmentType->ticketing_enabled) {
                 foreach ($slots as $slot) {
                     $ticketEvents->appointmentAttributes($appointmentType, $slot->startsAtUtc, $slot->endsAtUtc);
@@ -102,6 +109,7 @@ class PublicBookingController extends Controller
                 $duration,
                 $data,
                 $equipmentTotal,
+                $depositTotal,
             ): array {
                 $clientStart = $slot->startsAtUtc->setTimezone($timezone);
                 $clientEnd = $slot->endsAtUtc->setTimezone($timezone);
@@ -130,6 +138,10 @@ class PublicBookingController extends Controller
                     throw new \InvalidArgumentException('The appointment price is too large.');
                 }
                 $slotPrice += $equipmentTotal;
+                if ($depositTotal > PHP_INT_MAX - $slotPrice) {
+                    throw new \InvalidArgumentException('The appointment price is too large.');
+                }
+                $slotPrice += $depositTotal;
 
                 return [
                     'starts_at_utc' => $slot->startsAtUtc->toIso8601String(),

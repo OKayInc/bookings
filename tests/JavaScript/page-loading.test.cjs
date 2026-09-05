@@ -4,17 +4,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-test('page loader hides when ready and appears for navigation and form submission', () => {
+test('page loading overlay hides when ready and appears for navigation and form submission', () => {
     const listeners = {};
     const windowListeners = {};
     const classes = new Set();
     const label = { textContent: 'Loading…' };
-    const attributes = new Map([['aria-hidden', 'true']]);
-    const overlay = {
-        hidden: false,
-        querySelector: () => label,
-        setAttribute: (name, value) => attributes.set(name, value),
-    };
+    const overlay = { hidden: false, querySelector: () => label };
 
     class Element {
         closest() { return null; }
@@ -33,23 +28,21 @@ test('page loader hides when ready and appears for navigation and form submissio
                 remove: (name) => classes.delete(name),
             },
         },
-        getElementById: (id) => id === 'page-loader' ? overlay : null,
+        getElementById: (id) => id === 'page-loading-overlay' ? overlay : null,
         addEventListener: (name, callback) => { listeners[name] = callback; },
     };
     const window = {
         location: {href: 'https://example.test/dashboard', origin: 'https://example.test'},
         addEventListener: (name, callback) => { windowListeners[name] = callback; },
     };
-    const source = fs.readFileSync(path.join(__dirname, '../../public/js/page-loader.js'), 'utf8');
+    const source = fs.readFileSync(path.join(__dirname, '../../public/js/page-loading.js'), 'utf8');
     vm.runInNewContext(source, {document, window, URL, Element, HTMLFormElement});
 
     listeners.DOMContentLoaded();
     assert.equal(overlay.hidden, true);
-    assert.equal(attributes.get('aria-hidden'), 'true');
 
     listeners.submit({target: new HTMLFormElement()});
     assert.equal(overlay.hidden, false);
-    assert.equal(attributes.get('aria-hidden'), 'false');
     assert.equal(label.textContent, 'Processing…');
     assert.equal(classes.has('page-is-loading'), true);
 
@@ -69,6 +62,5 @@ test('page loader hides when ready and appears for navigation and form submissio
         altKey: false,
     });
     assert.equal(overlay.hidden, false);
-    assert.equal(attributes.get('aria-hidden'), 'false');
     assert.equal(label.textContent, 'Loading…');
 });

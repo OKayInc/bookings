@@ -6,6 +6,7 @@ use App\Domain\Money\MoneyService;
 use App\Domain\Bookings\ShortNoticeFeeService;
 use App\Domain\Tickets\TicketSeatPricingService;
 use App\Domain\Resources\EquipmentPricingService;
+use App\Domain\Resources\ResourceDepositService;
 use App\Enums\PricingAdjustmentType;
 use App\Enums\PricingMode;
 use App\Enums\AttendeePricingMode;
@@ -22,6 +23,7 @@ class QuestionnairePricingService {
    private AttendeePricingService $attendeePricing,
    private TicketSeatPricingService $ticketSeatPricing,
    private EquipmentPricingService $equipmentPricing,
+   private ResourceDepositService $resourceDeposits,
    private MoneyService $money,
  ) {}
  public function quote(
@@ -104,6 +106,26 @@ class QuestionnairePricingService {
          'short_notice_fee',$charge->ruleUuid,$charge->label,$charge->lineType,'1',$charge->amountMinor,$charge->metadata,
        );
      }
+   }
+   // Deposits are refundable security, not service revenue. Add them only
+   // after every service-price adjustment so percentage and short-notice fees
+   // never use a deposit as their basis.
+   foreach ($this->resourceDeposits->charges($type, $answers, $equipmentResourceQuantities) as $charge) {
+     $total=$this->safeAdd($total,$charge->amountMinor);
+     $label='Refundable deposit: '.$charge->resourceName;
+     if ($charge->quantity > 1) {
+       $label.=' ('.$this->money->format($charge->unitAmountMinor,$type->organization->currency).' each)';
+     }
+     $lines[]=new QuestionnairePriceLine(
+       'resource_deposit',$charge->resourceUuid,$label,'resource_deposit',(string)$charge->quantity,$charge->amountMinor,[
+         'resource_name'=>$charge->resourceName,
+         'unit_amount_minor'=>$charge->unitAmountMinor,
+         'configuration_source'=>$charge->configurationSource,
+         'question_uuid'=>$charge->questionUuid,
+         'question_label'=>$charge->questionLabel,
+         'refundable'=>true,
+       ],
+     );
    }
    return new QuestionnaireQuote($base,$total,$lines);
  }

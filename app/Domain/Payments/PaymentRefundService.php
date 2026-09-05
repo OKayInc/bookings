@@ -5,6 +5,7 @@ namespace App\Domain\Payments;
 use App\Enums\PaymentProvider;
 use App\Enums\PaymentPurpose;
 use App\Enums\PaymentRefundStatus;
+use App\Enums\PaymentRefundType;
 use App\Enums\PaymentTransactionStatus;
 use App\Models\Booking;
 use App\Models\PaymentRefund;
@@ -60,13 +61,35 @@ class PaymentRefundService
                 max(0, $grossPaid - (int) $locked->price_minor),
                 max(0, $initialPaid - (int) $locked->initial_payment_due_minor),
             );
-            $policyEligible = max(0, $grossPaid - $technicalExcess);
-            $targetRefund = $technicalExcess + $this->percentage($policyEligible, $percentage);
-            $alreadyAllocated = (int) $locked->refunds()
+            $depositPaid = min(
+                (int) $locked->deposit_minor,
+                (int) $locked->payments()
+                    ->where('status', PaymentTransactionStatus::Succeeded->value)
+                    ->sum('deposit_amount_minor'),
+            );
+            $depositAllocated = (int) $locked->refunds()
                 ->whereIn('status', [PaymentRefundStatus::Pending->value, PaymentRefundStatus::Succeeded->value])
+                ->where('refund_type', PaymentRefundType::Deposit->value)
+                ->sum('amount_minor');
+            $prepared = $this->prepareDepositRefunds(
+                $locked,
+                max(0, $depositPaid - $depositAllocated),
+                'Automatic refundable-deposit return after booking cancellation.',
+            );
+
+            $servicePaid = max(0, $grossPaid - $technicalExcess - $depositPaid);
+            $targetGeneralRefund = $technicalExcess + $this->percentage($servicePaid, $percentage);
+            $generalAllocated = (int) $locked->refunds()
+                ->whereIn('status', [PaymentRefundStatus::Pending->value, PaymentRefundStatus::Succeeded->value])
+                ->where('refund_type', '!=', PaymentRefundType::Deposit->value)
                 ->sum('amount_minor');
 
-            return $this->prepareRefunds($locked, max(0, $targetRefund - $alreadyAllocated), $reason);
+            return $prepared->concat($this->prepareRefunds(
+                $locked,
+                max(0, $targetGeneralRefund - $generalAllocated),
+                $reason,
+                preserveDeposit: false,
+            ));
         }, 3);
 
         return $this->sendPrepared($prepared);
@@ -89,6 +112,59 @@ class PaymentRefundService
     }
 
     /** @return Collection<int,PaymentRefund> */
+    public function refundDeposit(Booking $booking, int $amountMinor, string $reason, ?Person $requestedBy = null): Collection
+    {
+        if ($amountMinor <= 0) {
+            throw new RuntimeException('The deposit refund amount must be greater than zero.');
+        }
+
+        $prepared = DB::transaction(function () use ($booking, $amountMinor, $reason, $requestedBy): Collection {
+            $locked = Booking::query()->whereKey($booking->getKey())->lockForUpdate()->firstOrFail();
+            $allocated = (int) $locked->refunds()
+                ->whereIn('status', [PaymentRefundStatus::Pending->value, PaymentRefundStatus::Succeeded->value])
+                ->where('refund_type', PaymentRefundType::Deposit->value)
+                ->sum('amount_minor');
+            $remaining = max(0, (int) $locked->deposit_minor - $allocated);
+            if ($amountMinor > $remaining) {
+                throw new RuntimeException('The requested refund exceeds the remaining refundable deposit.');
+            }
+
+            return $this->prepareDepositRefunds($locked, $amountMinor, $reason, $requestedBy);
+        }, 3);
+
+        return $this->sendPrepared($prepared);
+    }
+
+    public function refundableDepositMinor(Booking $booking): int
+    {
+        $transactions = $booking->payments()
+            ->where('status', PaymentTransactionStatus::Succeeded->value)
+            ->oldest('completed_at_utc')
+            ->with('refunds')
+            ->get();
+
+        return min($booking->depositRemainingMinor(), $this->depositCapacity($booking, $transactions));
+    }
+
+    public function refundablePriceMinor(Booking $booking): int
+    {
+        $transactions = $booking->payments()
+            ->where('status', PaymentTransactionStatus::Succeeded->value)
+            ->oldest('completed_at_utc')
+            ->with('refunds')
+            ->get();
+        $available = (int) $transactions->sum(function (PaymentTransaction $transaction): int {
+            $allocated = (int) $transaction->refunds
+                ->whereIn('status', [PaymentRefundStatus::Pending, PaymentRefundStatus::Succeeded])
+                ->sum('amount_minor');
+
+            return max(0, (int) $transaction->amount_minor - $allocated);
+        });
+
+        return max(0, $available - $this->depositCapacity($booking, $transactions));
+    }
+
+    /** @return Collection<int,PaymentRefund> */
     public function refundTransactionBalance(PaymentTransaction $transaction, string $reason): Collection
     {
         $prepared = DB::transaction(function () use ($transaction, $reason): Collection {
@@ -105,7 +181,35 @@ class PaymentRefundService
                 return collect();
             }
 
-            return collect([$this->createRefund($booking, $locked, $available, $reason)]);
+            $depositAllocated = (int) $booking->refunds()
+                ->whereIn('status', [PaymentRefundStatus::Pending->value, PaymentRefundStatus::Succeeded->value])
+                ->where('refund_type', PaymentRefundType::Deposit->value)
+                ->sum('amount_minor');
+            $depositPortion = min(
+                $available,
+                max(0, (int) $booking->deposit_minor - $depositAllocated),
+                max(0, (int) $locked->deposit_amount_minor),
+            );
+            $created = collect();
+            if ($depositPortion > 0) {
+                $created->push($this->createRefund(
+                    $booking,
+                    $locked,
+                    $depositPortion,
+                    $reason,
+                    type: PaymentRefundType::Deposit,
+                ));
+            }
+            if ($available > $depositPortion) {
+                $created->push($this->createRefund(
+                    $booking,
+                    $locked,
+                    $available - $depositPortion,
+                    $reason,
+                ));
+            }
+
+            return $created;
         }, 3);
 
         return $this->sendPrepared($prepared);
@@ -232,6 +336,7 @@ class PaymentRefundService
             'requested_by_person_id' => $requestedBy?->getKey(),
             'provider' => $transaction->provider->value,
             'status' => PaymentRefundStatus::Pending->value,
+            'refund_type' => PaymentRefundType::General->value,
             'amount_minor' => $amount,
             'currency' => $transaction->currency,
             'idempotency_key' => (string) Str::uuid(),
@@ -241,6 +346,69 @@ class PaymentRefundService
 
     /** @return Collection<int,PaymentRefund> */
     private function prepareRefunds(
+        Booking $booking,
+        int $amountMinor,
+        string $reason,
+        ?Person $requestedBy = null,
+        bool $preserveDeposit = true,
+    ): Collection {
+        if ($amountMinor <= 0) {
+            return collect();
+        }
+
+        $transactions = $booking->payments()
+            ->where('status', PaymentTransactionStatus::Succeeded->value)
+            ->oldest('completed_at_utc')
+            ->lockForUpdate()
+            ->with('refunds')
+            ->get();
+
+        $depositComponents = $preserveDeposit ? $this->depositComponents($booking, $transactions) : [];
+        $availableTotal = $transactions->sum(function (PaymentTransaction $transaction) use ($depositComponents): int {
+            $allocated = (int) $transaction->refunds
+                ->whereIn('status', [PaymentRefundStatus::Pending, PaymentRefundStatus::Succeeded])
+                ->sum('amount_minor');
+            $depositRefunds = (int) $transaction->refunds
+                ->where('refund_type', PaymentRefundType::Deposit)
+                ->whereIn('status', [PaymentRefundStatus::Pending, PaymentRefundStatus::Succeeded])
+                ->sum('amount_minor');
+            $depositReserve = max(0, ($depositComponents[$transaction->getKey()] ?? 0) - $depositRefunds);
+
+            return max(0, (int) $transaction->amount_minor - $allocated - $depositReserve);
+        });
+        if ($availableTotal < $amountMinor) {
+            throw new RuntimeException('The requested price refund exceeds the captured amount available after reserving the refundable deposit. Use the deposit-refund control to return deposit funds.');
+        }
+
+        $created = collect();
+        $remaining = $amountMinor;
+        foreach ($transactions as $transaction) {
+            if ($remaining <= 0) {
+                break;
+            }
+            $alreadyAllocated = (int) $transaction->refunds
+                ->whereIn('status', [PaymentRefundStatus::Pending, PaymentRefundStatus::Succeeded])
+                ->sum('amount_minor');
+            $depositRefunds = (int) $transaction->refunds
+                ->where('refund_type', PaymentRefundType::Deposit)
+                ->whereIn('status', [PaymentRefundStatus::Pending, PaymentRefundStatus::Succeeded])
+                ->sum('amount_minor');
+            $depositReserve = max(0, ($depositComponents[$transaction->getKey()] ?? 0) - $depositRefunds);
+            $available = max(0, (int) $transaction->amount_minor - $alreadyAllocated - $depositReserve);
+            if ($available === 0) {
+                continue;
+            }
+
+            $portion = min($remaining, $available);
+            $created->push($this->createRefund($booking, $transaction, $portion, $reason, $requestedBy));
+            $remaining -= $portion;
+        }
+
+        return $created;
+    }
+
+    /** @return Collection<int,PaymentRefund> */
+    private function prepareDepositRefunds(
         Booking $booking,
         int $amountMinor,
         string $reason,
@@ -256,38 +424,84 @@ class PaymentRefundService
             ->lockForUpdate()
             ->with('refunds')
             ->get();
-
-        $availableTotal = $transactions->sum(function (PaymentTransaction $transaction): int {
-            $allocated = (int) $transaction->refunds
-                ->whereIn('status', [PaymentRefundStatus::Pending, PaymentRefundStatus::Succeeded])
-                ->sum('amount_minor');
-
-            return max(0, (int) $transaction->amount_minor - $allocated);
-        });
-        if ($availableTotal < $amountMinor) {
-            throw new RuntimeException('The requested refund exceeds the captured, unrefunded payment amount.');
-        }
-
+        $components = $this->depositComponents($booking, $transactions);
         $created = collect();
         $remaining = $amountMinor;
+
         foreach ($transactions as $transaction) {
             if ($remaining <= 0) {
                 break;
             }
-            $alreadyAllocated = (int) $transaction->refunds
+            $component = $components[$transaction->getKey()] ?? 0;
+            $depositAllocated = (int) $transaction->refunds
+                ->where('refund_type', PaymentRefundType::Deposit)
                 ->whereIn('status', [PaymentRefundStatus::Pending, PaymentRefundStatus::Succeeded])
                 ->sum('amount_minor');
-            $available = max(0, (int) $transaction->amount_minor - $alreadyAllocated);
+            $allAllocated = (int) $transaction->refunds
+                ->whereIn('status', [PaymentRefundStatus::Pending, PaymentRefundStatus::Succeeded])
+                ->sum('amount_minor');
+            $available = min(
+                max(0, $component - $depositAllocated),
+                max(0, (int) $transaction->amount_minor - $allAllocated),
+            );
             if ($available === 0) {
                 continue;
             }
 
             $portion = min($remaining, $available);
-            $created->push($this->createRefund($booking, $transaction, $portion, $reason, $requestedBy));
+            $created->push($this->createRefund(
+                $booking,
+                $transaction,
+                $portion,
+                $reason,
+                $requestedBy,
+                PaymentRefundType::Deposit,
+            ));
             $remaining -= $portion;
         }
 
+        if ($remaining > 0) {
+            throw new RuntimeException('The requested deposit refund exceeds the deposit collected through completed online payments.');
+        }
+
         return $created;
+    }
+
+    /** @param Collection<int,PaymentTransaction> $transactions
+     *  @return array<string,int>
+     */
+    private function depositComponents(Booking $booking, Collection $transactions): array
+    {
+        $remaining = max(0, (int) $booking->deposit_minor);
+        $components = [];
+        foreach ($transactions as $transaction) {
+            $component = min($remaining, max(0, (int) $transaction->deposit_amount_minor));
+            $components[$transaction->getKey()] = $component;
+            $remaining -= $component;
+        }
+
+        return $components;
+    }
+
+    /** @param Collection<int,PaymentTransaction> $transactions */
+    private function depositCapacity(Booking $booking, Collection $transactions): int
+    {
+        $components = $this->depositComponents($booking, $transactions);
+
+        return (int) $transactions->sum(function (PaymentTransaction $transaction) use ($components): int {
+            $depositAllocated = (int) $transaction->refunds
+                ->where('refund_type', PaymentRefundType::Deposit)
+                ->whereIn('status', [PaymentRefundStatus::Pending, PaymentRefundStatus::Succeeded])
+                ->sum('amount_minor');
+            $allAllocated = (int) $transaction->refunds
+                ->whereIn('status', [PaymentRefundStatus::Pending, PaymentRefundStatus::Succeeded])
+                ->sum('amount_minor');
+
+            return min(
+                max(0, ($components[$transaction->getKey()] ?? 0) - $depositAllocated),
+                max(0, (int) $transaction->amount_minor - $allAllocated),
+            );
+        });
     }
 
     private function createRefund(
@@ -296,6 +510,7 @@ class PaymentRefundService
         int $amountMinor,
         string $reason,
         ?Person $requestedBy = null,
+        PaymentRefundType $type = PaymentRefundType::General,
     ): PaymentRefund {
         return PaymentRefund::create([
             'organization_id' => $booking->organization_id,
@@ -304,6 +519,7 @@ class PaymentRefundService
             'requested_by_person_id' => $requestedBy?->getKey(),
             'provider' => $transaction->provider->value,
             'status' => PaymentRefundStatus::Pending->value,
+            'refund_type' => $type->value,
             'amount_minor' => $amountMinor,
             'currency' => $booking->currency,
             'idempotency_key' => (string) Str::uuid(),

@@ -1,4 +1,4 @@
-# Database — M9-R1
+# Database — M9-R6
 
 ## M9-R1 equipment inventory
 
@@ -272,6 +272,14 @@ Dependencies belong to the appointment-type attachment rather than its organizat
 ### `appointment_question_resource_rules`
 
 M9-R4 stores at most one conditional resource rule per appointment question. `trigger_option_id` identifies the answer that promotes resources, `unavailable_default_option_id` identifies the authoritative answer used when the selected-time hold cannot fulfill the group, `group_name` is the human-readable resource group, and `fulfillment_mode` is `one_of` or `all`. Both options must belong to the same choice question and must be different.
+
+## M9-R6 resource deposits
+
+Migration `2026_09_04_000068_add_resource_deposits.php` is additive. `resources.deposit_amount_minor` stores the nullable resource default. `appointment_question_resource_rule_resources.deposit_amount_minor` stores a nullable override where `NULL` means inherit and `0` means explicitly no deposit.
+
+`bookings.deposit_minor` and `bookings.deposit_refunded_minor` keep aggregate immutable ledger values. `payment_transactions.deposit_amount_minor` identifies the portion captured for the deposit, and `payment_refunds.refund_type` distinguishes ordinary and deposit refunds.
+
+`booking_resource_deposits` contains the itemized snapshot: booking and optional live resource IDs, resource/question UUID and label snapshots, quantity, unit and total minor-unit amounts, currency, and whether the value came from the resource default or question override. Deleting a resource nulls the live reference without deleting booking history.
 
 ### `appointment_question_resource_rule_resources`
 

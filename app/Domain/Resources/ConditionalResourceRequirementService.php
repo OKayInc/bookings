@@ -3,6 +3,7 @@
 namespace App\Domain\Resources;
 
 use App\Domain\Availability\AvailabilityService;
+use App\Domain\Money\MoneyService;
 use App\Domain\Questionnaires\QuestionnaireSubmission;
 use App\Enums\ConditionalResourceFulfillmentMode;
 use App\Models\AppointmentQuestion;
@@ -23,6 +24,7 @@ class ConditionalResourceRequirementService
     public function __construct(
         private readonly ResourceRequirementService $requirements,
         private readonly AvailabilityService $availability,
+        private readonly MoneyService $money,
     ) {}
 
     /**
@@ -118,7 +120,17 @@ class ConditionalResourceRequirementService
             'group_name' => $groupName,
             'fulfillment_mode' => $mode->value,
         ])->save();
-        $rule->resources()->sync($resources->modelKeys());
+        $currency = $type->organization->currency;
+        $depositInputs = (array) ($data['resource_requirement_deposits'] ?? []);
+        $rule->resources()->sync($resources->mapWithKeys(function (Resource $resource) use ($depositInputs, $currency): array {
+            $raw = $depositInputs[$resource->uuid] ?? null;
+
+            return [$resource->getKey() => [
+                'deposit_amount_minor' => $raw === null || trim((string) $raw) === ''
+                    ? null
+                    : $this->money->parse((string) $raw, $currency),
+            ]];
+        })->all());
         $question->unsetRelation('resourceRequirementRule');
     }
 

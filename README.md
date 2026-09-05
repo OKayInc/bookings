@@ -1,12 +1,16 @@
 # Appointment Software — M9-R6
 
-M9-R6 adds a global, accessible loading overlay for backend and public page navigation. It appears during internal link navigation, valid form submission, reloads and page restoration, while safely excluding downloads, fragments, external destinations and new tabs. The release also reduces the three dashboard-total database queries to one aggregate query and preconnects to the Bootstrap CDN. See `docs/CHANGES-M9-R6.md`, `docs/UPGRADE-M9-R5-TO-M9-R6.md`, and `docs/VERIFICATION-M9-R6.md`.
+M9-R6 adds refundable resource deposits, including question-assignment overrides, immutable booking snapshots, and full or partial refunds through the original payment method. It also adds a lightweight global page-loading indicator. See `docs/CHANGES-M9-R6.md`, `docs/UPGRADE-M9-R5-TO-M9-R6.md`, and `docs/VERIFICATION-M9-R6.md`.
 
-## M9-R6 global page loader
+## M9-R6 refundable resource deposits
 
-Both shared Blade layouts now display a responsive loading overlay while a destination page is being prepared. The indicator includes visible status text, screen-reader status semantics, `aria-busy` state, dark-mode-compatible Bootstrap variables, and reduced-motion support. Browser back/forward restoration clears the overlay, and cancelled confirmations or invalid forms do not leave it active.
-
-The first request can show the indicator only after the server has delivered the shared layout markup; server time-to-first-byte still requires backend profiling and optimization.
+- Any resource can define an optional default refundable deposit; equipment does not need a linked person.
+- A conditional resource assignment on a choice question can override the resource default. Blank inherits the default, explicit `0` waives it, and an absent default resolves to zero.
+- Quantity-tracked equipment applies the deposit per reserved piece. One-of resource groups charge one conservative group deposit.
+- Deposits are itemized in the quote and snapshotted on the booking. They are collected in full with the initial payment even when the appointment uses a retainer or its service prepayment is allowlisted.
+- Deposits are excluded from percentage fees, cancellation percentages, and coupon discounts.
+- Managers can refund the full remaining deposit or a partial amount. A partial refund requires a reason, and every refund is submitted against the original Stripe or PayPal capture.
+- The global page-loading overlay appears for normal same-origin navigation and form submission, clears on page readiness/history restoration, and respects reduced-motion preferences.
 
 ## M9-R5 dashboard
 

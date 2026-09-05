@@ -9,6 +9,7 @@ use App\Enums\PricingApplicationMode;
 use App\Enums\PricingPercentageBasis;
 use App\Enums\QuestionType;
 use App\Support\Organizations\OrganizationContext;
+use App\Rules\MoneyAmount;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -23,6 +24,8 @@ class StoreAppointmentQuestionRequest extends FormRequest
 
     public function rules(): array
     {
+        $currency = app(OrganizationContext::class)->organization()->currency;
+
         return [
             'type' => ['required', Rule::enum(QuestionType::class)],
             'label' => ['required', 'string', 'max:255'],
@@ -91,6 +94,8 @@ class StoreAppointmentQuestionRequest extends FormRequest
             'resource_requirement_fulfillment_mode' => ['nullable', Rule::enum(ConditionalResourceFulfillmentMode::class)],
             'resource_requirement_resource_uuids' => ['nullable', 'array', 'max:500'],
             'resource_requirement_resource_uuids.*' => ['uuid', 'distinct'],
+            'resource_requirement_deposits' => ['nullable', 'array', 'max:500'],
+            'resource_requirement_deposits.*' => ['nullable', new MoneyAmount($currency, allowZero: true)],
         ];
     }
 

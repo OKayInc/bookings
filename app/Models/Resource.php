@@ -19,6 +19,7 @@ class Resource extends Model
         'type',
         'inventory_quantity',
         'quantity_enabled',
+        'deposit_amount_minor',
         'name',
         'timezone',
         'is_active',
@@ -36,6 +37,7 @@ class Resource extends Model
             'is_required_by_default' => 'boolean',
             'inventory_quantity' => 'integer',
             'quantity_enabled' => 'boolean',
+            'deposit_amount_minor' => 'integer',
         ];
     }
 
@@ -149,7 +151,12 @@ class Resource extends Model
             'appointment_question_resource_rule_resources',
             'resource_id',
             'resource_rule_id',
-        );
+        )->withPivot('deposit_amount_minor');
+    }
+
+    public function bookingDeposits(): HasMany
+    {
+        return $this->hasMany(BookingResourceDeposit::class);
     }
 
     public function usesQuantityInventory(): bool

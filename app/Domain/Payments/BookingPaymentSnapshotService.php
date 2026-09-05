@@ -18,26 +18,29 @@ class BookingPaymentSnapshotService
         CarbonImmutable $startsAtUtc,
         bool $paymentExempt,
         ?string $paymentRuleId,
+        int $depositMinor = 0,
     ): array {
-        if ($priceMinor < 0) {
-            throw new RuntimeException('A booking price cannot be negative.');
+        if ($priceMinor < 0 || $depositMinor < 0 || $depositMinor > $priceMinor) {
+            throw new RuntimeException('A booking price or refundable deposit is invalid.');
         }
-        $waived = $paymentExempt && $priceMinor > 0;
+        $servicePriceMinor = $priceMinor - $depositMinor;
+        $waived = $paymentExempt && $servicePriceMinor > 0;
 
-        $mode = $priceMinor > 0
+        $mode = $servicePriceMinor > 0
             ? ($type->payment_collection_mode ?? PaymentCollectionMode::Full)
             : PaymentCollectionMode::Full;
         $initial = $priceMinor;
 
-        if ($priceMinor > 0 && $mode === PaymentCollectionMode::Retainer) {
-            $initial = match ($type->retainer_type) {
-                RetainerType::Fixed => min($priceMinor, max(0, (int) $type->retainer_amount_minor)),
-                RetainerType::Percentage => $this->percentage($priceMinor, (int) $type->retainer_percentage_bps),
+        if ($servicePriceMinor > 0 && $mode === PaymentCollectionMode::Retainer) {
+            $serviceInitial = match ($type->retainer_type) {
+                RetainerType::Fixed => min($servicePriceMinor, max(0, (int) $type->retainer_amount_minor)),
+                RetainerType::Percentage => $this->percentage($servicePriceMinor, (int) $type->retainer_percentage_bps),
                 default => throw new RuntimeException('The appointment type has an incomplete retainer configuration.'),
             };
-            if ($initial <= 0) {
+            if ($serviceInitial <= 0) {
                 throw new RuntimeException('The configured retainer must be greater than zero.');
             }
+            $initial = $serviceInitial + $depositMinor;
         }
 
         $balanceDueAt = null;
@@ -60,13 +63,17 @@ class BookingPaymentSnapshotService
 
         return [
             'payment_collection_mode' => $mode->value,
-            'initial_payment_due_minor' => $waived ? 0 : $initial,
+            // A refundable deposit is never waived and is always collected in full
+            // with the first payment, independently of the service retainer.
+            'initial_payment_due_minor' => $waived ? $depositMinor : $initial,
             'balance_due_at_utc' => $balanceDueAt,
             'client_refund_percentage_bps' => min(10000, max(0, (int) $type->client_refund_percentage_bps)),
             'staff_refund_percentage_bps' => min(10000, max(0, (int) $type->staff_refund_percentage_bps)),
             'payment_exempt' => $waived,
             'payment_rule_id' => $waived ? $paymentRuleId : null,
-            'payment_status' => $waived ? 'waived' : ($priceMinor === 0 ? 'paid' : 'unpaid'),
+            'payment_status' => $waived && $depositMinor === 0
+                ? 'waived'
+                : ($priceMinor === 0 ? 'paid' : 'unpaid'),
             'paid_minor' => 0,
             'refunded_minor' => 0,
         ];

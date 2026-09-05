@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Availability\HolidayRegionCatalog;
+use App\Domain\Money\MoneyService;
 use App\Enums\ConditionalResourceFulfillmentMode;
 use App\Enums\MembershipRole;
 use App\Enums\MembershipStatus;
@@ -53,15 +54,18 @@ class ResourceController extends Controller
         ));
     }
 
-    public function store(StoreResourceRequest $request, OrganizationContext $context): RedirectResponse
+    public function store(StoreResourceRequest $request, OrganizationContext $context, MoneyService $money): RedirectResponse
     {
         $organization = $context->organization();
         $this->authorize('manageScheduling', $organization);
         $data = $request->validated();
         $personKey = $this->personKey($data, $organization);
         $quantityEnabled = $data['type'] === 'equipment' && $request->boolean('quantity_enabled');
+        $depositMinor = ($data['default_deposit'] ?? '') === ''
+            ? null
+            : $money->parse((string) $data['default_deposit'], $organization->currency);
 
-        DB::transaction(function () use ($request, $organization, $data, $personKey, $quantityEnabled): void {
+        DB::transaction(function () use ($request, $organization, $data, $personKey, $quantityEnabled, $depositMinor): void {
             $resource = Resource::create([
                 'organization_id' => $organization->getKey(),
                 'person_id' => $personKey,
@@ -69,6 +73,7 @@ class ResourceController extends Controller
                 'type' => $data['type'],
                 'inventory_quantity' => $quantityEnabled ? (int) $data['inventory_quantity'] : 1,
                 'quantity_enabled' => $quantityEnabled,
+                'deposit_amount_minor' => $depositMinor,
                 'timezone' => $data['timezone'] ?? null,
                 'is_active' => $request->boolean('is_active', true),
                 'is_required_by_default' => ($data['default_requirement'] ?? 'required') === 'required',
@@ -136,7 +141,7 @@ class ResourceController extends Controller
         return view('resources.edit', $this->formData($organization, $resource));
     }
 
-    public function update(StoreResourceRequest $request, Resource $resource, OrganizationContext $context): RedirectResponse
+    public function update(StoreResourceRequest $request, Resource $resource, OrganizationContext $context, MoneyService $money): RedirectResponse
     {
         $organization = $context->organization();
         $this->ensureOwned($resource, $organization);
@@ -145,6 +150,9 @@ class ResourceController extends Controller
         $personKey = $this->personKey($data, $organization);
         $defaultRequired = ($data['default_requirement'] ?? 'required') === 'required';
         $quantityEnabled = $data['type'] === 'equipment' && $request->boolean('quantity_enabled');
+        $depositMinor = ($data['default_deposit'] ?? '') === ''
+            ? null
+            : $money->parse((string) $data['default_deposit'], $organization->currency);
         if ($defaultRequired && $this->conditionalRuleUsesInheritedRequirement($resource, $organization)) {
             return back()->withErrors([
                 'default_requirement' => 'This resource must remain optional while an appointment question promotes it conditionally. Change those appointment assignments to explicitly optional before changing the organization default.',
@@ -157,13 +165,14 @@ class ResourceController extends Controller
             ]);
         }
 
-        DB::transaction(function () use ($request, $resource, $organization, $data, $personKey, $defaultRequired, $quantityEnabled): void {
+        DB::transaction(function () use ($request, $resource, $organization, $data, $personKey, $defaultRequired, $quantityEnabled, $depositMinor): void {
             $resource->update([
                 'person_id' => $personKey,
                 'name' => $data['name'],
                 'type' => $data['type'],
                 'inventory_quantity' => $quantityEnabled ? (int) $data['inventory_quantity'] : 1,
                 'quantity_enabled' => $quantityEnabled,
+                'deposit_amount_minor' => $depositMinor,
                 'timezone' => $data['timezone'] ?? null,
                 'is_active' => $request->boolean('is_active'),
                 'is_required_by_default' => $defaultRequired,

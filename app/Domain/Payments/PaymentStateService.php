@@ -5,6 +5,7 @@ namespace App\Domain\Payments;
 use App\Domain\Bookings\BookingWorkflowService;
 use App\Enums\BookingPaymentStatus;
 use App\Enums\PaymentRefundStatus;
+use App\Enums\PaymentRefundType;
 use App\Enums\PaymentTransactionStatus;
 use App\Models\Booking;
 use App\Models\PaymentTransaction;
@@ -141,6 +142,10 @@ class PaymentStateService
         $refunded = (int) $booking->refunds()
             ->where('status', PaymentRefundStatus::Succeeded->value)
             ->sum('amount_minor');
+        $depositRefunded = (int) $booking->refunds()
+            ->where('status', PaymentRefundStatus::Succeeded->value)
+            ->where('refund_type', PaymentRefundType::Deposit->value)
+            ->sum('amount_minor');
 
         $status = match (true) {
             $booking->payment_exempt && $paid === 0 => BookingPaymentStatus::Waived,
@@ -155,6 +160,7 @@ class PaymentStateService
         $booking->update([
             'paid_minor' => $paid,
             'refunded_minor' => min($paid, $refunded),
+            'deposit_refunded_minor' => min((int) $booking->deposit_minor, $depositRefunded),
             'payment_status' => $status->value,
         ]);
     }

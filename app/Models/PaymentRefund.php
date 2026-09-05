@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\PaymentProvider;
 use App\Enums\PaymentRefundStatus;
+use App\Enums\PaymentRefundType;
 use App\Models\Concerns\HasBinaryUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,7 +15,7 @@ class PaymentRefund extends Model
 
     protected $fillable = [
         'organization_id', 'booking_id', 'coupon_id', 'payment_transaction_id', 'requested_by_person_id',
-        'provider', 'status', 'amount_minor', 'currency', 'idempotency_key', 'provider_refund_id',
+        'provider', 'status', 'refund_type', 'amount_minor', 'currency', 'idempotency_key', 'provider_refund_id',
         'reason', 'failure_message', 'provider_payload', 'completed_at_utc',
     ];
 
@@ -38,6 +39,7 @@ class PaymentRefund extends Model
         return [
             'provider' => PaymentProvider::class,
             'status' => PaymentRefundStatus::class,
+            'refund_type' => PaymentRefundType::class,
             'amount_minor' => 'integer',
             'provider_payload' => 'array',
             'completed_at_utc' => 'immutable_datetime',

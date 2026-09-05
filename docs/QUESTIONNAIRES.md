@@ -27,6 +27,8 @@ Source option UUIDs remain stable when their labels or values are edited. Every 
 
 M9-R4 allows one checkbox, radio or select question to promote a named set of normally optional appointment resources when a configured answer is selected. The rule is specific to the appointment-type copy because resource assignments do not belong to an organization-wide reusable template.
 
+M9-R6 adds an optional refundable-deposit override beside each resource in that conditional assignment. Blank inherits the resource's default deposit, explicit zero waives it for the assignment, and an absent value at both levels resolves to zero. The effective amount is evaluated only when the configured trigger answer is selected.
+
 The fulfillment mode is either:
 
 - `one_of`: at least one held member is required; every available candidate is snapshotted under the named replacement group so the existing first-acceptance workflow can select one;

@@ -9,9 +9,6 @@ class BladeCompilationTest extends TestCase
     public function test_numeric_constraint_editor_and_checkout_views_compile(): void
     {
         foreach ([
-            'layouts/app.blade.php',
-            'layouts/public.blade.php',
-            'layouts/partials/page-loader.blade.php',
             'dashboard.blade.php',
             'dashboard/upcoming-bookings.blade.php',
             'questionnaire/partials/numeric-constraints.blade.php',
@@ -38,6 +35,9 @@ class BladeCompilationTest extends TestCase
             'resources/partials/form.blade.php',
             'resources/index.blade.php',
             'public/appointment-types/show.blade.php',
+            'layouts/app.blade.php',
+            'layouts/public.blade.php',
+            'layouts/partials/page-loader.blade.php',
         ] as $view) {
             $path = resource_path('views/'.$view);
             $compiled = app('blade.compiler')->compileString(file_get_contents($path));

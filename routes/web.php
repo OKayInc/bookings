@@ -228,6 +228,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::post('/bookings/{booking}/confirmations/{confirmation}/remind', [BookingController::class, 'remindConfirmation'])->name('bookings.confirmations.remind');
         Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
         Route::post('/bookings/{booking}/refunds', [BookingRefundController::class, 'store'])->name('bookings.refunds.store');
+        Route::post('/bookings/{booking}/deposit-refunds', [BookingRefundController::class, 'deposit'])->name('bookings.deposit-refunds.store');
         Route::post('/bookings/{booking}/refunds/{refund}/retry', [BookingRefundController::class, 'retry'])->name('bookings.refunds.retry');
         Route::post('/bookings/{booking}/conference/retry', [BookingController::class, 'retryConference'])->name('bookings.conference.retry');
         Route::get('/bookings/{booking}/schedule-proposal/slots', [BookingController::class, 'scheduleProposalSlots'])->name('bookings.schedule-proposals.slots');

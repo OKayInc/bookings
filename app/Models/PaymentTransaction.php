@@ -16,7 +16,7 @@ class PaymentTransaction extends Model
     use HasBinaryUuid;
 
     protected $fillable = [
-        'organization_id', 'booking_id', 'coupon_id', 'provider', 'purpose', 'status', 'amount_minor', 'currency',
+        'organization_id', 'booking_id', 'coupon_id', 'provider', 'purpose', 'status', 'amount_minor', 'deposit_amount_minor', 'currency',
         'idempotency_key', 'return_token_hash', 'provider_external_id', 'provider_capture_id', 'checkout_url',
         'failure_message', 'provider_payload', 'expires_at_utc', 'completed_at_utc',
     ];
@@ -41,6 +41,7 @@ class PaymentTransaction extends Model
             'purpose' => PaymentPurpose::class,
             'status' => PaymentTransactionStatus::class,
             'amount_minor' => 'integer',
+            'deposit_amount_minor' => 'integer',
             'provider_payload' => 'array',
             'expires_at_utc' => 'immutable_datetime',
             'completed_at_utc' => 'immutable_datetime',

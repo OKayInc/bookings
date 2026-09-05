@@ -58,6 +58,6 @@ class AppointmentQuestionResourceRule extends Model
             'appointment_question_resource_rule_resources',
             'resource_rule_id',
             'resource_id',
-        );
+        )->withPivot('deposit_amount_minor');
     }
 }

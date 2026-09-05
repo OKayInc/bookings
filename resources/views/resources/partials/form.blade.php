@@ -12,6 +12,11 @@
 </div>
 </div>
 <div class="field">
+<label for="default_deposit">Default refundable deposit ({{ $organization->currency }}) <span class="muted">optional</span></label>
+<input id="default_deposit" name="default_deposit" inputmode="decimal" value="{{ old('default_deposit', $resource?->deposit_amount_minor === null ? '' : app(\App\Domain\Money\MoneyService::class)->decimal((int) $resource->deposit_amount_minor, $organization->currency)) }}" placeholder="0.00">
+<div class="muted">Used when a question assignment has no deposit override. For quantity-tracked equipment, this amount applies to each reserved piece. Leave blank for no default deposit.</div>
+</div>
+<div class="field">
 <label>Linked organization member (optional)</label>
 <select name="person_uuid"><option value="">None</option>@foreach($members as $member)<option value="{{ $member->uuid }}" @selected(old('person_uuid', $selectedPersonUuid) === $member->uuid)>{{ $member->full_name }} — {{ $member->user?->email ?: $member->primary_email }} — {{ ucfirst((string) $member->pivot->role) }}</option>@endforeach</select>
 <div class="muted">Only active members of {{ $organization->name }} can be linked. A person may own another organization and still be an employee here.</div>

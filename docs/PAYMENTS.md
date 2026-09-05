@@ -42,6 +42,14 @@ Authorized staff may issue an additional amount from the booking ledger. A refun
 
 A capture received after cancellation is fully refunded. Refund and capture provider calls happen after the booking transaction commits, so network failures never roll back the cancellation itself.
 
+### Refundable resource deposits (M9-R6)
+
+Resource deposits are a distinct refundable part of the booking total. The final deposit is itemized and snapshotted per resource, including the quantity, effective per-unit amount, configuration source, question context, and currency. It is collected in full with the initial checkout even when the service price uses a retainer. An allowlist can waive service prepayment but never waives a deposit.
+
+Deposits are added after service-price calculations. Questionnaire percentage charges and short-notice fees therefore do not use deposits as their basis, and coupons cannot discount them. Cancellation percentages apply only to captured service money; every captured deposit is returned in full on cancellation.
+
+Managers can return all of the remaining collected deposit or a smaller amount. A partial return requires a reason. Deposit funds are reserved separately from ordinary manual refunds, and the refund is allocated only to successful transactions that captured the deposit. The Stripe payment intent or PayPal capture on that transaction is used, ensuring the refund follows the original payment method. Pending refunds reserve their amount and reuse the same provider idempotency key on retry.
+
 ## Gift cards and coupons (M9-R3)
 
 Public gift-card/coupon purchases use the same organization-owned Stripe and PayPal accounts, return verification, signed webhooks, exact amount/currency checks and immutable transaction ledger. Purchased codes stay pending until capture succeeds. Manual codes are active immediately.

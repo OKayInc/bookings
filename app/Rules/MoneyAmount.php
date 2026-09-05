@@ -9,7 +9,10 @@ use InvalidArgumentException;
 
 class MoneyAmount implements ValidationRule
 {
-    public function __construct(private readonly string $currency)
+    public function __construct(
+        private readonly string $currency,
+        private readonly bool $allowZero = false,
+    )
     {
     }
 
@@ -21,8 +24,8 @@ class MoneyAmount implements ValidationRule
 
         try {
             $minor = app(MoneyService::class)->parse((string) $value, $this->currency);
-            if ($minor <= 0) {
-                $fail('The amount must be greater than zero.');
+            if ($minor < 0 || (! $this->allowZero && $minor === 0)) {
+                $fail($this->allowZero ? 'The amount cannot be negative.' : 'The amount must be greater than zero.');
             }
         } catch (InvalidArgumentException $exception) {
             $fail($exception->getMessage());

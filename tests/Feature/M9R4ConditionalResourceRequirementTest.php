@@ -60,6 +60,10 @@ class M9R4ConditionalResourceRequirementTest extends TestCase
                 'resource_requirement_group_name' => 'Video',
                 'resource_requirement_fulfillment_mode' => 'one_of',
                 'resource_requirement_resource_uuids' => [$first->uuid, $second->uuid],
+                'resource_requirement_deposits' => [
+                    $first->uuid => '12.50',
+                    $second->uuid => '',
+                ],
             ])
             ->assertSessionHasNoErrors()
             ->assertRedirect(route('appointment-types.questionnaire.index', $type));
@@ -70,6 +74,8 @@ class M9R4ConditionalResourceRequirementTest extends TestCase
         $this->assertSame('No', $rule->unavailableDefaultOption->label);
         $this->assertSame('one_of', $rule->fulfillment_mode->value);
         $this->assertEqualsCanonicalizing([$first->uuid, $second->uuid], $rule->resources->pluck('uuid')->all());
+        $this->assertSame(1250, (int) $rule->resources->firstWhere('uuid', $first->uuid)->pivot->deposit_amount_minor);
+        $this->assertNull($rule->resources->firstWhere('uuid', $second->uuid)->pivot->deposit_amount_minor);
         $this->assertFalse((bool) $type->fresh('resources')->resources->firstWhere('uuid', $first->uuid)->pivot->is_required);
     }
 

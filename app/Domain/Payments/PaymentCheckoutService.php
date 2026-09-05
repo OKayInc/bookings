@@ -50,7 +50,7 @@ class PaymentCheckoutService
                 throw new RuntimeException('The payment window has expired. Please contact the organization.');
             }
             $netPaid = $locked->netPaidMinor();
-            $initialOutstanding = max(0, (int) $locked->initial_payment_due_minor - $netPaid);
+            $initialOutstanding = $locked->initialOutstandingMinor();
             if ($purpose === PaymentPurpose::Initial) {
                 if ($locked->status !== BookingStatus::PendingPayment || $initialOutstanding <= 0) {
                     throw new RuntimeException('This booking does not have an initial payment due.');
@@ -68,6 +68,13 @@ class PaymentCheckoutService
                     throw new RuntimeException('This booking has no outstanding balance.');
                 }
             }
+
+            $capturedDeposit = (int) $locked->payments()
+                ->where('status', PaymentTransactionStatus::Succeeded->value)
+                ->sum('deposit_amount_minor');
+            $depositAmount = $purpose === PaymentPurpose::Initial
+                ? min($amount, max(0, (int) $locked->deposit_minor - $capturedDeposit))
+                : 0;
 
             PaymentTransaction::query()
                 ->where('booking_id', $locked->getKey())
@@ -116,6 +123,7 @@ class PaymentCheckoutService
                 'purpose' => $purpose->value,
                 'status' => PaymentTransactionStatus::Pending->value,
                 'amount_minor' => $amount,
+                'deposit_amount_minor' => $depositAmount,
                 'currency' => $locked->currency,
                 'idempotency_key' => (string) Str::uuid(),
                 'return_token_hash' => hash('sha256', $returnToken, true),

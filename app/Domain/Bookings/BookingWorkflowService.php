@@ -44,13 +44,15 @@ class BookingWorkflowService
             }
         }
 
-        $initialDue = (int) $booking->initial_payment_due_minor;
-        if ($initialDue === 0 && (int) $booking->price_minor > 0 && ! $booking->payment_exempt) {
-            $initialDue = (int) $booking->price_minor;
+        $initialOutstanding = $booking->initialOutstandingMinor();
+        if ((int) $booking->initial_payment_due_minor === 0
+            && (int) $booking->price_minor > 0
+            && ! $booking->payment_exempt) {
+            // Compatibility for bookings created before the initial-payment
+            // snapshot existed.
+            $initialOutstanding = $booking->outstandingMinor();
         }
-        if ((int) $booking->price_minor > 0
-            && ! $booking->payment_exempt
-            && $booking->netPaidMinor() < $initialDue) {
+        if ($initialOutstanding > 0) {
             return BookingStatus::PendingPayment;
         }
 

@@ -1,23 +1,23 @@
 # M9-R6 verification
 
-## Packaging-workspace checks
+## Completed in the packaging workspace
 
-- Page-loader JavaScript unit coverage verifies normal navigation, exclusions, accessible busy state, initial loading and page restoration.
-- JavaScript regression suite: **66 passed, 0 failed**.
+- JavaScript regression suite: **62 passed, 0 failed**.
 - `node --check public/js/page-loader.js`: passed.
+- JSON manifest parsing: passed.
 - Source diff whitespace/error check: passed.
-- M9-R5 upgrade patch applied to a pristine source tree and compared with the M9-R6 package: passed.
 - Release ZIP integrity check: passed.
-- Packaged source SHA-256 manifest verification: passed.
+- Upgrade patch applied to a pristine M9-R5 tree and compared byte-for-byte with the M9-R6 source: passed.
+- SHA-256 checksums produced for the release ZIP, upgrade patch, and standalone instructions.
 
-## Host regression coverage
+## Added host regression coverage
 
-`tests/Feature/M9R6PageLoaderTest.php` verifies that the backend and public layouts render the shared loader, versioned loader asset and CDN preconnection hint.
+`tests/Feature/M9R6ResourceDepositTest.php` covers equipment without a person, resource defaults, inherited and explicit-zero question overrides, per-piece quantities, immutable booking snapshots, deposits on top of retainers, coupon isolation, ordinary-refund reservation, partial-reason validation, full/partial original-capture refunds, and settled workflow behavior after return.
 
-`tests/Feature/BladeCompilationTest.php` now compiles both shared layouts and the loader partial in addition to its previous templates.
+`tests/Feature/M9R4ConditionalResourceRequirementTest.php` now checks persistence of question-level deposit overrides and inherited null values. `tests/Feature/M9R6PageLoaderTest.php` checks the loader contract in both layouts, including the versioned asset and CDN preconnect. `tests/Feature/BladeCompilationTest.php` includes the loading partial and both layouts. `tests/JavaScript/page-loader.test.cjs` checks ready-state hiding, navigation display, form display, and browser-history restoration.
 
-`tests/Feature/M9R5DashboardTest.php` remains the regression coverage for the dashboard data whose count query was consolidated.
+## Not executable in this workspace
 
-## Environment limitation
+PHP, Composer, and MariaDB are unavailable here. PHP syntax checks, migrations, Blade compilation, Laravel feature tests, the full PHP regression suite, and live provider calls have therefore not been executed. The JavaScript results do not establish that the PHP tests pass.
 
-PHP, Composer and MariaDB are unavailable in the packaging workspace. PHP syntax checks, Blade compilation, Laravel feature tests and the full PHP regression suite must therefore be run on the test host before production deployment. JavaScript and packaging checks do not establish that the PHP suite passes.
+Run every focused and full host command in `UPGRADE-M9-R5-TO-M9-R6.md` against staging before production deployment.

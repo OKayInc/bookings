@@ -1,22 +1,18 @@
 (() => {
     'use strict';
 
-    const loader = () => document.getElementById('page-loader');
+    const overlay = () => document.getElementById('page-loading-overlay');
     const show = (message = 'Loading…') => {
-        const element = loader();
+        const element = overlay();
         if (!element) return;
-        const label = element.querySelector('[data-page-loader-message]');
+        const label = element.querySelector('[data-page-loading-message]');
         if (label) label.textContent = message;
         element.hidden = false;
-        element.setAttribute('aria-hidden', 'false');
         document.body.classList.add('page-is-loading');
     };
     const hide = () => {
-        const element = loader();
-        if (element) {
-            element.hidden = true;
-            element.setAttribute('aria-hidden', 'true');
-        }
+        const element = overlay();
+        if (element) element.hidden = true;
         document.body.classList.remove('page-is-loading');
     };
 

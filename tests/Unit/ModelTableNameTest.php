@@ -38,6 +38,7 @@ use App\Models\PaymentRefund;
 use App\Models\PaymentRule;
 use App\Models\PaymentTransaction;
 use App\Models\PaymentWebhookEvent;
+use App\Models\BookingResourceDeposit;
 use App\Models\Coupon;
 use App\Models\CouponOffer;
 use App\Models\CouponRedemption;
@@ -62,6 +63,7 @@ class ModelTableNameTest extends TestCase
             [PaymentTransaction::class, 'payment_transactions'],
             [PaymentRefund::class, 'payment_refunds'],
             [PaymentWebhookEvent::class, 'payment_webhook_events'],
+            [BookingResourceDeposit::class, 'booking_resource_deposits'],
             [CouponOffer::class, 'coupon_offers'],
             [Coupon::class, 'coupons'],
             [CouponRedemption::class, 'coupon_redemptions'],

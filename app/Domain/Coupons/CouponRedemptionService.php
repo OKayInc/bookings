@@ -40,18 +40,22 @@ class CouponRedemptionService
         }
 
         $total = $submission->quote->totalMinor;
-        if ($total <= 0) {
-            throw new RuntimeException('This booking has no amount to discount.');
+        $deposit = collect($submission->quote->lines)
+            ->where('lineType', 'resource_deposit')
+            ->sum(fn (QuestionnairePriceLine $line): int => $line->amountMinor);
+        $discountable = max(0, $total - $deposit);
+        if ($discountable <= 0) {
+            throw new RuntimeException('This booking has no non-deposit amount to discount.');
         }
         $before = null;
         $after = null;
         if ($coupon->discount_type === CouponDiscountType::Fixed) {
             $before = max(0, (int) $coupon->remaining_amount_minor);
-            $discount = min($total, $before);
+            $discount = min($discountable, $before);
             $after = $before - $discount;
         } else {
-            $discount = $this->percentage($total, (int) $coupon->percentage_bps);
-            $discount = min($total, $discount);
+            $discount = $this->percentage($discountable, (int) $coupon->percentage_bps);
+            $discount = min($discountable, $discount);
         }
         if ($discount <= 0) {
             throw new RuntimeException('This gift card or coupon has no remaining value.');

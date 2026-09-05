@@ -1,26 +1,36 @@
-# M9-R6 — global page loading indicator
+# M9-R6 — refundable resource deposits
 
-M9-R6 adds one loading experience to both authenticated and public pages without introducing a frontend framework or asset build step.
+M9-R6 adds refundable deposits to resource rentals and keeps those funds distinct throughout pricing, checkout, refunding, and audit history. Equipment resources continue to support bookings without a linked person.
 
-## Loading behaviour
+## Configuration and fallback
 
-- A full-screen overlay appears for same-origin link navigation and valid same-origin form submissions.
-- The loader also covers the remaining asset-loading interval on a direct visit after Laravel has delivered the layout markup.
-- Browser reload and back/forward lifecycle events are handled without `beforeunload`, preserving eligibility for the browser back-forward cache.
-- `pageshow` and `load` always clear stale loader state.
-- Cancelled confirmation prompts, prevented events, HTML validation failures, external links, modified clicks, new tabs, same-page fragments, `mailto:` links and downloads do not activate the overlay.
-- `data-page-loader-ignore` is available as an explicit opt-out for future controls that do not perform a normal navigation.
+The resource editor has an optional default deposit in the active organization's currency. Quantity-tracked equipment treats it as a per-piece amount.
 
-The indicator uses application CSS rather than Bootstrap's spinner markup, so it remains understandable while external Bootstrap assets load. It exposes a live status message, applies `aria-busy` to the page during loading and respects reduced-motion preferences.
+Conditional resource requirements on choice questions have a deposit override beside every resource. The effective value is resolved as follows:
 
-The browser cannot display application HTML while waiting for the server's first response byte. Therefore, this improves navigation feedback but does not conceal or solve a slow Laravel response before markup arrives.
+| Question assignment | Resource default | Effective deposit |
+| --- | --- | --- |
+| Positive amount | Any value | Assignment amount |
+| Explicit `0` | Any value | Zero |
+| Blank | Positive amount | Resource amount |
+| Blank | Blank or zero | Zero |
 
-## Related fixes and optimizations
+All values are stored as integer minor units. Existing records migrate to no deposit.
 
-- Existing contract, signed-file and questionnaire-file links are now marked as downloads, preventing a non-navigation response from leaving the overlay visible.
-- Both layouts preconnect to `cdn.jsdelivr.net`, allowing the browser to begin DNS, TCP and TLS setup before requesting Bootstrap.
-- The dashboard's resource, appointment-type and member totals now use one Eloquent aggregate query rather than three independent count queries.
-- The application stylesheet and loader script carry an M9-R6 cache version so existing browsers receive the new assets immediately.
-- Runtime release metadata now reports M9-R6 instead of the stale M9-R1 identifier.
+## Pricing and snapshots
 
-No database migration, Composer dependency, JavaScript dependency or asset compilation is required.
+The effective deposit appears as its own refundable quote line. Quantity-managed resources multiply the per-piece amount by the held quantity. Permanent and conditional all-resource groups charge every required item; a one-of group charges once using the highest effective candidate amount so any eventual replacement is covered.
+
+Deposits are added after service fees and cannot be reduced by coupons. The full deposit is due in the initial checkout on top of any service retainer. A service-prepayment allowlist does not waive it.
+
+Each completed booking snapshots its deposit total and itemized resource context. Later edits to resource or question configuration cannot alter that booking.
+
+## Returns and refunds
+
+The staff booking ledger shows original, successfully refunded, and remaining deposit amounts. Managers may choose **Refund all remaining** or **Partial refund**. Partial refunds expose and require an audit reason.
+
+Refund allocations are bound to the successful payment transaction that captured the deposit, so Stripe refunds the original payment intent and PayPal refunds the original capture. Pending allocations prevent over-refunding and keep their idempotency key for safe retry. Ordinary price refunds cannot consume reserved deposit funds. Cancellation refunds return captured deposits in full while applying the configured percentage only to service funds.
+
+## Page loading feedback
+
+Both authenticated and public layouts now include a lightweight loading overlay for normal same-origin navigation and form submission. New-tab, modified, download, and same-page anchor navigation are ignored. The overlay clears on load and browser history restoration and uses reduced-motion-aware animation.

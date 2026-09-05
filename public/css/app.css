@@ -7,8 +7,8 @@ body {
     min-height: 100vh;
 }
 
-main {
-    min-height: calc(100vh - 56px);
+.page-is-loading {
+    cursor: progress;
 }
 
 .page-loader {
@@ -18,49 +18,50 @@ main {
     display: grid;
     place-items: center;
     padding: 1rem;
-    cursor: progress;
     background: rgba(var(--bs-body-bg-rgb), .82);
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(3px);
 }
 
 .page-loader[hidden] {
     display: none !important;
 }
 
-.page-loader__status {
-    display: inline-flex;
+.page-loader-panel {
+    display: flex;
     align-items: center;
     gap: .75rem;
-    min-width: 9rem;
-    padding: .85rem 1rem;
+    min-width: 10rem;
+    padding: .9rem 1.1rem;
     color: var(--bs-body-color);
     font-weight: 600;
     background: var(--bs-body-bg);
     border: var(--bs-border-width) solid var(--bs-border-color);
     border-radius: var(--bs-border-radius-lg);
-    box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .15);
+    box-shadow: 0 .75rem 2rem rgba(0, 0, 0, .16);
 }
 
-.page-loader__spinner {
+.page-loader-spinner {
     width: 1.5rem;
     height: 1.5rem;
     flex: 0 0 auto;
-    border: .2rem solid rgba(var(--bs-primary-rgb), .25);
+    border: .2rem solid rgba(var(--bs-primary-rgb), .2);
     border-top-color: var(--bs-primary);
     border-radius: 50%;
-    animation: page-loader-spin .75s linear infinite;
+    animation: page-loader-spin .7s linear infinite;
 }
 
 @keyframes page-loader-spin {
-    to {
-        transform: rotate(360deg);
-    }
+    to { transform: rotate(360deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .page-loader__spinner {
-        animation: none;
+    .page-loader-spinner {
+        animation-duration: 1.6s;
     }
+}
+
+main {
+    min-height: calc(100vh - 56px);
 }
 
 .navbar-brand {

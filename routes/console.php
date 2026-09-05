@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('app:about-m1', function (): void {
-    $this->info('Appointment Software M9-R6: global navigation loading indicator and optimized dashboard totals.');
+    $this->info('Appointment Software M9-R6: refundable resource deposits and original-method refunds.');
 })->purpose('Describe the current appointment software milestone');
 
 Schedule::command('appointments:expire-holds')->everyMinute()->withoutOverlapping();

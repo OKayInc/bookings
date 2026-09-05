@@ -5,6 +5,7 @@ namespace App\Domain\Appointments;
 use App\Domain\Bookings\BookingNoticeService;
 use App\Domain\Money\MoneyService;
 use App\Domain\Resources\EquipmentPricingService;
+use App\Domain\Resources\ResourceDepositService;
 use App\Enums\AttendanceMode;
 use App\Enums\AttendeePricingMode;
 use App\Enums\DurationMode;
@@ -20,6 +21,7 @@ class AppointmentTypeSummaryService
         private readonly AppointmentTypePricingService $pricing,
         private readonly BookingNoticeService $notice,
         private readonly EquipmentPricingService $equipmentPricing,
+        private readonly ResourceDepositService $resourceDeposits,
     ) {
     }
 
@@ -69,6 +71,10 @@ class AppointmentTypeSummaryService
                 ? $equipmentLabel
                 : $summary.' + '.$equipmentLabel;
         }
+        $depositTotal = $this->resourceDeposits->total($type);
+        if ($depositTotal > 0) {
+            $summary .= ' + '.$this->money->format($depositTotal, $currency).' refundable deposit';
+        }
 
         return $hasSeatingFees ? $summary.' + allocated seating fees' : $summary;
     }
@@ -77,11 +83,12 @@ class AppointmentTypeSummaryService
     {
         $base = $this->pricing->priceForDuration($type);
         $equipment = $this->equipmentPricing->total($type);
-        if ($equipment > PHP_INT_MAX - $base) {
+        $deposit = $this->resourceDeposits->total($type);
+        if ($equipment > PHP_INT_MAX - $base || $deposit > PHP_INT_MAX - $base - $equipment) {
             throw new \InvalidArgumentException('The appointment price is too large.');
         }
 
-        return $base + $equipment;
+        return $base + $equipment + $deposit;
     }
 
     public function bookingNotice(AppointmentType $type): string

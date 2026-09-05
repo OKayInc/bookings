@@ -227,12 +227,16 @@ class BookingCreationService
                 $questionnaire = $couponApplication->submission;
             }
             $priceMinor = $questionnaire->quote->totalMinor;
+            $depositMinor = (int) collect($questionnaire->quote->lines)
+                ->where('lineType', 'resource_deposit')
+                ->sum('amountMinor');
             $paymentSnapshot = $this->paymentSnapshots->snapshot(
                 $type,
                 $priceMinor,
                 CarbonImmutable::instance($hold->starts_at_utc)->utc(),
                 $paymentRule !== null,
                 $paymentRule?->getKey(),
+                $depositMinor,
             );
             $requiresVerification = $type->email_verification_mode !== EmailVerificationMode::None
                 && $contact->email_verified_at === null;
@@ -254,6 +258,7 @@ class BookingCreationService
                 'booking_timezone' => $hold->booking_timezone,
                 'base_price_minor' => $basePriceMinor,
                 'price_minor' => $priceMinor,
+                'deposit_minor' => $depositMinor,
                 'currency' => $organization->currency,
                 ...$paymentSnapshot,
                 'first_name' => $contactData['first_name'],
