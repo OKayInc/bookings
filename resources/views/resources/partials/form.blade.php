@@ -11,9 +11,9 @@
 <div class="muted">The number of identical physical pieces that can be allocated across overlapping appointments.</div>
 </div>
 </div>
-<div class="field">
+<div class="field" id="resource-deposit-field" @if(old('type', $resource?->type ?? 'person') === 'person') hidden @endif>
 <label for="default_deposit">Default refundable deposit ({{ $organization->currency }}) <span class="muted">optional</span></label>
-<input id="default_deposit" name="default_deposit" inputmode="decimal" value="{{ old('default_deposit', $resource?->deposit_amount_minor === null ? '' : app(\App\Domain\Money\MoneyService::class)->decimal((int) $resource->deposit_amount_minor, $organization->currency)) }}" placeholder="0.00">
+<input id="default_deposit" name="default_deposit" @disabled(old('type', $resource?->type ?? 'person') === 'person') inputmode="decimal" value="{{ old('default_deposit', $resource?->deposit_amount_minor === null ? '' : app(\App\Domain\Money\MoneyService::class)->decimal((int) $resource->deposit_amount_minor, $organization->currency)) }}" placeholder="0.00">
 <div class="muted">Used when a question assignment has no deposit override. For quantity-tracked equipment, this amount applies to each reserved piece. Leave blank for no default deposit.</div>
 </div>
 <div class="field">
@@ -65,6 +65,18 @@
     }
 
     const type = document.getElementById('resource-type');
+    const depositField = document.getElementById('resource-deposit-field');
+    const deposit = document.getElementById('default_deposit');
+    if (type && depositField && deposit) {
+        const refreshDeposit = () => {
+            const person = type.value === 'person';
+            depositField.hidden = person;
+            deposit.disabled = person;
+            if (person) deposit.value = '0';
+        };
+        type.addEventListener('change', refreshDeposit);
+        refreshDeposit();
+    }
     const inventoryField = document.getElementById('equipment-inventory-field');
     const quantityEnabled = document.getElementById('quantity_enabled');
     const inventoryQuantityField = document.getElementById('equipment-inventory-quantity-field');

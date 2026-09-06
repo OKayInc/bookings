@@ -1,4 +1,6 @@
-# Appointment Software — M9-R6
+# Appointment Software — M9-R7
+
+M9-R7 disables refundable deposits for Person resources. See `docs/UPGRADE-M9-R6-TO-M9-R7.md`.
 
 M9-R6 adds refundable resource deposits, including question-assignment overrides, immutable booking snapshots, and full or partial refunds through the original payment method. It also adds a lightweight global page-loading indicator. See `docs/CHANGES-M9-R6.md`, `docs/UPGRADE-M9-R5-TO-M9-R6.md`, and `docs/VERIFICATION-M9-R6.md`.
 

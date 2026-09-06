@@ -150,6 +150,10 @@ class ResourceDepositService
         ?string $questionUuid = null,
         ?string $questionLabel = null,
     ): ?ResourceDepositCharge {
+        if ($resource->type === 'person') {
+            return null;
+        }
+
         $override = $rule?->resources->first(
             fn (Resource $candidate): bool => hash_equals($candidate->getKey(), $resource->getKey()),
         )?->pivot?->deposit_amount_minor;

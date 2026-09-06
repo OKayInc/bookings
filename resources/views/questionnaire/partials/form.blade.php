@@ -171,7 +171,9 @@ $qType=old('type',$question?->type?->value ?? 'text');
 @forelse($conditionalResources as $resource)
  <div class="card compact">
   <label class="inline-check"><input type="checkbox" name="resource_requirement_resource_uuids[]" value="{{ $resource->uuid }}" @checked(in_array($resource->uuid, (array)$selectedConditionalResourceUuids, true))> {{ $resource->name }} <span class="muted">({{ $resource->type }})</span></label>
+  @if($resource->type !== 'person')
   <div class="field mb-0"><label>Refundable deposit override ({{ $organization->currency }})</label><input inputmode="decimal" name="resource_requirement_deposits[{{ $resource->uuid }}]" value="{{ $conditionalResourceDeposits[$resource->uuid] ?? '' }}" placeholder="Use resource default{{ $resource->deposit_amount_minor === null ? '' : ': '.$money->decimal((int) $resource->deposit_amount_minor, $organization->currency) }}"><div class="muted">Blank uses the resource default. Enter 0 to explicitly waive it for this answer.@if($resource->usesQuantityInventory()) The amount applies per reserved piece.@endif</div></div>
+  @endif
  </div>
 @empty
  <p class="muted">Assign at least one optional resource to this appointment type before configuring this rule.</p>

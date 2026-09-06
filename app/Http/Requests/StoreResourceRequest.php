@@ -32,7 +32,7 @@ class StoreResourceRequest extends FormRequest
                 'min:1',
                 'max:'.config('equipment.max_inventory_quantity', 100000),
             ],
-            'default_deposit' => ['nullable', new MoneyAmount($currency, allowZero: true)],
+            'default_deposit' => ['exclude_if:type,person', 'nullable', new MoneyAmount($currency, allowZero: true)],
             'person_uuid' => ['nullable', 'uuid'],
             'timezone' => ['nullable', new IanaTimezone()],
             'default_requirement' => ['nullable', 'in:required,optional'],

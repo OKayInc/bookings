@@ -123,7 +123,7 @@ class ConditionalResourceRequirementService
         $currency = $type->organization->currency;
         $depositInputs = (array) ($data['resource_requirement_deposits'] ?? []);
         $rule->resources()->sync($resources->mapWithKeys(function (Resource $resource) use ($depositInputs, $currency): array {
-            $raw = $depositInputs[$resource->uuid] ?? null;
+            $raw = $resource->type === 'person' ? '0' : ($depositInputs[$resource->uuid] ?? null);
 
             return [$resource->getKey() => [
                 'deposit_amount_minor' => $raw === null || trim((string) $raw) === ''

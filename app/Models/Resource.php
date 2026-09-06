@@ -43,6 +43,20 @@ class Resource extends Model
 
     protected static function booted(): void
     {
+        static::saving(function (Resource $resource): void {
+            if (($resource->type ?? 'person') === 'person') {
+                $resource->deposit_amount_minor = 0;
+            }
+        });
+
+        static::saved(function (Resource $resource): void {
+            if ($resource->type === 'person') {
+                $resource->conditionalRequirementRules()->newPivotStatement()
+                    ->where('resource_id', $resource->getKey())
+                    ->update(['deposit_amount_minor' => 0]);
+            }
+        });
+
         static::created(function (Resource $resource): void {
             if ($resource->organization_id === null) {
                 return;
