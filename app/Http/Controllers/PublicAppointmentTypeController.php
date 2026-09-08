@@ -25,6 +25,7 @@ class PublicAppointmentTypeController extends Controller
     ): View
     {
         $organization = Organization::where('slug', $organizationSlug)->firstOrFail();
+        $organization->load('galleryPhotos');
         $appointmentTypes = $organization->appointmentTypes()
             ->with(['organization', 'resources'])
             ->where('is_active', true)
@@ -141,7 +142,7 @@ class PublicAppointmentTypeController extends Controller
         $exampleMinor = $summary->examplePrice($type);
         $examplePrice = $money->format($exampleMinor, $organization->currency);
 
-        $type->loadMissing(['contractTemplate', 'shortNoticeFeeRules']);
+        $type->loadMissing(['contractTemplate', 'shortNoticeFeeRules', 'galleryPhotos']);
         $timezoneOptions = timezone_identifiers_list();
 
         return view('public.appointment-types.show', compact(

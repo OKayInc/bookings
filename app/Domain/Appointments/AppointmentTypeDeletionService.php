@@ -21,8 +21,9 @@ class AppointmentTypeDeletionService
         $logoDisk = (string) config('appointment-types.logo_disk', 'public');
         $logoPath = null;
         $contractFiles = [];
+        $galleryFiles = [];
 
-        $deleted = DB::transaction(function () use ($appointmentType, &$logoPath, &$contractFiles): bool {
+        $deleted = DB::transaction(function () use ($appointmentType, &$logoPath, &$contractFiles, &$galleryFiles): bool {
             /** @var AppointmentType $locked */
             $locked = AppointmentType::query()
                 ->whereKey($appointmentType->getKey())
@@ -41,6 +42,13 @@ class AppointmentTypeDeletionService
                 ->map(fn ($template): array => [
                     'disk' => (string) $template->disk,
                     'path' => (string) $template->path,
+                ])
+                ->all();
+            $galleryFiles = $locked->galleryPhotos()
+                ->get(['disk', 'path'])
+                ->map(fn ($photo): array => [
+                    'disk' => (string) $photo->disk,
+                    'path' => (string) $photo->path,
                 ])
                 ->all();
 
@@ -80,6 +88,18 @@ class AppointmentTypeDeletionService
                 Storage::disk($file['disk'])->delete($file['path']);
             } catch (\Throwable $exception) {
                 Log::warning('Appointment type deleted but a contract template file could not be removed from storage.', [
+                    'disk' => $file['disk'],
+                    'path' => $file['path'],
+                    'exception' => $exception->getMessage(),
+                ]);
+            }
+        }
+
+        foreach ($galleryFiles as $file) {
+            try {
+                Storage::disk($file['disk'])->delete($file['path']);
+            } catch (\Throwable $exception) {
+                Log::warning('Appointment type deleted but a gallery photo could not be removed from storage.', [
                     'disk' => $file['disk'],
                     'path' => $file['path'],
                     'exception' => $exception->getMessage(),

@@ -42,6 +42,7 @@ use App\Models\BookingResourceDeposit;
 use App\Models\Coupon;
 use App\Models\CouponOffer;
 use App\Models\CouponRedemption;
+use App\Models\GalleryPhoto;
 use App\Models\Resource;
 use App\Models\ShortNoticeFeeRule;
 use App\Models\User;
@@ -67,6 +68,7 @@ class ModelTableNameTest extends TestCase
             [CouponOffer::class, 'coupon_offers'],
             [Coupon::class, 'coupons'],
             [CouponRedemption::class, 'coupon_redemptions'],
+            [GalleryPhoto::class, 'gallery_photos'],
             [Resource::class, 'resources'],
             [AppointmentType::class, 'appointment_types'],
             [ShortNoticeFeeRule::class, 'short_notice_fee_rules'],

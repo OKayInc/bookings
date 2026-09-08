@@ -8,6 +8,7 @@ For an existing M1 R4 installation, use `docs/UPGRADE-M1-R4-TO-M2.md` instead.
 - MariaDB 10.11+ recommended
 - Memcached server
 - PHP extensions normally required by Laravel plus `pdo_mysql` and `memcached`
+- Either GD with WebP support or ImageMagick with WebP support for M9-R8 gallery uploads
 - Composer 2
 
 ## MariaDB database
@@ -57,6 +58,6 @@ Open `/register` to create the first person/account and organization. There are 
 ## File storage
 
 - Contract templates: private `local` disk (`storage/app/private/...`).
-- Appointment logos: public disk (`storage/app/public/...`) exposed by `php artisan storage:link`.
+- Appointment logos and galleries: public disk (`storage/app/public/...`) exposed by `php artisan storage:link`.
 
 Do not expose the private contract directory.

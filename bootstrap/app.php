@@ -7,6 +7,7 @@ use App\Console\Commands\SyncExternalCalendarsCommand;
 use App\Console\Commands\TimezoneHealthCommand;
 use App\Console\Commands\SendAppointmentRemindersCommand;
 use App\Console\Commands\SyncStaffConfirmationsCommand;
+use App\Console\Commands\NormalizeGalleryImagesCommand;
 use App\Http\Middleware\EnsureActiveOrganization;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         SyncExternalCalendarsCommand::class,
         SendAppointmentRemindersCommand::class,
         SyncStaffConfirmationsCommand::class,
+        NormalizeGalleryImagesCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->validateCsrfTokens(except: [

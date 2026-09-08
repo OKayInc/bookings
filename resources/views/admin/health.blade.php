@@ -6,5 +6,6 @@
 <tr><td>Database</td><td>{{ $database ? 'Healthy' : 'Failed' }}</td><td>{{ $details['database'] ?? 'Connection succeeded.' }}</td></tr>
 <tr><td>MariaDB timezone tables</td><td>{{ $timezone ? 'Healthy' : 'Failed' }}</td><td>{{ $details['timezone'] ?? 'CONVERT_TZ with America/Toronto succeeded.' }}</td></tr>
 <tr><td>Memcached</td><td>{{ $cache ? 'Healthy' : 'Failed' }}</td><td>{{ $details['cache'] ?? 'Write/read/delete test succeeded.' }}</td></tr>
+<tr><td>Gallery WebP encoder</td><td>{{ $galleryImages ? 'Healthy' : 'Failed' }}</td><td>{{ $galleryImages ? 'PHP GD or ImageMagick reports WebP encoding support.' : 'Install PHP GD with WebP support or ImageMagick with WebP support.' }}</td></tr>
 </tbody></table></div>
 @endsection

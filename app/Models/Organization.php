@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\OrganizationPlanTier;
 use App\Models\Concerns\HasBinaryUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,12 +21,20 @@ class Organization extends Model
         'timezone',
         'holiday_region',
         'currency',
+        'plan_tier',
         'logo_path',
     ];
 
     protected $hidden = ['id'];
 
     protected $appends = ['uuid', 'logo_url'];
+
+    protected function casts(): array
+    {
+        return [
+            'plan_tier' => OrganizationPlanTier::class,
+        ];
+    }
 
     public function getLogoUrlAttribute(): ?string
     {
@@ -99,6 +108,15 @@ class Organization extends Model
     public function appointmentTypes(): HasMany
     {
         return $this->hasMany(AppointmentType::class);
+    }
+
+    public function galleryPhotos(): HasMany
+    {
+        return $this->hasMany(GalleryPhoto::class)
+            ->whereNull('appointment_type_id')
+            ->orderBy('placement')
+            ->orderBy('position')
+            ->orderBy('created_at');
     }
 
     public function conferenceSettings(): HasOne

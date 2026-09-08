@@ -17,6 +17,7 @@ class OrganizationFactory extends Factory
             'slug' => Str::slug($name).'-'.fake()->unique()->numberBetween(1000, 9999),
             'timezone' => 'America/Toronto',
             'currency' => 'CAD',
+            'plan_tier' => 'free',
         ];
     }
 }

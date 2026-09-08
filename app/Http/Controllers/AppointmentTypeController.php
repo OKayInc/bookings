@@ -7,6 +7,7 @@ use App\Domain\Appointments\AppointmentTypeLogoService;
 use App\Domain\Appointments\AppointmentTypeSummaryService;
 use App\Domain\Appointments\AttendeePricingService;
 use App\Domain\Contracts\ContractTemplateService;
+use App\Domain\Galleries\GalleryLimitService;
 use App\Domain\Bookings\ShortNoticeFeeRuleService;
 use App\Domain\Conferences\ConferenceProviderCatalog;
 use App\Domain\Money\MoneyService;
@@ -126,6 +127,7 @@ class AppointmentTypeController extends Controller
         OrganizationContext $context,
         MoneyService $money,
         PercentageService $percentages,
+        GalleryLimitService $galleryLimits,
     ): View
     {
         $this->ensureSameOrganization($appointmentType, $context);
@@ -136,6 +138,7 @@ class AppointmentTypeController extends Controller
             'resources',
             'shortNoticeFeeRules',
             'contractTemplate',
+            'galleryPhotos',
             'invitations' => fn ($query) => $query->latest()->limit(50),
         ]);
 
@@ -183,6 +186,7 @@ class AppointmentTypeController extends Controller
                     $money,
                     $context->organization()->currency,
                 ),
+                'galleryLimit' => $galleryLimits->forAppointmentType($appointmentType),
             ],
         ));
     }

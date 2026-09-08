@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Galleries\GalleryImageConverter;
 use App\Support\Organizations\OrganizationContext;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -10,12 +11,13 @@ use Throwable;
 
 class HealthController extends Controller
 {
-    public function __invoke(OrganizationContext $context): View
+    public function __invoke(OrganizationContext $context, GalleryImageConverter $galleryImageConverter): View
     {
         $this->authorize('update', $context->organization());
         $database = false;
         $timezone = false;
         $cache = false;
+        $galleryImages = $galleryImageConverter->canConvert();
         $details = [];
 
         try {
@@ -49,6 +51,6 @@ class HealthController extends Controller
             $details['cache'] = $e->getMessage();
         }
 
-        return view('admin.health', compact('database', 'timezone', 'cache', 'details'));
+        return view('admin.health', compact('database', 'timezone', 'cache', 'galleryImages', 'details'));
     }
 }

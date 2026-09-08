@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Money\PaymentCurrencyCatalog;
+use App\Domain\Galleries\GalleryLimitService;
 use App\Domain\Organizations\OrganizationDeletionService;
 use App\Domain\Organizations\OrganizationLogoService;
 use App\Enums\MembershipRole;
@@ -76,14 +77,16 @@ class OrganizationController extends Controller
         return redirect()->route('dashboard')->with('success', 'Organization created.');
     }
 
-    public function edit(Organization $organization): View
+    public function edit(Organization $organization, GalleryLimitService $galleryLimits): View
     {
         $this->authorize('update', $organization);
+        $organization->load('galleryPhotos');
 
         return view('organizations.edit', [
             'organization' => $organization,
             'timezones' => \DateTimeZone::listIdentifiers(),
             'currencies' => PaymentCurrencyCatalog::options(),
+            'galleryLimit' => $galleryLimits->forOrganization($organization),
         ]);
     }
 

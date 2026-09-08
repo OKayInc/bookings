@@ -1,4 +1,12 @@
-# Database — M9-R6
+# Database — M9-R8
+
+## M9-R8 photo galleries
+
+Migration `2026_09_07_000070_add_photo_galleries.php` adds `organizations.plan_tier`, defaulting existing and new tenants to `free`, and creates `gallery_photos`.
+
+Every photo has an organization owner. A NULL `appointment_type_id` means it belongs to the organization's public gallery; a non-NULL value scopes it to one appointment type in that organization. `placement` is `above` or `below`, and `position` provides deterministic grid ordering. Each row stores the filesystem disk and relative path, original filename, optional alternative text, normalized dimensions, byte size, and SHA-256 digest. Public URLs are derived at request time from filesystem configuration and are never persisted, so switching a CDN does not rewrite rows.
+
+Both UUID relationships use `BINARY(16)` and cascade on parent deletion. Application upload paths lock the organization, verify appointment ownership, enforce the tier cap, and write WebP content before the row commits. File-aware deletion services remove physical content after database deletion.
 
 ## M9-R1 equipment inventory
 

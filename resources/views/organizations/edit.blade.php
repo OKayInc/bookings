@@ -7,6 +7,13 @@
 <button class="btn btn-primary" type="submit">Save</button>
 </form></div>
 
+@include('gallery.manage', [
+    'galleryPhotos' => $organization->galleryPhotos,
+    'galleryOwnerLabel' => 'Organization',
+    'galleryUploadRoute' => route('organizations.gallery-photos.store', $organization),
+    'galleryInputPrefix' => 'organization-gallery',
+])
+
 @can('delete', $organization)
 <div class="card border-danger mt-4" style="max-width:700px">
     <h2 class="text-danger">Danger zone</h2>

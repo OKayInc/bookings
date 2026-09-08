@@ -1,8 +1,21 @@
-# Appointment Software — M9-R7
+# Appointment Software — M9-R8
+
+M9-R8 adds organization and appointment photo galleries, immediate and scheduled WebP normalization, free/paid environment-backed photo caps, enlarged viewing, and optional CDN-generated public-storage URLs. See `docs/CHANGES-M9-R8.md`, `docs/UPGRADE-M9-R7-TO-M9-R8.md`, and `docs/VERIFICATION-M9-R8.md`.
 
 M9-R7 disables refundable deposits for Person resources. See `docs/UPGRADE-M9-R6-TO-M9-R7.md`.
 
 M9-R6 adds refundable resource deposits, including question-assignment overrides, immutable booking snapshots, and full or partial refunds through the original payment method. It also adds a lightweight global page-loading indicator. See `docs/CHANGES-M9-R6.md`, `docs/UPGRADE-M9-R5-TO-M9-R6.md`, and `docs/VERIFICATION-M9-R6.md`.
+
+## M9-R8 photo galleries
+
+- Each organization and each appointment type owns an independent photo gallery.
+- Photos are assigned above or below the relevant public content and displayed in a three-column, Instagram-style grid.
+- Selecting a photo opens a full-image lightbox with pointer and keyboard navigation.
+- JPEG, PNG, and WebP uploads become size-bounded, metadata-stripped WebP files with hash-based names.
+- Free/paid organization tiers select separate `.env` limits for organization and per-appointment galleries.
+- A weekly scheduled audit repairs non-WebP gallery files and updates database references before deleting originals.
+- `CDN_ENABLED` and `CDN_URL` can switch generated `/storage/...` URLs to an image CDN without rewriting MariaDB paths.
+- Video is deferred to a separate revision because it needs transcoding, streaming, poster, bandwidth, and CDN policies.
 
 ## M9-R6 refundable resource deposits
 

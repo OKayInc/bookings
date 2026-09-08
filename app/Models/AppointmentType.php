@@ -230,6 +230,14 @@ class AppointmentType extends Model
         return $this->hasMany(Booking::class);
     }
 
+    public function galleryPhotos(): HasMany
+    {
+        return $this->hasMany(GalleryPhoto::class)
+            ->orderBy('placement')
+            ->orderBy('position')
+            ->orderBy('created_at');
+    }
+
     public function questions(): HasMany
     {
         return $this->hasMany(AppointmentQuestion::class)->orderBy('position');

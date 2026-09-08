@@ -12,6 +12,13 @@
     <div class="sticky-actions"><button class="btn btn-primary" type="submit">Save appointment type</button></div>
 </form>
 
+@include('gallery.manage', [
+    'galleryPhotos' => $appointmentType->galleryPhotos,
+    'galleryOwnerLabel' => 'Appointment',
+    'galleryUploadRoute' => route('appointment-types.gallery-photos.store', $appointmentType),
+    'galleryInputPrefix' => 'appointment-gallery',
+])
+
 
 <div class="section-card" style="margin-top:24px">
     <h2>Delete or disable appointment type</h2>

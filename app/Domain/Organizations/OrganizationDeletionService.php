@@ -158,6 +158,14 @@ class OrganizationDeletionService
                 'path' => $path,
             ]));
 
+        DB::table('gallery_photos')
+            ->where('organization_id', $organization->getKey())
+            ->get(['disk', 'path'])
+            ->each(fn ($file) => $files->push([
+                'disk' => (string) $file->disk,
+                'path' => (string) $file->path,
+            ]));
+
         DB::table('appointment_contract_templates')
             ->where('organization_id', $organization->getKey())
             ->get(['disk', 'path'])

@@ -1,6 +1,7 @@
 @extends('layouts.public')
 @section('title', $type->name)
 @section('content')
+@include('gallery.public-grid', ['photos' => $type->galleryPhotos, 'placement' => 'above', 'ownerName' => $type->name])
 <div class="card appointment-hero">
     @if(($type->logo_url ?? $type->organization->logo_url))<img class="public-logo large" src="{{ ($type->logo_url ?? $type->organization->logo_url) }}" alt="{{ $type->name }} logo">@endif
     <div>
@@ -107,6 +108,8 @@
 @if($type->buffer_before_minutes || $type->buffer_after_minutes)
     <p class="muted">The organization reserves {{ $type->buffer_before_minutes }} minutes before and {{ $type->buffer_after_minutes }} minutes after each session for scheduling.</p>
 @endif
+
+@include('gallery.public-grid', ['photos' => $type->galleryPhotos, 'placement' => 'below', 'ownerName' => $type->name])
 
 <script>
 (() => {

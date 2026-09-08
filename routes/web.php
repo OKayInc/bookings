@@ -14,6 +14,7 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\GalleryPhotoController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\OrganizationSettingsController;
 use App\Http\Controllers\OrganizationInvitationAcceptanceController;
@@ -196,6 +197,8 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('/organizations', [OrganizationController::class, 'store'])->name('organizations.store');
     Route::get('/organizations/{organization}/edit', [OrganizationController::class, 'edit'])->name('organizations.edit');
     Route::put('/organizations/{organization}', [OrganizationController::class, 'update'])->name('organizations.update');
+    Route::post('/organizations/{organization}/gallery-photos', [GalleryPhotoController::class, 'storeForOrganization'])->name('organizations.gallery-photos.store');
+    Route::delete('/gallery-photos/{galleryPhoto}', [GalleryPhotoController::class, 'destroy'])->name('gallery-photos.destroy');
     Route::delete('/organizations/{organization}', [OrganizationController::class, 'destroy'])->name('organizations.destroy');
     Route::post('/organizations/{organization}/switch', [OrganizationController::class, 'switch'])->name('organizations.switch');
 
@@ -289,5 +292,6 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::put('/appointment-types/{appointmentType}/questions/{question}', [AppointmentQuestionController::class, 'update'])->name('appointment-types.questions.update');
         Route::delete('/appointment-types/{appointmentType}/questions/{question}', [AppointmentQuestionController::class, 'destroy'])->name('appointment-types.questions.destroy');
         Route::resource('appointment-types', AppointmentTypeController::class)->except(['show']);
+        Route::post('/appointment-types/{appointmentType}/gallery-photos', [GalleryPhotoController::class, 'storeForAppointmentType'])->name('appointment-types.gallery-photos.store');
     });
 });
