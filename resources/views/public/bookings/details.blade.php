@@ -6,7 +6,7 @@
 <div class="card">
     <h2>{{ $eventTiming ? 'Selected event' : 'Selected time' }}</h2>
     @if($eventTiming)
-        <p><strong>Doors open:</strong> {{ $hold->starts_at_utc->setTimezone($hold->booking_timezone)->format('l, F j, Y · g:i A') }}<br><strong>Show starts:</strong> {{ $eventTiming['show_starts_at_utc']->setTimezone($hold->booking_timezone)->format('l, F j, Y · g:i A') }}@if($eventTiming['show_ends_at_utc'])<br><strong>Show ends:</strong> {{ $eventTiming['show_ends_at_utc']->setTimezone($hold->booking_timezone)->format('l, F j, Y · g:i A') }}@endif<br><span class="muted">Resources remain booked until {{ $hold->ends_at_utc->setTimezone($hold->booking_timezone)->format('g:i A') }} · {{ $hold->booking_timezone }}</span></p>
+        <p><strong>Doors open:</strong> {{ $hold->starts_at_utc->setTimezone($hold->booking_timezone)->format('l, F j, Y · g:i A') }}<br><strong>Show starts:</strong> {{ $eventTiming['show_starts_at_utc']->setTimezone($hold->booking_timezone)->format('l, F j, Y · g:i A') }}@if($eventTiming['show_ends_at_utc'])<br><strong>Show ends:</strong> {{ $eventTiming['show_ends_at_utc']->setTimezone($hold->booking_timezone)->format('l, F j, Y · g:i A') }}@endif<br><span class="muted">{{ $type->show_resources_to_clients ? 'Resources remain booked until' : 'Booking ends at' }} {{ $hold->ends_at_utc->setTimezone($hold->booking_timezone)->format('g:i A') }} · {{ $hold->booking_timezone }}</span></p>
     @else
         <p><strong>{{ $hold->starts_at_utc->setTimezone($hold->booking_timezone)->format('l, F j, Y · g:i A') }}</strong> – {{ $hold->ends_at_utc->setTimezone($hold->booking_timezone)->format('g:i A') }} <span class="muted">{{ $hold->booking_timezone }}</span></p>
     @endif
@@ -38,7 +38,11 @@
     @endif
 </div>
 
-@php $quantityEquipment = $hold->resources->filter(fn ($resource) => $resource->usesQuantityInventory()); @endphp
+@php
+    $quantityEquipment = $type->show_resources_to_clients
+        ? $hold->resources->filter(fn ($resource) => $resource->usesQuantityInventory())
+        : collect();
+@endphp
 @if($quantityEquipment->isNotEmpty())
 <div class="card">
     <h2>Equipment reserved</h2>

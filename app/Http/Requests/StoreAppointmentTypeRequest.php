@@ -234,6 +234,7 @@ class StoreAppointmentTypeRequest extends FormRequest
             ],
             'resource_equipment_bundles.*.*.amount' => ['nullable', new MoneyAmount($currency)],
             'requires_resource_confirmation' => ['nullable', 'boolean'],
+            'show_resources_to_clients' => ['nullable', 'boolean'],
             'email_verification_mode' => ['nullable', Rule::enum(EmailVerificationMode::class)],
 
             'cancellation_allowed' => ['nullable', 'boolean'],

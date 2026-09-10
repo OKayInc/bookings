@@ -151,7 +151,9 @@ class PublicBookingController extends Controller
                     'client_event_label' => $event === null ? null : 'Doors '.$clientStart->format('g:i A').' · Show '.$clientShowStart->format('g:i A').($clientShowEnd ? ' – '.$clientShowEnd->format('g:i A') : ''),
                     'organization_event_label' => $event === null ? null : 'Doors '.$orgStart->format('g:i A').' · Show '.$orgShowStart->format('g:i A').($orgShowEnd ? ' – '.$orgShowEnd->format('g:i A') : ''),
                     'remaining_capacity' => $slot->remainingCapacity,
-                    'equipment_availability' => $slot->equipmentAvailability,
+                    'equipment_availability' => $appointmentType->show_resources_to_clients
+                        ? $slot->equipmentAvailability
+                        : [],
                     'join_existing' => $slot->appointment !== null,
                     'price_minor' => $slotPrice,
                     'price_display' => $money->format($slotPrice, $appointmentType->organization->currency),

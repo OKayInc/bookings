@@ -558,6 +558,14 @@
 
 <div class="section-card">
     <h2>Resources and confirmation</h2>
+    <div class="field checkbox-list">
+        <input type="hidden" name="show_resources_to_clients" value="0">
+        <label>
+            <input type="checkbox" name="show_resources_to_clients" value="1" @checked((bool) old('show_resources_to_clients', $appointmentType?->show_resources_to_clients ?? true))>
+            Show assigned resources to clients
+        </label>
+        <div class="muted">When enabled, quantity-managed equipment and its availability are shown with public time slots and again while the client completes the booking. Disable this for appointments where clients only need to see the available time.</div>
+    </div>
     <div class="field">
         <label>Assigned resources</label>
         <div class="checkbox-list">

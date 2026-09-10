@@ -50,7 +50,7 @@
 
 <div class="card booking-scheduler" id="booking-scheduler">
     <h2>{{ $type->ticketing_enabled ? 'Choose an event' : 'Choose a time' }}</h2>
-    <p><strong>No account or registration is required for clients.</strong> Times are shown in your selected timezone, with {{ $organization->timezone }} shown underneath when different.</p>
+    <p><strong>No account or registration is required for clients.</strong> Times are shown in your selected timezone.</p>
 
     <div class="row">
         <div class="field">
@@ -116,8 +116,8 @@
     const typeUuid = @json($type->uuid);
     const accessMode = @json($accessMode);
     const accessToken = @json($accessToken);
-    const organizationTimezone = @json($organization->timezone);
     const ticketedEvent = @json((bool) $type->ticketing_enabled);
+    const showResources = @json((bool) $type->show_resources_to_clients);
     const slotsUrl = @json(route('public.booking.slots', $type));
     const holdUrl = @json(route('public.booking.holds.store', $type));
     const csrf = document.querySelector('meta[name="csrf-token"]').content;
@@ -168,18 +168,16 @@
                 button.type = 'button';
                 button.className = 'slot-button';
                 const primaryLabel = ticketedEvent ? slot.client_event_label : slot.client_label;
-                const organizationLabel = ticketedEvent ? slot.organization_event_label : slot.organization_label;
-                const alt = data.timezone === organizationTimezone ? '' : `<small>${organizationLabel} · ${organizationTimezone}</small>`;
                 const capacityLabel = ticketedEvent ? 'tickets' : 'spaces';
                 const capacity = slot.remaining_capacity > 1 ? `<small>${slot.remaining_capacity} ${capacityLabel} currently available</small>` : '';
                 const slotPrice = ticketedEvent ? `<small>Ticket total before extras: ${slot.price_display}</small>` : '';
-                const equipment = slot.equipment_availability.map(item => {
+                const equipment = showResources ? (slot.equipment_availability ?? []).map(item => {
                     const allocation = item.reserved_for_session > 0
                         ? `${item.reserved_for_session} reserved for this session`
                         : `this appointment reserves ${item.quantity_required}`;
                     return `<small>${escapeHtml(item.name)}: ${item.available_quantity} of ${item.total_quantity} available · ${allocation}</small>`;
-                }).join('');
-                button.innerHTML = `<strong>${primaryLabel}</strong><small>${data.timezone}</small>${alt}${capacity}${equipment}${slotPrice}`;
+                }).join('') : '';
+                button.innerHTML = `<strong>${primaryLabel}</strong>${capacity}${equipment}${slotPrice}`;
                 button.addEventListener('click', () => reserve(slot.starts_at_utc, button, selection));
                 list.appendChild(button);
             });

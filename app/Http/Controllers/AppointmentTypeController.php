@@ -427,6 +427,9 @@ class AppointmentTypeController extends Controller
             'client_refund_percentage_bps' => (int) $percentages->parseToBasisPoints($data['client_refund_percentage'] ?? '0'),
             'staff_refund_percentage_bps' => (int) $percentages->parseToBasisPoints($data['staff_refund_percentage'] ?? '100'),
             'requires_resource_confirmation' => $request->boolean('requires_resource_confirmation'),
+            'show_resources_to_clients' => $request->has('show_resources_to_clients')
+                ? $request->boolean('show_resources_to_clients')
+                : true,
             'email_verification_mode' => $data['email_verification_mode'] ?? EmailVerificationMode::BeforeConfirmation->value,
             'cancellation_allowed' => $request->has('cancellation_allowed') ? $request->boolean('cancellation_allowed') : true,
             'cancellation_notice_value' => (int) ($data['cancellation_notice_value'] ?? 24),
