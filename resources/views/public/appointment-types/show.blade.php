@@ -7,7 +7,7 @@
     <div>
         <div class="muted">{{ $organization->name }}</div>
         <h1>{{ $type->name }}</h1>
-        @if($type->description)<div class="rich-text">{!! $type->safeDescriptionHtml() !!}</div>@endif
+        @if($type->description)<p>{{ $type->description }}</p>@endif
         @if($accessMode === 'invitation' && $invitation?->recipient_email)
             <div class="badge">Recipient-specific invitation for {{ $invitation->recipient_email }}</div>
         @endif

@@ -14,8 +14,7 @@
 
     <div class="field">
         <label for="description">Description</label>
-        <textarea id="description" name="description" data-rich-text-editor rows="12">{{ old('description', $appointmentType?->description) }}</textarea>
-        <div class="muted">Only character formatting is retained. Links, media, colors, font sizes, and external content are removed.</div>
+        <textarea id="description" name="description">{{ old('description', $appointmentType?->description) }}</textarea>
     </div>
 
     <div class="field">
@@ -30,8 +29,6 @@
         <div class="muted">JPEG, PNG or WebP. Uploading a new image replaces the current logo.</div>
     </div>
 </div>
-
-@include('partials.rich-text-editor-assets')
 
 <div class="section-card">
     <h2>Access</h2>

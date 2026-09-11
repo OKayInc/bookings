@@ -7,8 +7,6 @@ use App\Enums\PricingApplicationMode;
 use App\Enums\PricingPercentageBasis;
 use App\Enums\QuestionType;
 use App\Models\Concerns\HasBinaryUuid;
-use App\Support\Html\RichTextSanitizer;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -41,25 +39,6 @@ class ReusableQuestion extends Model
             'pricing_percentage_basis' => PricingPercentageBasis::class,
             'pricing_included_units' => 'integer',
         ];
-    }
-
-    protected function description(): Attribute
-    {
-        return Attribute::make(
-            set: fn (mixed $value): ?string => is_string($value)
-                ? app(RichTextSanitizer::class)->sanitize($value)
-                : null,
-        );
-    }
-
-    public function safeDescriptionHtml(): ?string
-    {
-        return app(RichTextSanitizer::class)->sanitize($this->description);
-    }
-
-    public function descriptionPlainText(): string
-    {
-        return app(RichTextSanitizer::class)->toPlainText($this->description);
     }
 
     public function organization(): BelongsTo

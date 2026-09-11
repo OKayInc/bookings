@@ -5,7 +5,6 @@ namespace App\Domain\Questionnaires;
 use App\Enums\PricingAdjustmentType;
 use App\Enums\QuestionType;
 use App\Models\AppointmentType;
-use App\Support\Html\RichTextSanitizer;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -25,7 +24,6 @@ class QuestionnaireSubmissionService
         private AddressValidationService $addresses,
         private DrivingDistanceService $drivingDistances,
         private DrivingDistancePricingService $drivingDistancePricing,
-        private RichTextSanitizer $richText,
     ) {}
 
     public function quote(
@@ -98,15 +96,6 @@ class QuestionnaireSubmissionService
     ): QuestionnaireSubmission {
         $submittedAnswers = array_replace((array) $request->input('answers', []), $forcedAnswers);
         $visibleQuestions = $this->visibility->visibleQuestions($type, $submittedAnswers);
-
-        foreach ($visibleQuestions as $question) {
-            if ($question->type === QuestionType::Textarea
-                && array_key_exists($question->uuid, $submittedAnswers)
-                && is_string($submittedAnswers[$question->uuid])) {
-                $submittedAnswers[$question->uuid] = $this->richText->sanitize($submittedAnswers[$question->uuid]);
-            }
-        }
-
         $rules = [];
 
         foreach ($visibleQuestions as $question) {

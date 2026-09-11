@@ -8,7 +8,6 @@ use App\Enums\PricingAdjustmentType;
 use App\Enums\PricingApplicationMode;
 use App\Enums\PricingPercentageBasis;
 use App\Enums\QuestionType;
-use App\Support\Html\RichTextSanitizer;
 use App\Support\Organizations\OrganizationContext;
 use App\Rules\MoneyAmount;
 use Illuminate\Foundation\Http\FormRequest;
@@ -18,17 +17,6 @@ use InvalidArgumentException;
 
 class StoreAppointmentQuestionRequest extends FormRequest
 {
-    protected function prepareForValidation(): void
-    {
-        $description = $this->input('description');
-
-        if (is_string($description)) {
-            $this->merge([
-                'description' => app(RichTextSanitizer::class)->sanitize($description),
-            ]);
-        }
-    }
-
     public function authorize(): bool
     {
         return $this->user() !== null;

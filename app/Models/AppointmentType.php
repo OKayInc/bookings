@@ -16,8 +16,6 @@ use App\Enums\RetainerType;
 use App\Enums\SeasonRecurrence;
 use App\Enums\TicketSeatingScheme;
 use App\Models\Concerns\HasBinaryUuid;
-use App\Support\Html\RichTextSanitizer;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -163,15 +161,6 @@ class AppointmentType extends Model
         ];
     }
 
-    protected function description(): Attribute
-    {
-        return Attribute::make(
-            set: fn (mixed $value): ?string => is_string($value)
-                ? app(RichTextSanitizer::class)->sanitize($value)
-                : null,
-        );
-    }
-
     public function getLogoUrlAttribute(): ?string
     {
         if (! $this->logo_path) {
@@ -179,11 +168,6 @@ class AppointmentType extends Model
         }
 
         return Storage::disk((string) config('appointment-types.logo_disk', 'public'))->url($this->logo_path);
-    }
-
-    public function safeDescriptionHtml(): ?string
-    {
-        return app(RichTextSanitizer::class)->sanitize($this->description);
     }
 
     public function organization(): BelongsTo

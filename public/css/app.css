@@ -711,14 +711,3 @@ table.table {
         margin-right: 0;
     }
 }
-.rich-text {
-    overflow-wrap: anywhere;
-}
-
-.rich-text > :first-child {
-    margin-top: 0;
-}
-
-.rich-text > :last-child {
-    margin-bottom: 0;
-}

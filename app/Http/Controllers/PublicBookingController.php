@@ -17,6 +17,8 @@ use App\Domain\Tickets\TicketInventoryService;
 use App\Domain\Coupons\CouponRedemptionService;
 use App\Domain\Questionnaires\QuestionnaireSubmission;
 use App\Enums\AttendanceMode;
+use App\Enums\AppointmentVisibility;
+use App\Exceptions\ExpiredBookingHoldException;
 use App\Models\AppointmentType;
 use App\Models\BookingHold;
 use App\Notifications\BookingAccessEmail;
@@ -203,6 +205,11 @@ class PublicBookingController extends Controller
         } catch (RuntimeException|\InvalidArgumentException $exception) {
             return response()->json(['message' => $exception->getMessage()], 409);
         }
+
+        $request->session()->put(
+            $this->holdReturnUrlSessionKey($lease->token),
+            $this->appointmentSelectionUrl($appointmentType, $data['access_mode'], $data['access_token'] ?? null),
+        );
 
         return response()->json([
             'continue_url' => route('public.booking-holds.edit', $lease->token),
@@ -405,9 +412,58 @@ class PublicBookingController extends Controller
             ->where('token_hash', hash('sha256', $token, true))
             ->firstOrFail();
 
-        abort_unless($hold->isActive(), 410, 'This booking hold has expired.');
+        if (! $hold->isActive()) {
+            $hold->loadMissing(['organization', 'appointmentType']);
+            $returnUrl = request()->session()->get($this->holdReturnUrlSessionKey($token));
+
+            if (! is_string($returnUrl) || $returnUrl === '') {
+                $returnUrl = $this->fallbackAppointmentSelectionUrl($hold);
+            }
+
+            throw new ExpiredBookingHoldException($hold, $returnUrl);
+        }
 
         return $hold;
+    }
+
+    private function appointmentSelectionUrl(AppointmentType $type, string $accessMode, ?string $accessToken): string
+    {
+        $parameters = ['organizationSlug' => $type->organization->slug];
+
+        $url = match ($accessMode) {
+            'unlisted' => route('public.appointment-types.unlisted', $parameters + ['token' => $accessToken]),
+            'invitation' => route('public.appointment-types.invited', $parameters + ['token' => $accessToken]),
+            default => route('public.appointment-types.show', $parameters + ['appointmentSlug' => $type->slug]),
+        };
+
+        return $url.'#booking-scheduler';
+    }
+
+    private function fallbackAppointmentSelectionUrl(BookingHold $hold): string
+    {
+        $type = $hold->appointmentType;
+        $organization = $hold->organization;
+
+        if ($type->visibility === AppointmentVisibility::Unlisted && $type->public_token) {
+            return route('public.appointment-types.unlisted', [
+                'organizationSlug' => $organization->slug,
+                'token' => $type->public_token,
+            ]).'#booking-scheduler';
+        }
+
+        if (in_array($type->visibility, [AppointmentVisibility::Public, AppointmentVisibility::PasswordProtected], true)) {
+            return route('public.appointment-types.show', [
+                'organizationSlug' => $organization->slug,
+                'appointmentSlug' => $type->slug,
+            ]).'#booking-scheduler';
+        }
+
+        return route('public.appointment-types.index', $organization->slug);
+    }
+
+    private function holdReturnUrlSessionKey(string $token): string
+    {
+        return 'booking_hold_return_urls.'.hash('sha256', $token);
     }
 
     private function validateAttendeeCount(AppointmentType $type, int $count): void
