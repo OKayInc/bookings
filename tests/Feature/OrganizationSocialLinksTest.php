@@ -98,6 +98,7 @@ class OrganizationSocialLinksTest extends TestCase
             ->assertSee('aria-label="Facebook"', false)
             ->assertSee('href="https://www.linkedin.com/company/example"', false)
             ->assertSee('aria-label="LinkedIn"', false)
+            ->assertSee('<svg aria-hidden="true" width="16" height="16"', false)
             ->assertDontSee('aria-label="Instagram"', false)
             ->assertDontSee('aria-label="X"', false)
             ->assertDontSee('aria-label="TikTok"', false);

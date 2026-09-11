@@ -489,8 +489,8 @@ table.table {
 }
 
 .organization-social-link svg {
-    width: 1.35rem;
-    height: 1.35rem;
+    width: 16px;
+    height: 16px;
     fill: currentColor;
 }
 
