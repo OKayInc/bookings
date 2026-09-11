@@ -14,7 +14,8 @@
 
     <div class="field">
         <label for="description">Description</label>
-        <textarea id="description" name="description">{{ old('description', $appointmentType?->description) }}</textarea>
+        <textarea id="description" name="description" data-rich-text-editor rows="12">{{ old('description', $appointmentType?->description) }}</textarea>
+        <div class="muted">Formatting only: links, images, embedded media and externally loaded content are removed.</div>
     </div>
 
     <div class="field">
@@ -29,6 +30,13 @@
         <div class="muted">JPEG, PNG or WebP. Uploading a new image replaces the current logo.</div>
     </div>
 </div>
+
+@once
+    @push('scripts')
+        <script src="{{ asset('vendor/tinymce/tinymce.min.js') }}?v=8.9.1"></script>
+        <script src="{{ asset('js/rich-text-editor.js') }}?v=1" defer></script>
+    @endpush
+@endonce
 
 <div class="section-card">
     <h2>Access</h2>

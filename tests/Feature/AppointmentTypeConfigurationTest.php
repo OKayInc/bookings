@@ -178,6 +178,62 @@ class AppointmentTypeConfigurationTest extends TestCase
         $response->assertSee("setRequired(document.getElementById('capacity'), groupAttendance)", false);
     }
 
+    public function test_description_uses_tinymce_and_is_sanitized_before_storage(): void
+    {
+        [$user, $organization] = $this->ownerContext();
+
+        $editType = AppointmentType::create([
+            'organization_id' => $organization->getKey(),
+            'name' => 'Editor Test',
+            'slug' => 'editor-test',
+            'visibility' => 'public',
+            'attendance_mode' => 'single',
+            'capacity' => 1,
+            'duration_mode' => 'fixed',
+            'duration_unit' => 'minute',
+            'duration_value' => 60,
+            'buffer_before_minutes' => 0,
+            'buffer_after_minutes' => 0,
+            'pricing_mode' => 'free',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['active_organization_uuid' => $organization->uuid])
+            ->get(route('appointment-types.edit', $editType))
+            ->assertOk()
+            ->assertSee('data-rich-text-editor', false)
+            ->assertSee('vendor/tinymce/tinymce.min.js', false)
+            ->assertSee('js/rich-text-editor.js', false);
+
+        $response = $this->actingAs($user)
+            ->withSession(['active_organization_uuid' => $organization->uuid])
+            ->post(route('appointment-types.store'), [
+                'name' => 'Safe Description',
+                'description' => '<p style="background:url(https://example.test/tracker.png)"><strong>Formatted</strong> <a href="https://example.test">without a link</a><img src="https://example.test/tracker.png"><script>alert(1)</script></p>',
+                'visibility' => 'public',
+                'attendance_mode' => 'single',
+                'duration_mode' => 'fixed',
+                'duration_unit' => 'minute',
+                'duration_value' => 60,
+                'buffer_before_minutes' => 0,
+                'buffer_after_minutes' => 0,
+                'pricing_mode' => 'free',
+                'is_active' => '1',
+            ]);
+
+        $response->assertSessionHasNoErrors()->assertRedirect(route('appointment-types.index'));
+
+        $type = AppointmentType::where('name', 'Safe Description')->firstOrFail();
+        $this->assertSame('<p><strong>Formatted</strong> without a link</p>', $type->description);
+
+        $this->get(route('public.appointment-types.index', $organization->slug))
+            ->assertOk()
+            ->assertSee('<p><strong>Formatted</strong> without a link</p>', false)
+            ->assertDontSee('example.test', false)
+            ->assertDontSee('alert(1)', false);
+    }
+
     public function test_owner_can_update_legacy_single_free_type_to_rate_pricing(): void
     {
         [$user, $organization] = $this->ownerContext();

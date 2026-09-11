@@ -27,6 +27,7 @@ use App\Domain\Conferences\ConferenceProviderCatalog;
 use App\Domain\Questionnaires\PercentageService;
 use App\Domain\Tickets\TicketSeatingService;
 use App\Rules\MoneyAmount;
+use App\Support\Html\RichTextSanitizer;
 use App\Support\Organizations\OrganizationContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -39,6 +40,17 @@ class StoreAppointmentTypeRequest extends FormRequest
     public function authorize(): bool
     {
         return $this->user() !== null;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $description = $this->input('description');
+
+        if (is_string($description)) {
+            $this->merge([
+                'description' => app(RichTextSanitizer::class)->sanitize($description),
+            ]);
+        }
     }
 
     public function rules(): array
