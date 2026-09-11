@@ -22,3 +22,12 @@
 <label class="mt-2"><input type="checkbox" name="remove_logo" value="1"> Remove current logo</label>
 @endif
 </div>
+<fieldset class="mb-3">
+<legend class="h2">Social media</legend>
+<p class="muted">Add the full URL for each profile you want displayed on your public organization page. Leave a field blank to hide its icon.</p>
+<div class="field"><label for="facebook_url">Facebook</label><input id="facebook_url" type="url" name="facebook_url" value="{{ old('facebook_url', $organization?->facebook_url) }}" maxlength="500" placeholder="https://www.facebook.com/your-page"></div>
+<div class="field"><label for="instagram_url">Instagram</label><input id="instagram_url" type="url" name="instagram_url" value="{{ old('instagram_url', $organization?->instagram_url) }}" maxlength="500" placeholder="https://www.instagram.com/your-account"></div>
+<div class="field"><label for="x_url">X</label><input id="x_url" type="url" name="x_url" value="{{ old('x_url', $organization?->x_url) }}" maxlength="500" placeholder="https://x.com/your-account"></div>
+<div class="field"><label for="linkedin_url">LinkedIn</label><input id="linkedin_url" type="url" name="linkedin_url" value="{{ old('linkedin_url', $organization?->linkedin_url) }}" maxlength="500" placeholder="https://www.linkedin.com/company/your-company"></div>
+<div class="field"><label for="tiktok_url">TikTok</label><input id="tiktok_url" type="url" name="tiktok_url" value="{{ old('tiktok_url', $organization?->tiktok_url) }}" maxlength="500" placeholder="https://www.tiktok.com/@your-account"></div>
+</fieldset>

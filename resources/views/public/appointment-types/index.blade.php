@@ -1,7 +1,7 @@
 @extends('layouts.public')
 @section('title', $organization->name.' appointments')
 @section('content')
-<div class="card"><h1>{{ $organization->name }}</h1><p class="muted">Available public appointment types</p></div>
+<div class="card"><h1>{{ $organization->name }}</h1><p class="muted">Available public appointment types</p>@include('public.partials.organization-social-links')</div>
 @include('gallery.public-grid', ['photos' => $organization->galleryPhotos, 'placement' => 'above', 'ownerName' => $organization->name])
 @if($hasCouponOffers)<div class="card"><h2>Gift cards &amp; coupons</h2><p>Purchase a fixed-value gift card or percentage coupon for yourself or someone else.</p><a class="btn" href="{{ route('public.coupons.index', $organization->slug) }}">View gift cards &amp; coupons</a></div>@endif
 <div class="grid">

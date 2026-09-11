@@ -23,6 +23,11 @@ class Organization extends Model
         'currency',
         'plan_tier',
         'logo_path',
+        'facebook_url',
+        'instagram_url',
+        'x_url',
+        'linkedin_url',
+        'tiktok_url',
     ];
 
     protected $hidden = ['id'];

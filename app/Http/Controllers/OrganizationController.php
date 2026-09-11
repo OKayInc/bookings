@@ -56,6 +56,11 @@ class OrganizationController extends Controller
                 'slug' => $slug,
                 'timezone' => $data['timezone'],
                 'currency' => strtoupper($data['currency']),
+                'facebook_url' => $data['facebook_url'],
+                'instagram_url' => $data['instagram_url'],
+                'x_url' => $data['x_url'],
+                'linkedin_url' => $data['linkedin_url'],
+                'tiktok_url' => $data['tiktok_url'],
             ]);
 
             OrganizationMembership::create([
@@ -99,6 +104,11 @@ class OrganizationController extends Controller
             'name' => $data['name'],
             'timezone' => $data['timezone'],
             'currency' => strtoupper($data['currency']),
+            'facebook_url' => $data['facebook_url'],
+            'instagram_url' => $data['instagram_url'],
+            'x_url' => $data['x_url'],
+            'linkedin_url' => $data['linkedin_url'],
+            'tiktok_url' => $data['tiktok_url'],
         ]);
 
         if ($request->hasFile('logo_file')) {
