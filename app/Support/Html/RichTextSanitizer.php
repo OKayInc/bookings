@@ -5,10 +5,9 @@ namespace App\Support\Html;
 final class RichTextSanitizer
 {
     /**
-     * Rich text is intentionally limited to typographic elements. Paragraphs
-     * and line breaks remain only as text containers.
-     * No element accepts attributes, so links, remote media, inline styles and
-     * event handlers cannot survive sanitization.
+     * Rich text is intentionally limited to typography, text colour and lists.
+     * Only a validated colour declaration may retain an attribute; links,
+     * remote media, arbitrary styles and event handlers cannot survive.
      *
      * @var list<string>
      */
@@ -24,6 +23,10 @@ final class RichTextSanitizer
         'strike',
         'sub',
         'sup',
+        'span',
+        'ul',
+        'ol',
+        'li',
     ];
 
     /** @var array<string, string> */
@@ -75,6 +78,12 @@ final class RichTextSanitizer
                 return $parts[1] === '' ? '<br>' : '';
             }
 
+            if ($tag === 'span' && $parts[1] === '') {
+                $color = $this->extractSafeColor($match[0]);
+
+                return $color === null ? '<span>' : '<span style="color: '.$color.';">';
+            }
+
             return $parts[1] === '/' ? "</{$tag}>" : "<{$tag}>";
         }, $html) ?? '';
 
@@ -91,7 +100,7 @@ final class RichTextSanitizer
             return '';
         }
 
-        $text = preg_replace('/<(?:br|\/p)\s*>/iu', ' ', $sanitized) ?? $sanitized;
+        $text = preg_replace('/<(?:br|\/(?:p|li))\s*>/iu', ' ', $sanitized) ?? $sanitized;
         $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
         return trim(preg_replace('/\s+/u', ' ', $text) ?? '');
@@ -113,6 +122,57 @@ final class RichTextSanitizer
     private function allowedTagList(): string
     {
         return '<'.implode('><', self::ALLOWED_TAGS).'>';
+    }
+
+    private function extractSafeColor(string $tag): ?string
+    {
+        if (! preg_match('/\sstyle\s*=\s*(["\'])(.*?)\1/isu', $tag, $matches)) {
+            return null;
+        }
+
+        foreach (explode(';', $matches[2]) as $declaration) {
+            [$property, $value] = array_pad(explode(':', $declaration, 2), 2, null);
+
+            if (strtolower(trim((string) $property)) !== 'color') {
+                continue;
+            }
+
+            return $this->normalizeColor(trim((string) $value));
+        }
+
+        return null;
+    }
+
+    private function normalizeColor(string $color): ?string
+    {
+        $color = strtolower($color);
+
+        if (preg_match('/^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/', $color)) {
+            return $color;
+        }
+
+        if (! preg_match('/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*(0|1|0?\.\d+))?\s*\)$/', $color, $matches)) {
+            return null;
+        }
+
+        $channels = array_map('intval', array_slice($matches, 1, 3));
+        if (max($channels) > 255) {
+            return null;
+        }
+
+        if (str_starts_with($color, 'rgba(')) {
+            if (! isset($matches[4]) || (float) $matches[4] < 0 || (float) $matches[4] > 1) {
+                return null;
+            }
+
+            return sprintf('rgba(%d, %d, %d, %s)', $channels[0], $channels[1], $channels[2], $matches[4]);
+        }
+
+        if (isset($matches[4]) && $matches[4] !== '') {
+            return null;
+        }
+
+        return sprintf('rgb(%d, %d, %d)', $channels[0], $channels[1], $channels[2]);
     }
 
     private function hasVisibleContent(string $html): bool

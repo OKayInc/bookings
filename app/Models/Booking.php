@@ -6,6 +6,8 @@ use App\Enums\BookingStatus;
 use App\Enums\BookingPaymentStatus;
 use App\Enums\PaymentCollectionMode;
 use App\Models\Concerns\HasBinaryUuid;
+use App\Support\Html\RichTextSanitizer;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -72,6 +74,35 @@ class Booking extends Model
             'rescheduling_max_count' => 'integer',
             'reschedule_count' => 'integer',
         ];
+    }
+
+    protected function cancellationPolicyText(): Attribute
+    {
+        return $this->sanitizedRichTextAttribute();
+    }
+
+    protected function reschedulingPolicyText(): Attribute
+    {
+        return $this->sanitizedRichTextAttribute();
+    }
+
+    public function safeCancellationPolicyHtml(): ?string
+    {
+        return app(RichTextSanitizer::class)->sanitize($this->cancellation_policy_text);
+    }
+
+    public function safeReschedulingPolicyHtml(): ?string
+    {
+        return app(RichTextSanitizer::class)->sanitize($this->rescheduling_policy_text);
+    }
+
+    private function sanitizedRichTextAttribute(): Attribute
+    {
+        return Attribute::make(
+            set: fn (mixed $value): ?string => is_string($value)
+                ? app(RichTextSanitizer::class)->sanitize($value)
+                : null,
+        );
     }
 
     public function organization(): BelongsTo

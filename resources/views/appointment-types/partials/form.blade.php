@@ -14,7 +14,8 @@
 
     <div class="field">
         <label for="description">Description</label>
-        <textarea id="description" name="description">{{ old('description', $appointmentType?->description) }}</textarea>
+        <textarea id="description" name="description" data-rich-text-editor rows="12">{{ old('description', $appointmentType?->description) }}</textarea>
+        <div class="muted">Text formatting, colour, and lists are retained. Links, media, font sizes, and external content are removed.</div>
     </div>
 
     <div class="field">
@@ -29,6 +30,8 @@
         <div class="muted">JPEG, PNG or WebP. Uploading a new image replaces the current logo.</div>
     </div>
 </div>
+
+@include('partials.rich-text-editor-assets')
 
 <div class="section-card">
     <h2>Access</h2>
@@ -749,7 +752,8 @@
     </div>
     <div class="field">
         <label for="cancellation_policy_text">Policy shown to clients (optional)</label>
-        <textarea id="cancellation_policy_text" name="cancellation_policy_text">{{ old('cancellation_policy_text', $appointmentType?->cancellation_policy_text) }}</textarea>
+        <textarea id="cancellation_policy_text" name="cancellation_policy_text" data-rich-text-editor rows="8">{{ old('cancellation_policy_text', $appointmentType?->cancellation_policy_text) }}</textarea>
+        <div class="muted">Text formatting, colour, and lists are retained. Links, media, font sizes, and external content are removed.</div>
     </div>
     <div class="muted">A deadline of 0 allows cancellation until the appointment starts. The snapshotted client refund percentage is applied automatically to captured payments.</div>
 </div>
@@ -779,7 +783,8 @@
     </div>
     <div class="field">
         <label for="rescheduling_policy_text">Policy shown to clients (optional)</label>
-        <textarea id="rescheduling_policy_text" name="rescheduling_policy_text">{{ old('rescheduling_policy_text', $appointmentType?->rescheduling_policy_text) }}</textarea>
+        <textarea id="rescheduling_policy_text" name="rescheduling_policy_text" data-rich-text-editor rows="8">{{ old('rescheduling_policy_text', $appointmentType?->rescheduling_policy_text) }}</textarea>
+        <div class="muted">Text formatting, colour, and lists are retained. Links, media, font sizes, and external content are removed.</div>
     </div>
 </div>
 

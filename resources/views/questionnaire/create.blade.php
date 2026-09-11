@@ -16,7 +16,7 @@
       $alreadyAttached = $attachedReusableQuestionIds->containsStrict($reusableQuestion->getKey());
   @endphp
   <tr data-library-row data-search="{{ \Illuminate\Support\Str::lower($reusableQuestion->label.' '.$reusableQuestion->type->label()) }}">
-   <td><strong>{{ $reusableQuestion->label }}</strong>@if($reusableQuestion->description)<div class="muted">{{ \Illuminate\Support\Str::limit($reusableQuestion->description,90) }}</div>@endif</td>
+   <td><strong>{{ $reusableQuestion->label }}</strong>@if($reusableQuestion->description)<div class="muted">{{ \Illuminate\Support\Str::limit($reusableQuestion->descriptionPlainText(),90) }}</div>@endif</td>
    <td>{{ $reusableQuestion->type->label() }}@if($reusableQuestion->type->hasOptions())<div class="muted">{{ $reusableQuestion->options_count }} option(s)</div>@endif</td>
    <td>{{ $reusableQuestion->default_is_required ? 'Required' : 'Optional' }}</td>
    <td>

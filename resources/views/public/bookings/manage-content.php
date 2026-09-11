@@ -168,7 +168,7 @@ $requiredDeclined = $requiredConfirmations->where('status', \App\Enums\ResourceC
             <h3>Cancellation</h3>
             <p><?= e($cancellationStatus) ?></p>
             <p class="muted">Deadline: <?= e($policy->policyLabel((int) $booking->cancellation_notice_value, $booking->cancellation_notice_unit)) ?></p>
-            <?php if ($booking->cancellation_policy_text): ?><p><?= e($booking->cancellation_policy_text) ?></p><?php endif; ?>
+            <?php if ($booking->cancellation_policy_text): ?><div class="rich-text"><?= $booking->safeCancellationPolicyHtml() ?></div><?php endif; ?>
             <?php if ($canCancel): ?>
                 <form method="post" action="<?= e(route('public.bookings.cancel', [$booking, $manageToken])) ?>" onsubmit="return confirm('Cancel this booking?');">
                     <?= csrf_field() ?>
@@ -181,7 +181,7 @@ $requiredDeclined = $requiredConfirmations->where('status', \App\Enums\ResourceC
             <h3>Rescheduling</h3>
             <p><?= e($reschedulingStatus) ?></p>
             <p class="muted">Deadline: <?= e($policy->policyLabel((int) $booking->rescheduling_notice_value, $booking->rescheduling_notice_unit)) ?> · Used <?= e($booking->reschedule_count) ?><?php if ($booking->rescheduling_max_count > 0): ?> / <?= e($booking->rescheduling_max_count) ?><?php else: ?> · unlimited<?php endif; ?></p>
-            <?php if ($booking->rescheduling_policy_text): ?><p><?= e($booking->rescheduling_policy_text) ?></p><?php endif; ?>
+            <?php if ($booking->rescheduling_policy_text): ?><div class="rich-text"><?= $booking->safeReschedulingPolicyHtml() ?></div><?php endif; ?>
             <?php if ($canReschedule): ?>
                 <form id="reschedule-form" method="post" action="<?= e(route('public.bookings.reschedule', [$booking, $manageToken])) ?>">
                     <?= csrf_field() ?>

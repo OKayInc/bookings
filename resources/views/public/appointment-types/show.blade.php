@@ -7,7 +7,7 @@
     <div>
         <div class="muted">{{ $organization->name }}</div>
         <h1>{{ $type->name }}</h1>
-        @if($type->description)<p>{{ $type->description }}</p>@endif
+        @if($type->description)<div class="rich-text">{!! $type->safeDescriptionHtml() !!}</div>@endif
         @if($accessMode === 'invitation' && $invitation?->recipient_email)
             <div class="badge">Recipient-specific invitation for {{ $invitation->recipient_email }}</div>
         @endif
@@ -44,8 +44,8 @@
 </div>
 
 <div class="grid">
-    <div class="card"><h3>Cancellation</h3><p>{{ $type->cancellation_allowed ? ((int) $type->cancellation_notice_value === 0 ? 'Allowed until start' : 'Allowed until '.$type->cancellation_notice_value.' '.$type->cancellation_notice_unit->plural((int) $type->cancellation_notice_value).' before start') : 'Not allowed' }}</p>@if($type->cancellation_policy_text)<p class="muted">{{ $type->cancellation_policy_text }}</p>@endif</div>
-    <div class="card"><h3>Rescheduling</h3><p>{{ $type->rescheduling_allowed ? ((int) $type->rescheduling_notice_value === 0 ? 'Allowed until start' : 'Allowed until '.$type->rescheduling_notice_value.' '.$type->rescheduling_notice_unit->plural((int) $type->rescheduling_notice_value).' before start') : 'Not allowed' }}</p>@if($type->rescheduling_max_count > 0)<p class="muted">Maximum {{ $type->rescheduling_max_count }} reschedule(s).</p>@endif @if($type->rescheduling_policy_text)<p class="muted">{{ $type->rescheduling_policy_text }}</p>@endif</div>
+    <div class="card"><h3>Cancellation</h3><p>{{ $type->cancellation_allowed ? ((int) $type->cancellation_notice_value === 0 ? 'Allowed until start' : 'Allowed until '.$type->cancellation_notice_value.' '.$type->cancellation_notice_unit->plural((int) $type->cancellation_notice_value).' before start') : 'Not allowed' }}</p>@if($type->cancellation_policy_text)<div class="muted rich-text">{!! $type->safeCancellationPolicyHtml() !!}</div>@endif</div>
+    <div class="card"><h3>Rescheduling</h3><p>{{ $type->rescheduling_allowed ? ((int) $type->rescheduling_notice_value === 0 ? 'Allowed until start' : 'Allowed until '.$type->rescheduling_notice_value.' '.$type->rescheduling_notice_unit->plural((int) $type->rescheduling_notice_value).' before start') : 'Not allowed' }}</p>@if($type->rescheduling_max_count > 0)<p class="muted">Maximum {{ $type->rescheduling_max_count }} reschedule(s).</p>@endif @if($type->rescheduling_policy_text)<div class="muted rich-text">{!! $type->safeReschedulingPolicyHtml() !!}</div>@endif</div>
 </div>
 
 <div class="card booking-scheduler" id="booking-scheduler">

@@ -17,6 +17,42 @@ class QuestionnaireBookingFlowTest extends TestCase {
  use RefreshDatabase;
  protected function setUp(): void { parent::setUp(); CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-24 14:00:00','UTC')); Cache::flush(); config(['questionnaire.email_dns_validation'=>false]); }
  protected function tearDown(): void { CarbonImmutable::setTestNow(); parent::tearDown(); }
+ public function test_long_text_answers_use_tinymce_and_only_store_safe_formatting(): void {
+  [,$type]=$this->type();
+  $question=$type->questions()->create(['type'=>'textarea','label'=>'Tell us about your session','is_required'=>true,'is_active'=>true,'position'=>1]);
+  $slots=$this->getJson(route('public.booking.slots',$type).'?'.http_build_query(['access_mode'=>'direct','timezone'=>'America/Toronto','date'=>'2026-08-31','duration_value'=>60,'attendee_count'=>1]))->assertOk();
+  $hold=$this->postJson(route('public.booking.holds.store',$type),['access_mode'=>'direct','timezone'=>'America/Toronto','starts_at_utc'=>$slots->json('slots.0.starts_at_utc'),'duration_value'=>60,'attendee_count'=>1])->assertOk();
+  $token=basename((string)parse_url($hold->json('continue_url'),PHP_URL_PATH));
+
+  $this->get(route('public.booking-holds.edit',$token))
+   ->assertOk()
+   ->assertSee('name="answers['.$question->uuid.']"',false)
+   ->assertSee('data-rich-text-editor',false)
+   ->assertSee('vendor/tinymce/tinymce.min.js',false)
+   ->assertSee('js/rich-text-editor.js?v=5',false)
+   ->assertSee('data-tinymce-base-url=',false);
+
+  $this->post(route('public.booking-holds.store',$token),[
+   'first_name'=>'Empty','last_name'=>'Answer','email'=>'empty-answer@example.test','answers'=>[$question->uuid=>'<p><br></p>'],
+  ])->assertSessionHasErrors('answers.'.$question->uuid);
+  $this->assertDatabaseCount('bookings',0);
+
+  $unsafe='<p style="background:url(https://example.test/tracker.png)"><strong>Tell</strong> <a href="https://example.test">details</a><img src="https://example.test/tracker.png"><script>alert(1)</script></p>';
+  $response=$this->post(route('public.booking-holds.store',$token),[
+   'first_name'=>'Long','last_name'=>'Answer','email'=>'long-answer@example.test','answers'=>[$question->uuid=>$unsafe],
+  ]);
+
+  $booking=Booking::query()->with(['answers.files','priceLines'])->where('email','long-answer@example.test')->firstOrFail();
+  $response->assertRedirect(route('public.bookings.received',$booking->reference));
+  $answer=$booking->answers->firstOrFail();
+  $this->assertSame('<p><strong>Tell</strong> details</p>',data_get($answer->value_json,'value'));
+
+  foreach (['bookings.partials.questionnaire-answers','public.bookings.partials.questionnaire-answers'] as $view) {
+   $rendered=$this->view($view,['booking'=>$booking,'manageToken'=>'test-token']);
+   $rendered->assertSee('<p><strong>Tell</strong> details</p>',false);
+   $rendered->assertDontSee('tracker.png',false)->assertDontSee('alert(1)',false);
+  }
+ }
  public function test_attendee_constraint_uses_each_bookings_held_seats_and_ignores_forged_counts(): void {
   [, $type]=$this->type();
   $type->update(['attendance_mode'=>'group','capacity'=>10]);

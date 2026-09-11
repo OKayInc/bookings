@@ -5,7 +5,8 @@ $qType=old('type',$question?->type?->value ?? 'text');
 <div class="section-card"><h2>Question</h2>
 <div class="row"><div class="field"><label>Type</label><select id="question-type" name="type" required>@foreach($questionTypes as $type)<option value="{{ $type->value }}" @selected($qType===$type->value)>{{ $type->label() }}</option>@endforeach</select></div><div class="field"><label>Position</label><input type="number" min="1" name="position" value="{{ old('position',$question?->position) }}" placeholder="Automatic"></div></div>
 <div class="field"><label>Question / label</label><input name="label" required maxlength="255" value="{{ old('label',$question?->label) }}"></div>
-<div class="field"><label>Description / help text</label><textarea name="description">{{ old('description',$question?->description) }}</textarea></div>
+<div class="field"><label for="question-description">Description / help text</label><textarea id="question-description" name="description" rows="8" data-rich-text-editor>{{ old('description',$question?->description) }}</textarea><p class="muted">Text formatting, colour, and lists are retained. Links, media, font sizes, and external content are removed.</p></div>
+@include('partials.rich-text-editor-assets')
 <div class="field"><label>Placeholder (optional)</label><input name="placeholder" maxlength="255" value="{{ old('placeholder',$question?->placeholder) }}"></div>
 <div class="row"><label class="inline-check"><input type="checkbox" name="is_required" value="1" @checked(old('is_required',$question?->is_required ?? false))> Required</label><label class="inline-check"><input type="checkbox" name="is_active" value="1" @checked(old('is_active',$question?->is_active ?? true))> Active</label></div>
 @if($question?->reusableQuestion)

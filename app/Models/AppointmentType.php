@@ -16,6 +16,8 @@ use App\Enums\RetainerType;
 use App\Enums\SeasonRecurrence;
 use App\Enums\TicketSeatingScheme;
 use App\Models\Concerns\HasBinaryUuid;
+use App\Support\Html\RichTextSanitizer;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -161,6 +163,21 @@ class AppointmentType extends Model
         ];
     }
 
+    protected function description(): Attribute
+    {
+        return $this->sanitizedRichTextAttribute();
+    }
+
+    protected function cancellationPolicyText(): Attribute
+    {
+        return $this->sanitizedRichTextAttribute();
+    }
+
+    protected function reschedulingPolicyText(): Attribute
+    {
+        return $this->sanitizedRichTextAttribute();
+    }
+
     public function getLogoUrlAttribute(): ?string
     {
         if (! $this->logo_path) {
@@ -168,6 +185,30 @@ class AppointmentType extends Model
         }
 
         return Storage::disk((string) config('appointment-types.logo_disk', 'public'))->url($this->logo_path);
+    }
+
+    public function safeDescriptionHtml(): ?string
+    {
+        return app(RichTextSanitizer::class)->sanitize($this->description);
+    }
+
+    public function safeCancellationPolicyHtml(): ?string
+    {
+        return app(RichTextSanitizer::class)->sanitize($this->cancellation_policy_text);
+    }
+
+    public function safeReschedulingPolicyHtml(): ?string
+    {
+        return app(RichTextSanitizer::class)->sanitize($this->rescheduling_policy_text);
+    }
+
+    private function sanitizedRichTextAttribute(): Attribute
+    {
+        return Attribute::make(
+            set: fn (mixed $value): ?string => is_string($value)
+                ? app(RichTextSanitizer::class)->sanitize($value)
+                : null,
+        );
     }
 
     public function organization(): BelongsTo

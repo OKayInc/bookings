@@ -58,6 +58,34 @@ class QuestionnaireConfigurationTest extends TestCase {
   ])->assertSessionHasErrors('pricing_amount');
   $this->assertDatabaseCount('appointment_questions',0);
  }
+ public function test_question_help_text_uses_the_editor_and_is_sanitized_for_every_copy(): void {
+  [$user,$org,$type]=$this->context();
+  $session=['active_organization_uuid'=>$org->uuid];
+
+  $this->actingAs($user)->withSession($session)
+   ->get(route('appointment-types.questions.create',$type))
+   ->assertOk()
+   ->assertSee('name="description"',false)
+   ->assertSee('data-rich-text-editor',false)
+   ->assertSee('vendor/tinymce/tinymce.min.js?v=8.9.1',false)
+   ->assertSee('js/rich-text-editor.js?v=5',false);
+
+  $response=$this->actingAs($user)->withSession($session)->post(route('appointment-types.questions.store',$type),[
+   'type'=>'text','label'=>'Helpful question','is_active'=>'1',
+   'description'=>'<h2>Title</h2><p style="color:red"><strong onclick="alert(1)">Safe</strong> <a href="https://example.test">help</a></p><script>alert(1)</script>',
+  ]);
+
+  $response->assertSessionHasNoErrors()->assertRedirect(route('appointment-types.questionnaire.index',$type));
+  $question=AppointmentQuestion::query()->with('reusableQuestion')->firstOrFail();
+  $this->assertSame('Title<p><strong>Safe</strong> help</p>',$question->description);
+  $this->assertSame($question->description,$question->reusableQuestion->description);
+
+  $this->actingAs($user)->withSession($session)
+   ->get(route('appointment-types.questions.edit',[$type,$question]))
+   ->assertOk()
+   ->assertSee('data-rich-text-editor',false)
+   ->assertSee('js/rich-text-editor.js?v=5',false);
+ }
  public function test_owner_can_add_select_question_with_fixed_and_percentage_option_charges(): void {
   [$user,$org,$type]=$this->context();
   $response=$this->actingAs($user)->withSession(['active_organization_uuid'=>$org->uuid])->post(route('appointment-types.questions.store',$type),[
