@@ -29,7 +29,7 @@ $resourceUnavailable=array_key_exists($question->uuid,$resourceUnavailableDefaul
 @foreach((array)$resourceUnavailableDefault as $defaultOptionUuid)<input type="hidden" name="answers[{{ $question->uuid }}]{{ $question->type->acceptsMultipleAnswers() ? '[]' : '' }}" value="{{ $defaultOptionUuid }}" data-resource-default-control>@endforeach
 @endif
 <label for="q_{{ $question->uuid }}">{{ $question->label }} @if($question->is_required)<span aria-label="required">*</span>@endif</label>
-@if($question->description)<div class="muted">{{ $question->description }}</div>@endif
+@if($question->description)<div class="muted rich-text">{!! $question->safeDescriptionHtml() !!}</div>@endif
 @switch($question->type->value)
 @case('text') <input id="q_{{ $question->uuid }}" name="{{ $key }}" value="{{ old($oldKey) }}" placeholder="{{ $question->placeholder }}" @required($question->is_required)> @break
 @case('textarea')

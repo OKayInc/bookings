@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-test('rich text editor only permits local typographic and structural markup', () => {
+test('rich text editor only permits local character formatting', () => {
     let configuration = null;
     const window = {
         tinymce: {
@@ -23,8 +23,15 @@ test('rich text editor only permits local typographic and structural markup', ()
     assert.equal(configuration.license_key, 'gpl');
     assert.equal(configuration.base_url, '/vendor/tinymce');
     assert.match(configuration.toolbar, /bold italic underline strikethrough/);
-    assert.doesNotMatch(configuration.toolbar, /link|image|media/);
-    assert.doesNotMatch(configuration.valid_elements, /\ba\b|href|img|src|style/);
+    assert.doesNotMatch(configuration.toolbar, /link|image|media|blocks|bullist|numlist|blockquote/);
+    assert.doesNotMatch(configuration.plugins, /lists/);
+    assert.equal(configuration.formats.bold.inline, 'strong');
+    assert.equal(configuration.formats.italic.inline, 'em');
+    assert.equal(configuration.formats.underline.inline, 'u');
+    assert.equal(configuration.formats.strikethrough.inline, 's');
+    assert.equal(configuration.formats.superscript.inline, 'sup');
+    assert.equal(configuration.formats.subscript.inline, 'sub');
+    assert.doesNotMatch(configuration.valid_elements, /\ba\b|href|img|src|style|h[1-6]|blockquote|ul|ol|li/);
     assert.match(configuration.invalid_elements, /iframe/);
     assert.match(configuration.invalid_elements, /script/);
     assert.equal(configuration.automatic_uploads, false);

@@ -29,7 +29,7 @@ class QuestionnaireBookingFlowTest extends TestCase {
    ->assertSee('name="answers['.$question->uuid.']"',false)
    ->assertSee('data-rich-text-editor',false)
    ->assertSee('vendor/tinymce/tinymce.min.js',false)
-   ->assertSee('js/rich-text-editor.js?v=3',false)
+   ->assertSee('js/rich-text-editor.js?v=4',false)
    ->assertSee('data-tinymce-base-url=',false);
 
   $this->post(route('public.booking-holds.store',$token),[

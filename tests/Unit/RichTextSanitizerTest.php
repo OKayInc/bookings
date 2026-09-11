@@ -7,18 +7,23 @@ use PHPUnit\Framework\TestCase;
 
 class RichTextSanitizerTest extends TestCase
 {
-    public function test_it_keeps_supported_typography_and_structure(): void
+    public function test_it_keeps_only_supported_typography_and_text_containers(): void
     {
-        $html = '<h2>Session</h2><p><b>Bold</b>, <i>italic</i>, <u>underlined</u>, '
-            .'<strike>removed</strike>, H<sub>2</sub>O and 10<sup>2</sup>.</p>'
-            .'<blockquote>Note</blockquote><ul><li>First</li></ul>';
+        $html = '<p><b>Bold</b>, <i>italic</i>, <u>underlined</u>, '
+            .'<strike>removed</strike>, H<sub>2</sub>O and 10<sup>2</sup>.<br>Next line</p>';
 
         $this->assertSame(
-            '<h2>Session</h2><p><strong>Bold</strong>, <em>italic</em>, <u>underlined</u>, '
-            .'<s>removed</s>, H<sub>2</sub>O and 10<sup>2</sup>.</p>'
-            .'<blockquote>Note</blockquote><ul><li>First</li></ul>',
+            '<p><strong>Bold</strong>, <em>italic</em>, <u>underlined</u>, '
+            .'<s>removed</s>, H<sub>2</sub>O and 10<sup>2</sup>.<br>Next line</p>',
             (new RichTextSanitizer)->sanitize($html),
         );
+    }
+
+    public function test_it_removes_structural_formatting_but_keeps_its_text(): void
+    {
+        $html = '<h2>Title</h2><blockquote>Note</blockquote><ul><li>First</li></ul>';
+
+        $this->assertSame('TitleNoteFirst', (new RichTextSanitizer)->sanitize($html));
     }
 
     public function test_it_removes_links_external_elements_and_all_attributes(): void
@@ -39,5 +44,13 @@ class RichTextSanitizerTest extends TestCase
     {
         $this->assertNull((new RichTextSanitizer)->sanitize('<p><br></p>'));
         $this->assertNull((new RichTextSanitizer)->sanitize('<p>&nbsp;</p>'));
+    }
+
+    public function test_it_converts_safe_rich_text_to_plain_text_for_previews(): void
+    {
+        $this->assertSame(
+            'Bold and italic text Next line',
+            (new RichTextSanitizer)->toPlainText('<p><strong>Bold</strong> and <em>italic</em> text</p><p>Next<br>line</p>'),
+        );
     }
 }

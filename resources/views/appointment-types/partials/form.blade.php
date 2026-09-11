@@ -15,7 +15,7 @@
     <div class="field">
         <label for="description">Description</label>
         <textarea id="description" name="description" data-rich-text-editor rows="12">{{ old('description', $appointmentType?->description) }}</textarea>
-        <div class="muted">Formatting only: links, images, embedded media and externally loaded content are removed.</div>
+        <div class="muted">Only character formatting is retained. Links, media, colors, font sizes, and external content are removed.</div>
     </div>
 
     <div class="field">

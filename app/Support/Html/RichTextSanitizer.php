@@ -5,7 +5,8 @@ namespace App\Support\Html;
 final class RichTextSanitizer
 {
     /**
-     * Rich text is intentionally limited to structural and typographic elements.
+     * Rich text is intentionally limited to typographic elements. Paragraphs
+     * and line breaks remain only as text containers.
      * No element accepts attributes, so links, remote media, inline styles and
      * event handlers cannot survive sanitization.
      *
@@ -23,13 +24,6 @@ final class RichTextSanitizer
         'strike',
         'sub',
         'sup',
-        'h2',
-        'h3',
-        'h4',
-        'blockquote',
-        'ul',
-        'ol',
-        'li',
     ];
 
     /** @var array<string, string> */
@@ -87,6 +81,20 @@ final class RichTextSanitizer
         $html = trim($html);
 
         return $this->hasVisibleContent($html) ? $html : null;
+    }
+
+    public function toPlainText(?string $html): string
+    {
+        $sanitized = $this->sanitize($html);
+
+        if ($sanitized === null) {
+            return '';
+        }
+
+        $text = preg_replace('/<(?:br|\/p)\s*>/iu', ' ', $sanitized) ?? $sanitized;
+        $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return trim(preg_replace('/\s+/u', ' ', $text) ?? '');
     }
 
     private function discardUnsafeElementContents(string $html): string
