@@ -18,7 +18,6 @@ use App\Domain\Coupons\CouponRedemptionService;
 use App\Domain\Questionnaires\QuestionnaireSubmission;
 use App\Enums\AttendanceMode;
 use App\Enums\AppointmentVisibility;
-use App\Exceptions\ExpiredBookingHoldException;
 use App\Models\AppointmentType;
 use App\Models\BookingHold;
 use App\Notifications\BookingAccessEmail;
@@ -28,6 +27,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -221,9 +221,13 @@ class PublicBookingController extends Controller
         string $token,
         TicketEventService $ticketEvents,
         ConditionalResourceRequirementService $conditionalResources,
-    ): View
+    ): View|Response
     {
         $hold = $this->holdByToken($token);
+        if (! $hold->isActive()) {
+            return $this->expiredHoldResponse($hold, $token);
+        }
+
         $hold->load(['organization', 'resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.questions.visibilityConditions.expectedOptions', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
 
         return view('public.bookings.details', [
@@ -251,6 +255,10 @@ class PublicBookingController extends Controller
         ConditionalResourceRequirementService $conditionalResources,
     ): JsonResponse {
         $hold = $this->holdByToken($token);
+        if (! $hold->isActive()) {
+            return $this->expiredHoldJsonResponse($hold, $token);
+        }
+
         $hold->load(['resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.questions.visibilityConditions.expectedOptions', 'appointmentType.shortNoticeFeeRules']);
         $answers = (array) $request->input('answers', []);
         try {
@@ -295,8 +303,12 @@ class PublicBookingController extends Controller
         BookingCreationService $bookings,
         QuestionnaireSubmissionService $questionnaires,
         ConditionalResourceRequirementService $conditionalResources,
-    ): RedirectResponse {
+    ): RedirectResponse|Response {
         $hold = $this->holdByToken($token);
+        if (! $hold->isActive()) {
+            return $this->expiredHoldResponse($hold, $token);
+        }
+
         $hold->load(['resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.questions.visibilityConditions.expectedOptions', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
 
         $rules = [
@@ -373,9 +385,13 @@ class PublicBookingController extends Controller
         return $response;
     }
 
-    public function contract(string $token): StreamedResponse
+    public function contract(string $token): StreamedResponse|Response
     {
         $hold = $this->holdByToken($token);
+        if (! $hold->isActive()) {
+            return $this->expiredHoldResponse($hold, $token);
+        }
+
         $template = $hold->contractTemplate()->firstOrFail();
         abort_unless(Storage::disk($template->disk)->exists($template->path), 404);
 
@@ -408,22 +424,39 @@ class PublicBookingController extends Controller
 
     private function holdByToken(string $token): BookingHold
     {
-        $hold = BookingHold::query()
+        return BookingHold::query()
             ->where('token_hash', hash('sha256', $token, true))
             ->firstOrFail();
+    }
 
-        if (! $hold->isActive()) {
-            $hold->loadMissing(['organization', 'appointmentType']);
-            $returnUrl = request()->session()->get($this->holdReturnUrlSessionKey($token));
+    private function expiredHoldResponse(BookingHold $hold, string $token): Response
+    {
+        $hold->loadMissing(['organization', 'appointmentType']);
 
-            if (! is_string($returnUrl) || $returnUrl === '') {
-                $returnUrl = $this->fallbackAppointmentSelectionUrl($hold);
-            }
+        return response()->view('errors.booking-hold-expired', [
+            'organization' => $hold->organization,
+            'type' => $hold->appointmentType,
+            'returnUrl' => $this->expiredHoldReturnUrl($hold, $token),
+        ], 410)->header('Cache-Control', 'no-store, private');
+    }
 
-            throw new ExpiredBookingHoldException($hold, $returnUrl);
-        }
+    private function expiredHoldJsonResponse(BookingHold $hold, string $token): JsonResponse
+    {
+        $hold->loadMissing(['organization', 'appointmentType']);
 
-        return $hold;
+        return response()->json([
+            'message' => 'This booking hold has expired.',
+            'return_url' => $this->expiredHoldReturnUrl($hold, $token),
+        ], 410)->header('Cache-Control', 'no-store, private');
+    }
+
+    private function expiredHoldReturnUrl(BookingHold $hold, string $token): string
+    {
+        $returnUrl = request()->session()->get($this->holdReturnUrlSessionKey($token));
+
+        return is_string($returnUrl) && $returnUrl !== ''
+            ? $returnUrl
+            : $this->fallbackAppointmentSelectionUrl($hold);
     }
 
     private function appointmentSelectionUrl(AppointmentType $type, string $accessMode, ?string $accessToken): string

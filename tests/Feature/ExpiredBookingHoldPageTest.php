@@ -15,6 +15,7 @@ class ExpiredBookingHoldPageTest extends TestCase
 
     public function test_expired_hold_displays_a_public_error_page_with_a_link_to_choose_again(): void
     {
+        $this->withoutExceptionHandling();
         [$hold, $token] = $this->expiredHold();
         $expectedReturnUrl = route('public.appointment-types.show', [
             'organizationSlug' => $hold->organization->slug,
@@ -33,6 +34,7 @@ class ExpiredBookingHoldPageTest extends TestCase
 
     public function test_expired_hold_returns_structured_json_to_quote_requests(): void
     {
+        $this->withoutExceptionHandling();
         [$hold, $token] = $this->expiredHold();
         $expectedReturnUrl = route('public.appointment-types.show', [
             'organizationSlug' => $hold->organization->slug,
@@ -45,6 +47,18 @@ class ExpiredBookingHoldPageTest extends TestCase
                 'message' => 'This booking hold has expired.',
                 'return_url' => $expectedReturnUrl,
             ]);
+    }
+
+    public function test_submitting_an_expired_hold_displays_the_same_public_error_page(): void
+    {
+        $this->withoutExceptionHandling();
+        [, $token] = $this->expiredHold();
+
+        $this->post(route('public.booking-holds.store', $token))
+            ->assertStatus(410)
+            ->assertViewIs('errors.booking-hold-expired')
+            ->assertSee('Your selected time has expired')
+            ->assertSee('id="choose-another-time"', false);
     }
 
     private function expiredHold(): array
