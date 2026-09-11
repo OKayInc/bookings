@@ -3,7 +3,8 @@ $money=app(\App\Domain\Money\MoneyService::class);
 $numericService=app(\App\Domain\Questionnaires\NumericQuestionConstraintService::class);
 $type->loadMissing('questions.numericConstraints.sourceQuestion');
 $resourceUnavailableDefaults=$resourceUnavailableDefaults ?? [];
-$hasQuestions=$type->questions->where('is_active',true)->isNotEmpty();
+$activeQuestions=$type->questions->where('is_active',true);
+$hasQuestions=$activeQuestions->isNotEmpty();
 $hasShortNoticeFees=$type->shortNoticeFeeRules->where('is_active',true)->isNotEmpty();
 @endphp
 @if($hasQuestions)
@@ -31,7 +32,10 @@ $resourceUnavailable=array_key_exists($question->uuid,$resourceUnavailableDefaul
 @if($question->description)<div class="muted">{{ $question->description }}</div>@endif
 @switch($question->type->value)
 @case('text') <input id="q_{{ $question->uuid }}" name="{{ $key }}" value="{{ old($oldKey) }}" placeholder="{{ $question->placeholder }}" @required($question->is_required)> @break
-@case('textarea') <textarea id="q_{{ $question->uuid }}" name="{{ $key }}" placeholder="{{ $question->placeholder }}" @required($question->is_required)>{{ old($oldKey) }}</textarea> @break
+@case('textarea')
+<textarea id="q_{{ $question->uuid }}" name="{{ $key }}" placeholder="{{ $question->placeholder }}" data-rich-text-editor rows="10" @required($question->is_required)>{{ old($oldKey) }}</textarea>
+@include('partials.rich-text-editor-assets')
+@break
 @case('email') <input id="q_{{ $question->uuid }}" type="email" name="{{ $key }}" value="{{ old($oldKey) }}" placeholder="{{ $question->placeholder }}" @required($question->is_required)><div class="muted">The email domain will be verified.</div> @break
 @case('telephone') <input id="q_{{ $question->uuid }}" type="tel" name="{{ $key }}" value="{{ old($oldKey) }}" placeholder="{{ $question->placeholder }}" @required($question->is_required)><div class="muted">Validated and stored in normalized international format.</div> @break
 @case('address') <input id="q_{{ $question->uuid }}" name="{{ $key }}" value="{{ old($oldKey) }}" placeholder="{{ $question->placeholder ?: 'Street address, city, region, postal code, country' }}" @required($question->is_required)><div class="muted">Validated with Google Address Validation.@if(data_get($cfg,'distance_pricing.enabled',false)) The driving distance affects the price.@endif</div> @break

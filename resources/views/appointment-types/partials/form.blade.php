@@ -31,12 +31,7 @@
     </div>
 </div>
 
-@once
-    @push('scripts')
-        <script src="{{ asset('vendor/tinymce/tinymce.min.js') }}?v=8.9.1"></script>
-        <script src="{{ asset('js/rich-text-editor.js') }}?v=1" defer></script>
-    @endpush
-@endonce
+@include('partials.rich-text-editor-assets')
 
 <div class="section-card">
     <h2>Access</h2>

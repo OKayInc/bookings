@@ -3,8 +3,11 @@
         return;
     }
 
+    const baseUrl = document.currentScript?.dataset.tinymceBaseUrl;
+
     window.tinymce.init({
         selector: 'textarea[data-rich-text-editor]',
+        ...(baseUrl ? {base_url: baseUrl} : {}),
         license_key: 'gpl',
         plugins: 'lists wordcount',
         menubar: false,
@@ -24,5 +27,22 @@
         paste_data_images: false,
         object_resizing: false,
         content_style: 'body { font-family: system-ui, sans-serif; font-size: 16px; }',
+        setup: (editor) => {
+            const save = () => editor.save();
+
+            editor.on('input change undo redo', save);
+            editor.on('init', () => {
+                const textarea = editor.getElement();
+
+                textarea.addEventListener('invalid', (event) => {
+                    event.preventDefault();
+                    editor.notificationManager.open({
+                        text: 'This field is required.',
+                        type: 'error',
+                    });
+                    editor.focus();
+                });
+            });
+        },
     });
 })();
