@@ -16,6 +16,7 @@ use App\Models\ReusableQuestionOption;
 use App\Models\BookingAnswer;
 use App\Models\BookingAnswerFile;
 use App\Models\BookingPriceLine;
+use App\Models\BookingTaxLine;
 use App\Models\ResourceConfirmation;
 use App\Models\ReminderDelivery;
 use App\Models\BookingReschedule;
@@ -34,6 +35,7 @@ use App\Models\OrganizationContact;
 use App\Models\OrganizationMembership;
 use App\Models\Person;
 use App\Models\OrganizationPaymentSetting;
+use App\Models\OrganizationTax;
 use App\Models\PaymentRefund;
 use App\Models\PaymentRule;
 use App\Models\PaymentTransaction;
@@ -60,6 +62,7 @@ class ModelTableNameTest extends TestCase
             [OrganizationContact::class, 'organization_contacts'],
             [OrganizationMembership::class, 'organization_memberships'],
             [OrganizationPaymentSetting::class, 'organization_payment_settings'],
+            [OrganizationTax::class, 'organization_taxes'],
             [PaymentRule::class, 'payment_rules'],
             [PaymentTransaction::class, 'payment_transactions'],
             [PaymentRefund::class, 'payment_refunds'],
@@ -91,6 +94,7 @@ class ModelTableNameTest extends TestCase
             [BookingAnswer::class, 'booking_answers'],
             [BookingAnswerFile::class, 'booking_answer_files'],
             [BookingPriceLine::class, 'booking_price_lines'],
+            [BookingTaxLine::class, 'booking_tax_lines'],
             [ResourceConfirmation::class, 'resource_confirmations'],
             [ReminderDelivery::class, 'reminder_deliveries'],
             [BookingReschedule::class, 'booking_reschedules'],

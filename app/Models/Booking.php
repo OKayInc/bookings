@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\BookingStatus;
 use App\Enums\BookingPaymentStatus;
 use App\Enums\PaymentCollectionMode;
+use App\Enums\TaxPriceMode;
 use App\Models\Concerns\HasBinaryUuid;
 use App\Support\Html\RichTextSanitizer;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -21,7 +22,8 @@ class Booking extends Model
     protected $fillable = [
         'organization_id', 'appointment_id', 'appointment_type_id', 'organization_contact_id',
         'appointment_type_invitation_id', 'contract_template_id', 'reference', 'status',
-        'attendee_count', 'booking_timezone', 'base_price_minor', 'price_minor', 'currency',
+        'attendee_count', 'booking_timezone', 'base_price_minor', 'price_minor', 'subtotal_minor',
+        'tax_total_minor', 'tax_price_mode', 'tax_identifier', 'currency',
         'deposit_minor',
         'payment_collection_mode', 'initial_payment_due_minor', 'balance_due_at_utc',
         'client_refund_percentage_bps', 'staff_refund_percentage_bps', 'payment_exempt',
@@ -49,6 +51,9 @@ class Booking extends Model
             'attendee_count' => 'integer',
             'base_price_minor' => 'integer',
             'price_minor' => 'integer',
+            'subtotal_minor' => 'integer',
+            'tax_total_minor' => 'integer',
+            'tax_price_mode' => TaxPriceMode::class,
             'deposit_minor' => 'integer',
             'payment_collection_mode' => PaymentCollectionMode::class,
             'initial_payment_due_minor' => 'integer',
@@ -148,6 +153,11 @@ class Booking extends Model
     public function priceLines(): HasMany
     {
         return $this->hasMany(BookingPriceLine::class)->orderBy('position');
+    }
+
+    public function taxLines(): HasMany
+    {
+        return $this->hasMany(BookingTaxLine::class)->orderBy('position')->orderBy('name');
     }
 
     public function contractSubmissions(): HasMany

@@ -21,6 +21,7 @@ use App\Domain\Payments\BookingPaymentSnapshotService;
 use App\Domain\Coupons\CouponApplication;
 use App\Domain\Coupons\CouponRedemptionService;
 use App\Domain\Resources\ConditionalResourceRequirementService;
+use App\Domain\Taxes\OrganizationTaxService;
 use App\Enums\AppointmentStatus;
 use App\Enums\BookingHoldStatus;
 use App\Enums\BookingStatus;
@@ -58,6 +59,7 @@ class BookingCreationService
         private readonly BookingPaymentSnapshotService $paymentSnapshots,
         private readonly CouponRedemptionService $coupons,
         private readonly ConditionalResourceRequirementService $conditionalResourceRequirements,
+        private readonly OrganizationTaxService $taxes,
     ) {
     }
 
@@ -226,7 +228,8 @@ class BookingCreationService
                 $couponApplication = $this->coupons->apply($couponCode, $type, $questionnaire, true);
                 $questionnaire = $couponApplication->submission;
             }
-            $priceMinor = $questionnaire->quote->totalMinor;
+            $taxQuote = $this->taxes->quote($organization, $questionnaire->quote);
+            $priceMinor = $taxQuote->totalMinor;
             $depositMinor = (int) collect($questionnaire->quote->lines)
                 ->where('lineType', 'resource_deposit')
                 ->sum('amountMinor');
@@ -258,6 +261,10 @@ class BookingCreationService
                 'booking_timezone' => $hold->booking_timezone,
                 'base_price_minor' => $basePriceMinor,
                 'price_minor' => $priceMinor,
+                'subtotal_minor' => $taxQuote->subtotalMinor,
+                'tax_total_minor' => $taxQuote->taxTotalMinor,
+                'tax_price_mode' => $taxQuote->priceMode?->value,
+                'tax_identifier' => $taxQuote->taxIdentifier,
                 'deposit_minor' => $depositMinor,
                 'currency' => $organization->currency,
                 ...$paymentSnapshot,
@@ -314,6 +321,7 @@ class BookingCreationService
             );
 
             $this->questionnairePersistence->persist($booking->load('organization'), $questionnaire);
+            $this->taxes->persist($booking, $taxQuote);
 
             if ($couponApplication instanceof CouponApplication) {
                 $this->coupons->record($couponApplication, $booking);
@@ -340,7 +348,7 @@ class BookingCreationService
             $hold->update(['status' => BookingHoldStatus::Consumed->value]);
             $this->workflow->refreshStatus($booking->load(['appointmentType', 'contractSubmissions']));
 
-            return $booking->fresh(['appointment', 'appointmentType', 'organization', 'contact', 'attendees', 'answers.files', 'priceLines', 'contractSubmissions.files']);
+            return $booking->fresh(['appointment', 'appointmentType', 'organization', 'contact', 'attendees', 'answers.files', 'priceLines', 'taxLines', 'contractSubmissions.files']);
         }, 3);
 
         $this->conferenceMeetings->safeSync($booking->appointment);

@@ -15,5 +15,17 @@
 @endforeach</div>
 @endif
 @if($booking->priceLines->isNotEmpty())
-<div class="card"><h2>Price breakdown</h2>@foreach($booking->priceLines as $line)<div class="price-line"><span>{{ $line->label }} @if((float)$line->quantity != 1) × {{ rtrim(rtrim($line->quantity,'0'),'.') }} @endif</span><strong>{{ $line->line_type === 'coupon_discount' ? '−' : '' }}{{ app(\App\Domain\Money\MoneyService::class)->format($line->amount_minor,$booking->currency) }}</strong></div>@endforeach<div class="price-line total"><span>Total</span><strong>{{ app(\App\Domain\Money\MoneyService::class)->format($booking->price_minor,$booking->currency) }}</strong></div></div>
+<div class="card"><h2>Price breakdown</h2>
+@foreach($booking->priceLines as $line)
+<div class="price-line"><span>{{ $line->label }} @if((float)$line->quantity != 1) × {{ rtrim(rtrim($line->quantity,'0'),'.') }} @endif</span><strong>{{ $line->line_type === 'coupon_discount' ? '−' : '' }}{{ app(\App\Domain\Money\MoneyService::class)->format($line->amount_minor,$booking->currency) }}</strong></div>
+@endforeach
+@if($booking->taxLines->isNotEmpty())
+<div class="price-line subtotal"><span>Subtotal before tax</span><strong>{{ app(\App\Domain\Money\MoneyService::class)->format($booking->subtotal_minor,$booking->currency) }}</strong></div>
+@foreach($booking->taxLines as $tax)
+<div class="price-line"><span>{{ $tax->name }} ({{ \App\Domain\Taxes\TaxRate::percentage($tax->rate_millionths) }}%, {{ $booking->tax_price_mode?->value === 'inclusive' ? 'included' : 'added' }})</span><strong>{{ app(\App\Domain\Money\MoneyService::class)->format($tax->amount_minor,$booking->currency) }}</strong></div>
+@endforeach
+@if($booking->taxLines->count() > 1)<div class="price-line"><span>Total tax</span><strong>{{ app(\App\Domain\Money\MoneyService::class)->format($booking->tax_total_minor,$booking->currency) }}</strong></div>@endif
+@if($booking->tax_identifier)<p class="muted mt-2">Tax ID: {{ $booking->tax_identifier }}</p>@endif
+@endif
+<div class="price-line total"><span>Total</span><strong>{{ app(\App\Domain\Money\MoneyService::class)->format($booking->price_minor,$booking->currency) }}</strong></div></div>
 @endif

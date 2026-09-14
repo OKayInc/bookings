@@ -120,7 +120,8 @@
 <script src="{{ asset('js/question-visibility.js') }}?v=m9-r2"></script>
 <script>
 (function(){
- const form=document.querySelector('form.form-stack'); const total=document.getElementById('questionnaire-total'); const lines=document.getElementById('questionnaire-price-lines'); const questionElements=Array.from(document.querySelectorAll('.questionnaire-question')); let timer;
+ const form=document.querySelector('form.form-stack'); const total=document.getElementById('questionnaire-total'); const lines=document.getElementById('questionnaire-price-lines'); const taxIdentifier=document.getElementById('questionnaire-tax-id'); const questionElements=Array.from(document.querySelectorAll('.questionnaire-question')); let timer;
+ if(!form||!total||!lines)return;
  const questions=new Map(questionElements.map(element=>[element.dataset.questionUuid,element]));
  questionElements.forEach(element=>{element._visibilityConditions=JSON.parse(element.dataset.visibilityConditions||'[]');element._resourceUnavailable=element.dataset.resourceUnavailable==='1';element.querySelectorAll('input,select,textarea').forEach(control=>{control.dataset.visibilityRequired=control.required?'1':'0';});});
  questionElements.forEach(element=>{element._numericConstraints=JSON.parse(element.dataset.numericConstraints||'[]');});
@@ -145,7 +146,21 @@
  async function updateQuote(){
    const source=new FormData(form), body=new FormData(); body.append('_token',source.get('_token'));
    for(const [key,value] of source.entries()) if((key.startsWith('answers[')||key==='coupon_code') && !(value instanceof File)) body.append(key,value);
-   try { const response=await fetch(@json(route('public.booking-holds.quote',$holdToken)),{method:'POST',headers:{'Accept':'application/json'},body}); const data=await response.json(); if(response.status===410){window.location.reload();return;} if(!response.ok) throw new Error(data.message||'Unable to calculate price.'); total.textContent=data.total_display; lines.innerHTML=data.lines.map(l=>`<div class="price-line"><span>${escapeHtml(l.label)}${l.quantity !== '1.0000' && l.quantity !== '1' ? ' × '+escapeHtml(l.quantity) : ''}</span><strong>${escapeHtml(l.amount_display)}</strong></div>`).join(''); } catch(e){ total.textContent=e.message; }
+   try {
+     const response=await fetch(@json(route('public.booking-holds.quote',$holdToken)),{method:'POST',headers:{'Accept':'application/json'},body});
+     const data=await response.json();
+     if(response.status===410){window.location.reload();return;}
+     if(!response.ok)throw new Error(data.message||'Unable to calculate price.');
+     total.textContent=data.total_display;
+     let breakdown=data.lines.map(l=>`<div class="price-line"><span>${escapeHtml(l.label)}${l.quantity !== '1.0000' && l.quantity !== '1' ? ' × '+escapeHtml(l.quantity) : ''}</span><strong>${escapeHtml(l.amount_display)}</strong></div>`).join('');
+     if(data.collects_taxes){
+       breakdown+=`<div class="price-line subtotal"><span>Subtotal before tax</span><strong>${escapeHtml(data.subtotal_display)}</strong></div>`;
+       breakdown+=data.taxes.map(t=>`<div class="price-line tax"><span>${escapeHtml(t.name)} (${escapeHtml(t.percentage)}%, ${data.tax_price_mode==='inclusive'?'included':'added'})</span><strong>${escapeHtml(t.amount_display)}</strong></div>`).join('');
+       if(data.taxes.length>1)breakdown+=`<div class="price-line"><span>Total tax</span><strong>${escapeHtml(data.tax_total_display)}</strong></div>`;
+     }
+     lines.innerHTML=breakdown;
+     if(taxIdentifier){taxIdentifier.hidden=!data.collects_taxes||!data.tax_identifier;taxIdentifier.textContent=data.tax_identifier?'Tax ID: '+data.tax_identifier:'';}
+   }catch(e){total.textContent=e.message;}
  }
  function escapeHtml(v){const d=document.createElement('div');d.textContent=String(v);return d.innerHTML;}
  form.addEventListener('change',e=>{if(e.target.name?.startsWith('answers[')||e.target.name==='coupon_code'){refreshVisibility();refreshNumericConstraints();clearTimeout(timer);timer=setTimeout(updateQuote,100);}}); form.addEventListener('input',e=>{if((e.target.type==='number'&&e.target.name?.startsWith('answers['))||e.target.name==='coupon_code'){refreshNumericConstraints();clearTimeout(timer);timer=setTimeout(updateQuote,350);}}); refreshVisibility(); refreshNumericConstraints(); updateQuote();

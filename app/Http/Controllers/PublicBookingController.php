@@ -16,6 +16,8 @@ use App\Domain\Tickets\TicketEventService;
 use App\Domain\Tickets\TicketInventoryService;
 use App\Domain\Coupons\CouponRedemptionService;
 use App\Domain\Questionnaires\QuestionnaireSubmission;
+use App\Domain\Taxes\OrganizationTaxService;
+use App\Domain\Taxes\TaxRate;
 use App\Enums\AttendanceMode;
 use App\Enums\AppointmentVisibility;
 use App\Models\AppointmentType;
@@ -49,6 +51,7 @@ class PublicBookingController extends Controller
         TicketInventoryService $ticketInventory,
         EquipmentPricingService $equipmentPricing,
         ResourceDepositService $resourceDeposits,
+        OrganizationTaxService $taxes,
     ): JsonResponse {
         $data = $request->validate([
             'access_mode' => ['required', Rule::in(['direct', 'unlisted', 'invitation'])],
@@ -73,7 +76,7 @@ class PublicBookingController extends Controller
         $duration = isset($data['duration_value']) ? (int) $data['duration_value'] : null;
         try {
             $slots = $availability->slots(
-                $appointmentType->loadMissing('organization'),
+                $appointmentType->loadMissing('organization.taxes'),
                 $localDay->utc(),
                 $localDay->addDay()->utc(),
                 $duration,
@@ -91,6 +94,8 @@ class PublicBookingController extends Controller
                 throw new \InvalidArgumentException('The appointment price is too large.');
             }
             $price += $depositTotal;
+            $priceTaxQuote = $taxes->calculate($appointmentType->organization, $price, $depositTotal);
+            $price = $priceTaxQuote->totalMinor;
             if ($appointmentType->ticketing_enabled) {
                 foreach ($slots as $slot) {
                     $ticketEvents->appointmentAttributes($appointmentType, $slot->startsAtUtc, $slot->endsAtUtc);
@@ -112,6 +117,7 @@ class PublicBookingController extends Controller
                 $data,
                 $equipmentTotal,
                 $depositTotal,
+                $taxes,
             ): array {
                 $clientStart = $slot->startsAtUtc->setTimezone($timezone);
                 $clientEnd = $slot->endsAtUtc->setTimezone($timezone);
@@ -144,6 +150,8 @@ class PublicBookingController extends Controller
                     throw new \InvalidArgumentException('The appointment price is too large.');
                 }
                 $slotPrice += $depositTotal;
+                $slotTaxQuote = $taxes->calculate($appointmentType->organization, $slotPrice, $depositTotal);
+                $slotPrice = $slotTaxQuote->totalMinor;
 
                 return [
                     'starts_at_utc' => $slot->startsAtUtc->toIso8601String(),
@@ -159,6 +167,10 @@ class PublicBookingController extends Controller
                     'join_existing' => $slot->appointment !== null,
                     'price_minor' => $slotPrice,
                     'price_display' => $money->format($slotPrice, $appointmentType->organization->currency),
+                    'subtotal_minor' => $slotTaxQuote->subtotalMinor,
+                    'subtotal_display' => $money->format($slotTaxQuote->subtotalMinor, $appointmentType->organization->currency),
+                    'tax_total_minor' => $slotTaxQuote->taxTotalMinor,
+                    'tax_total_display' => $money->format($slotTaxQuote->taxTotalMinor, $appointmentType->organization->currency),
                 ];
             }, $slots);
         } catch (RuntimeException|\InvalidArgumentException $exception) {
@@ -170,6 +182,11 @@ class PublicBookingController extends Controller
             'organization_timezone' => $appointmentType->organization->timezone,
             'price_minor' => $price,
             'price_display' => $money->format($price, $appointmentType->organization->currency),
+            'subtotal_minor' => $priceTaxQuote->subtotalMinor,
+            'subtotal_display' => $money->format($priceTaxQuote->subtotalMinor, $appointmentType->organization->currency),
+            'tax_total_minor' => $priceTaxQuote->taxTotalMinor,
+            'tax_total_display' => $money->format($priceTaxQuote->taxTotalMinor, $appointmentType->organization->currency),
+            'tax_price_mode' => $priceTaxQuote->priceMode?->value,
             'ticketed_event' => (bool) $appointmentType->ticketing_enabled,
             'slots' => $slotPayloads,
         ]);
@@ -253,6 +270,7 @@ class PublicBookingController extends Controller
         MoneyService $money,
         CouponRedemptionService $coupons,
         ConditionalResourceRequirementService $conditionalResources,
+        OrganizationTaxService $taxes,
     ): JsonResponse {
         $hold = $this->holdByToken($token);
         if (! $hold->isActive()) {
@@ -281,13 +299,28 @@ class PublicBookingController extends Controller
                     new QuestionnaireSubmission([], $quote),
                 )->submission->quote;
             }
+            $taxQuote = $taxes->quote($hold->organization, $quote);
         } catch (\InvalidArgumentException|RuntimeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
         return response()->json([
             'base_price_minor' => $quote->basePriceMinor,
-            'total_minor' => $quote->totalMinor,
-            'total_display' => $money->format($quote->totalMinor, $hold->organization->currency),
+            'subtotal_minor' => $taxQuote->subtotalMinor,
+            'subtotal_display' => $money->format($taxQuote->subtotalMinor, $hold->organization->currency),
+            'tax_total_minor' => $taxQuote->taxTotalMinor,
+            'tax_total_display' => $money->format($taxQuote->taxTotalMinor, $hold->organization->currency),
+            'total_minor' => $taxQuote->totalMinor,
+            'total_display' => $money->format($taxQuote->totalMinor, $hold->organization->currency),
+            'collects_taxes' => $taxQuote->collectsTaxes(),
+            'tax_price_mode' => $taxQuote->priceMode?->value,
+            'tax_identifier' => $taxQuote->taxIdentifier,
+            'taxes' => array_map(fn ($line) => [
+                'name' => $line->name,
+                'percentage' => TaxRate::percentage($line->rateMillionths),
+                'rate_millionths' => $line->rateMillionths,
+                'amount_minor' => $line->amountMinor,
+                'amount_display' => $money->format($line->amountMinor, $hold->organization->currency),
+            ], $taxQuote->lines),
             'lines' => array_map(fn ($line) => [
                 'label' => $line->label,
                 'quantity' => $line->quantity,
@@ -362,7 +395,7 @@ class PublicBookingController extends Controller
                 $questionnaire,
                 $data['coupon_code'] ?? null,
             );
-        } catch (RuntimeException $exception) {
+        } catch (RuntimeException|\InvalidArgumentException $exception) {
             return back()->withInput()->withErrors(['booking' => $exception->getMessage()]);
         }
 

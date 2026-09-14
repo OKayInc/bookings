@@ -24,6 +24,16 @@ The final price, initial amount due, balance due instant and cancellation refund
 
 The balance due date is calculated in the organization timezone. It is displayed in the client and staff ledgers; M9 does not store payment credentials or make an off-session charge.
 
+## Organization taxes (M9-R9)
+
+Each organization may enable tax collection, provide its tax ID/registration number as free text, and configure up to 20 ordered named percentages. Percentages retain four decimal places and all calculations use integer minor units with deterministic half-up rounding.
+
+In **tax-exclusive** mode, each tax is calculated independently from the discounted taxable subtotal and added to the final booking price. In **tax-inclusive** mode, the combined tax is extracted from the advertised taxable amount, allocated across the named rates, and leaves the advertised final price unchanged. Multiple taxes use the same pre-tax basis; compounding one tax on another is not part of M9-R9.
+
+Appointment, attendee, questionnaire, distance, short-notice, equipment, and ticket-seating charges are taxable. Gift-card/coupon discounts are applied before tax. Refundable resource deposits remain outside the taxable base. The checkout and both client/staff booking details itemize the pre-tax subtotal, every rate and tax amount, the final total, and the organization's snapshotted tax ID.
+
+The booking stores its final subtotal and tax total plus one immutable line per configured tax. Later edits to the organization tax ID, mode, names, or percentages affect only new quotes and bookings. Payment providers continue to collect the booking's exact final `price_minor`, so full payments, retainers, balances, reconciliation, and refunds all include the applicable tax.
+
 ## Status and reconciliation
 
 `pending_payment` is reached only after email, contract and staff prerequisites are complete. Capturing the exact initial amount and currency confirms the booking. With a retainer, confirmation can occur while `payment_status` remains `partially_paid`; the outstanding balance stays payable from the private booking page.

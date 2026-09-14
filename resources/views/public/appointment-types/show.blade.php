@@ -158,9 +158,10 @@
             const data = await response.json();
             if (requestVersion !== slotRequestVersion) return;
             if (!response.ok) throw new Error(data.message || 'Unable to load availability.');
+            const taxSummary = data.tax_price_mode ? `, including ${data.tax_total_display} tax` : '';
             price.textContent = ticketedEvent
                 ? 'Each event option shows the current ticket total, including allocated seating and equipment fees.'
-                : `Base total before questionnaire extras or applicable short-notice fees: ${data.price_display}`;
+                : `Base total before questionnaire extras or applicable short-notice fees: ${data.price_display}${taxSummary}`;
             message.textContent = data.slots.length ? '' : 'No available times were found for this date.';
 
             data.slots.forEach(slot => {
@@ -170,7 +171,8 @@
                 const primaryLabel = ticketedEvent ? slot.client_event_label : slot.client_label;
                 const capacityLabel = ticketedEvent ? 'tickets' : 'spaces';
                 const capacity = slot.remaining_capacity > 1 ? `<small>${slot.remaining_capacity} ${capacityLabel} currently available</small>` : '';
-                const slotPrice = ticketedEvent ? `<small>Ticket total before extras: ${slot.price_display}</small>` : '';
+                const slotTax = data.tax_price_mode ? `, including ${slot.tax_total_display} tax` : '';
+                const slotPrice = ticketedEvent ? `<small>Ticket total before extras: ${slot.price_display}${slotTax}</small>` : '';
                 const equipment = showResources ? (slot.equipment_availability ?? []).map(item => {
                     const allocation = item.reserved_for_session > 0
                         ? `${item.reserved_for_session} reserved for this session`

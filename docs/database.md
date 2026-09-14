@@ -1,4 +1,12 @@
-# Database — M9-R8
+# Database — M9-R9
+
+## M9-R9 organization taxes
+
+Migration `2026_09_14_000074_add_organization_taxes.php` adds `collects_taxes`, the free-text `tax_identifier`, and nullable `tax_price_mode` to each organization. `organization_taxes` stores the ordered, named rates. Rates are integer millionths of the price (`1_000_000 = 100%`), preserving four decimal places from the percentage entered by an administrator without floating-point arithmetic.
+
+Bookings snapshot `subtotal_minor`, `tax_total_minor`, `tax_price_mode`, and `tax_identifier`. Ordered `booking_tax_lines` preserve each tax name, rate, and calculated minor-unit amount. Editing or disabling an organization's future tax configuration therefore cannot alter historical booking totals or tax disclosures. Existing bookings are backfilled with `subtotal_minor = price_minor`, zero tax, and no tax mode or identifier.
+
+Both normalized tax tables use UUIDv7 `BINARY(16)` keys and cascading parent relationships. Refundable resource deposits are included in the displayed subtotal but excluded from the taxable base.
 
 ## M9-R8 photo galleries
 

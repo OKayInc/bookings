@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\OrganizationPlanTier;
+use App\Enums\TaxPriceMode;
 use App\Models\Concerns\HasBinaryUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -28,6 +29,9 @@ class Organization extends Model
         'x_url',
         'linkedin_url',
         'tiktok_url',
+        'collects_taxes',
+        'tax_identifier',
+        'tax_price_mode',
     ];
 
     protected $hidden = ['id'];
@@ -38,6 +42,8 @@ class Organization extends Model
     {
         return [
             'plan_tier' => OrganizationPlanTier::class,
+            'collects_taxes' => 'boolean',
+            'tax_price_mode' => TaxPriceMode::class,
         ];
     }
 
@@ -167,5 +173,10 @@ class Organization extends Model
     public function contacts(): HasMany
     {
         return $this->hasMany(OrganizationContact::class);
+    }
+
+    public function taxes(): HasMany
+    {
+        return $this->hasMany(OrganizationTax::class)->orderBy('position')->orderBy('name');
     }
 }

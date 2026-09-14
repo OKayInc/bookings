@@ -48,6 +48,8 @@ class BladeCompilationTest extends TestCase
             'public/appointment-types/index.blade.php',
             'appointment-types/edit.blade.php',
             'organizations/edit.blade.php',
+            'organizations/create.blade.php',
+            'organizations/partials/form.blade.php',
             'admin/health.blade.php',
             'gallery/manage.blade.php',
             'gallery/public-grid.blade.php',

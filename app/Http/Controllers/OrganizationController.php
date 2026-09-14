@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Domain\Money\PaymentCurrencyCatalog;
 use App\Domain\Galleries\GalleryLimitService;
+use App\Domain\Money\PaymentCurrencyCatalog;
 use App\Domain\Organizations\OrganizationDeletionService;
 use App\Domain\Organizations\OrganizationLogoService;
+use App\Domain\Taxes\TaxRate;
 use App\Enums\MembershipRole;
 use App\Enums\MembershipStatus;
 use App\Http\Requests\DeleteOrganizationRequest;
@@ -51,6 +52,7 @@ class OrganizationController extends Controller
                 $slug = $baseSlug.'-'.$counter++;
             }
 
+            $collectsTaxes = (bool) ($data['collects_taxes'] ?? false);
             $organization = Organization::create([
                 'name' => $data['name'],
                 'slug' => $slug,
@@ -61,7 +63,12 @@ class OrganizationController extends Controller
                 'x_url' => $data['x_url'],
                 'linkedin_url' => $data['linkedin_url'],
                 'tiktok_url' => $data['tiktok_url'],
+                'collects_taxes' => $collectsTaxes,
+                'tax_identifier' => $collectsTaxes ? $data['tax_identifier'] : null,
+                'tax_price_mode' => $collectsTaxes ? $data['tax_price_mode'] : null,
             ]);
+
+            $this->replaceTaxes($organization, $collectsTaxes ? ($data['taxes'] ?? []) : []);
 
             OrganizationMembership::create([
                 'organization_id' => $organization->getKey(),
@@ -85,7 +92,7 @@ class OrganizationController extends Controller
     public function edit(Organization $organization, GalleryLimitService $galleryLimits): View
     {
         $this->authorize('update', $organization);
-        $organization->load('galleryPhotos');
+        $organization->load(['galleryPhotos', 'taxes']);
 
         return view('organizations.edit', [
             'organization' => $organization,
@@ -100,16 +107,25 @@ class OrganizationController extends Controller
         $this->authorize('update', $organization);
         $data = $request->validated();
 
-        $organization->update([
-            'name' => $data['name'],
-            'timezone' => $data['timezone'],
-            'currency' => strtoupper($data['currency']),
-            'facebook_url' => $data['facebook_url'],
-            'instagram_url' => $data['instagram_url'],
-            'x_url' => $data['x_url'],
-            'linkedin_url' => $data['linkedin_url'],
-            'tiktok_url' => $data['tiktok_url'],
-        ]);
+        DB::transaction(function () use ($data, $organization): void {
+            $collectsTaxes = (bool) ($data['collects_taxes'] ?? false);
+            $organization->update([
+                'name' => $data['name'],
+                'timezone' => $data['timezone'],
+                'currency' => strtoupper($data['currency']),
+                'facebook_url' => $data['facebook_url'],
+                'instagram_url' => $data['instagram_url'],
+                'x_url' => $data['x_url'],
+                'linkedin_url' => $data['linkedin_url'],
+                'tiktok_url' => $data['tiktok_url'],
+                'collects_taxes' => $collectsTaxes,
+                'tax_identifier' => $collectsTaxes ? $data['tax_identifier'] : null,
+                'tax_price_mode' => $collectsTaxes ? $data['tax_price_mode'] : null,
+            ]);
+
+            $organization->taxes()->delete();
+            $this->replaceTaxes($organization, $collectsTaxes ? ($data['taxes'] ?? []) : []);
+        });
 
         if ($request->hasFile('logo_file')) {
             $logos->replace($organization, $request->file('logo_file'));
@@ -154,5 +170,17 @@ class OrganizationController extends Controller
         $resolver->select($request->user(), $organization, $request);
 
         return redirect()->route('dashboard')->with('success', 'Active organization changed.');
+    }
+
+    /** @param list<array{name:string,percentage:string|int|float}> $taxes */
+    private function replaceTaxes(Organization $organization, array $taxes): void
+    {
+        foreach (array_values($taxes) as $index => $tax) {
+            $organization->taxes()->create([
+                'name' => $tax['name'],
+                'rate_millionths' => TaxRate::fromPercentage($tax['percentage']),
+                'position' => $index + 1,
+            ]);
+        }
     }
 }

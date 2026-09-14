@@ -1,6 +1,16 @@
-# Appointment Software — M9-R8
+# Appointment Software — M9-R9
 
-M9-R8 adds organization and appointment photo galleries, immediate and scheduled WebP normalization, free/paid environment-backed photo caps, enlarged viewing, and optional CDN-generated public-storage URLs. See `docs/CHANGES-M9-R8.md`, `docs/UPGRADE-M9-R7-TO-M9-R8.md`, and `docs/VERIFICATION-M9-R8.md`.
+M9-R9 adds organization-level tax registration, multiple precise tax rates, tax-inclusive and tax-exclusive pricing, checkout subtotal/tax disclosure, and immutable booking tax snapshots. See `docs/CHANGES-M9-R9.md`, `docs/UPGRADE-M9-R8-TO-M9-R9.md`, and `docs/VERIFICATION-M9-R9.md`.
+
+## M9-R9 organization taxes
+
+- An organization can turn tax collection on or off and store its country-specific tax ID as free text.
+- Up to 20 named tax rates support four decimal places, including rates such as 9.975%.
+- Tax-inclusive pricing extracts tax from advertised prices without increasing the total. Tax-exclusive pricing adds tax after the subtotal.
+- Multiple taxes use the same pre-tax base and are itemized independently with deterministic integer-minor-unit rounding.
+- Coupons reduce the taxable amount; refundable resource deposits remain non-taxable.
+- The public checkout, saved client booking page, and staff booking page show subtotal, each tax, total tax, tax mode, and the snapshotted tax ID.
+- Existing bookings are backfilled with their former total as the subtotal and remain untaxed.
 
 M9-R7 disables refundable deposits for Person resources. See `docs/UPGRADE-M9-R6-TO-M9-R7.md`.
 
