@@ -42,6 +42,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('login'));
 
+Route::view('/a/privacy.html', 'legal.privacy')->name('legal.privacy');
+
 Route::post('/payments/webhooks/{organization}/{provider}', PaymentWebhookController::class)
     ->middleware('throttle:120,1')
     ->name('payments.webhooks');
