@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Domain\Availability\AvailabilityService;
+use App\Domain\Availability\AvailabilityAnalysisService;
 use App\Enums\DurationMode;
 use App\Http\Requests\AvailabilityPreviewRequest;
 use App\Models\AppointmentType;
@@ -16,7 +16,7 @@ class AvailabilityPreviewController extends Controller
     public function __invoke(
         AvailabilityPreviewRequest $request,
         OrganizationContext $context,
-        AvailabilityService $availability,
+        AvailabilityAnalysisService $availabilityAnalysis,
     ): View {
         $organization = $context->organization();
         $this->authorize('manageScheduling', $organization);
@@ -26,7 +26,9 @@ class AvailabilityPreviewController extends Controller
         $date = $request->validated('date') ?: now($organization->timezone)->format('Y-m-d');
         $timezone = $request->validated('timezone') ?: $organization->timezone;
         $durationValue = $request->validated('duration_value');
+        $includeOptional = $request->boolean('include_optional');
         $previewError = null;
+        $analysis = null;
         $timezones = DateTimeZone::listIdentifiers();
 
         if ($request->filled('appointment_type')) {
@@ -42,15 +44,25 @@ class AvailabilityPreviewController extends Controller
             $localStart = CarbonImmutable::createFromFormat('Y-m-d H:i:s', $date.' 00:00:00', $timezone);
             $localEnd = $localStart->addDay();
             try {
-                $slots = $availability->slots($selected, $localStart->utc(), $localEnd->utc(), $durationValue ? (int) $durationValue : null, $timezone);
+                $analysis = $availabilityAnalysis->analyze(
+                    $selected,
+                    $localStart->utc(),
+                    $localEnd->utc(),
+                    $durationValue ? (int) $durationValue : null,
+                    $timezone,
+                    $includeOptional,
+                );
+                $slots = $analysis['slots'];
             } catch (\InvalidArgumentException $exception) {
                 $previewError = $exception->getMessage();
                 $slots = [];
+                $analysis = null;
             }
         }
 
         return view('availability.preview', compact(
-            'organization', 'appointmentTypes', 'selected', 'slots', 'date', 'timezone', 'durationValue', 'previewError', 'timezones'
+            'organization', 'appointmentTypes', 'selected', 'slots', 'date', 'timezone', 'durationValue',
+            'includeOptional', 'analysis', 'previewError', 'timezones'
         ));
     }
 }

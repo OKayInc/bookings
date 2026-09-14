@@ -420,6 +420,380 @@ table.table {
     color: var(--bs-secondary-color);
 }
 
+/* Availability preview analysis. The chart deliberately uses a fixed inner
+ * width so a full 24-hour day remains readable on phones and narrow screens. */
+.availability-analysis-option {
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.availability-analysis-option > span {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+}
+
+.availability-analysis-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: 1rem;
+}
+
+.availability-analysis-heading h2 {
+    margin: 0 0 .2rem;
+}
+
+.availability-analysis-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .65rem;
+    margin-bottom: 1rem;
+}
+
+.availability-analysis-summary > div {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: .1rem;
+    padding: .65rem .75rem;
+    background: var(--bs-tertiary-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+}
+
+.availability-analysis-summary span {
+    color: var(--bs-secondary-color);
+    font-size: .76rem;
+    text-transform: uppercase;
+    letter-spacing: .035em;
+}
+
+.availability-analysis-summary strong {
+    overflow-wrap: anywhere;
+}
+
+.availability-analysis-result-message {
+    margin-bottom: .9rem;
+}
+
+.availability-analysis-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem 1rem;
+    margin: .5rem 0 .75rem;
+    font-size: .84rem;
+}
+
+.availability-analysis-legend > span {
+    display: inline-flex;
+    align-items: center;
+    gap: .38rem;
+}
+
+.availability-analysis-swatch {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    flex: 0 0 auto;
+    border: 1px solid rgba(0, 0, 0, .18);
+    border-radius: .2rem;
+}
+
+.availability-analysis-swatch--result { background: #198754; }
+.availability-analysis-swatch--required { background: #0d6efd; }
+.availability-analysis-swatch--blocked {
+    background: repeating-linear-gradient(135deg, #dc3545 0 5px, #f0808b 5px 9px);
+}
+.availability-analysis-swatch--optional { background: #6f42c1; }
+.availability-analysis-swatch--appointment { background: #495057; }
+.availability-analysis-swatch--hold { background: #f0ad4e; }
+
+.availability-analysis-help {
+    margin-bottom: .75rem;
+    font-size: .875rem;
+}
+
+.availability-analysis-scroll {
+    width: 100%;
+    overflow-x: auto;
+    padding: 0 0 .35rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius-lg);
+    background: var(--bs-body-bg);
+    -webkit-overflow-scrolling: touch;
+}
+
+.availability-analysis-scroll:focus-visible {
+    outline: 3px solid rgba(var(--bs-primary-rgb), .3);
+    outline-offset: 2px;
+}
+
+.availability-analysis-chart {
+    min-width: 1120px;
+}
+
+.availability-analysis-axis-row,
+.availability-analysis-row {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+}
+
+.availability-analysis-axis-row {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    min-height: 2.1rem;
+    color: var(--bs-secondary-color);
+    background: var(--bs-secondary-bg);
+    border-bottom: 1px solid var(--bs-border-color);
+    font-size: .72rem;
+    font-weight: 600;
+}
+
+.availability-analysis-axis-label {
+    display: flex;
+    align-items: center;
+    padding: .4rem .75rem;
+    border-right: 1px solid var(--bs-border-color);
+    text-transform: uppercase;
+    letter-spacing: .045em;
+}
+
+.availability-analysis-axis {
+    position: relative;
+    min-width: 0;
+}
+
+.availability-analysis-tick {
+    position: absolute;
+    top: 50%;
+    white-space: nowrap;
+    transform: translate(-50%, -50%);
+}
+
+.availability-analysis-tick.is-first {
+    transform: translate(0, -50%);
+}
+
+.availability-analysis-tick.is-last {
+    transform: translate(-100%, -50%);
+}
+
+.availability-analysis-row {
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.availability-analysis-row:last-child {
+    border-bottom: 0;
+}
+
+.availability-analysis-row-label {
+    min-width: 0;
+    padding: .7rem .75rem;
+    border-right: 1px solid var(--bs-border-color);
+}
+
+.availability-analysis-row-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .35rem;
+}
+
+.availability-analysis-row-title > strong {
+    overflow-wrap: anywhere;
+}
+
+.availability-analysis-kind {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.35rem;
+    padding: .08rem .42rem;
+    color: var(--bs-secondary-text-emphasis);
+    background: var(--bs-secondary-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    font-size: .68rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.availability-analysis-row--required .availability-analysis-kind,
+.availability-analysis-row--required-group .availability-analysis-kind,
+.availability-analysis-row--required-alternative .availability-analysis-kind {
+    color: #084298;
+    background: #cfe2ff;
+    border-color: #9ec5fe;
+}
+
+.availability-analysis-row--optional .availability-analysis-kind {
+    color: #432874;
+    background: #e2d9f3;
+    border-color: #c5b3e6;
+}
+
+.availability-analysis-row--required-alternative .availability-analysis-row-label {
+    padding-left: 1.4rem;
+    border-left: .3rem solid #9ec5fe;
+}
+
+.availability-analysis-row-label p {
+    margin: .28rem 0 0;
+    color: var(--bs-secondary-color);
+    font-size: .76rem;
+    line-height: 1.35;
+}
+
+.availability-analysis-blockers {
+    margin-top: .45rem;
+    font-size: .75rem;
+}
+
+.availability-analysis-blockers summary {
+    color: var(--bs-danger-text-emphasis);
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.availability-analysis-blockers ul {
+    display: grid;
+    gap: .45rem;
+    max-height: 12rem;
+    margin: .45rem 0 0;
+    padding: .5rem .5rem .5rem 1.45rem;
+    overflow-y: auto;
+    background: var(--bs-tertiary-bg);
+    border-radius: var(--bs-border-radius-sm);
+}
+
+.availability-analysis-blockers li strong,
+.availability-analysis-blockers li span {
+    display: block;
+}
+
+.availability-analysis-blockers li span {
+    color: var(--bs-secondary-color);
+}
+
+.availability-analysis-track {
+    --analysis-lanes: 1;
+    position: relative;
+    min-width: 0;
+    min-height: calc(.7rem + (var(--analysis-lanes) * 1.75rem));
+    overflow: hidden;
+    background: var(--bs-tertiary-bg);
+}
+
+.availability-analysis-gridline {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--bs-border-color);
+    opacity: .8;
+}
+
+.availability-analysis-empty {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    padding: 0 .65rem;
+    color: var(--bs-secondary-color);
+    font-size: .78rem;
+    font-style: italic;
+}
+
+.availability-analysis-segment {
+    --analysis-lane: 0;
+    position: absolute;
+    z-index: 3;
+    top: calc(.35rem + (var(--analysis-lane) * 1.75rem));
+    height: 1.4rem;
+    min-width: 2px;
+    overflow: hidden;
+    color: #fff;
+    border: 1px solid rgba(0, 0, 0, .15);
+    border-radius: .28rem;
+    font-size: .68rem;
+    font-weight: 700;
+    line-height: 1.25rem;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .12);
+}
+
+.availability-analysis-segment > span {
+    display: block;
+    padding: 0 .35rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.availability-analysis-segment:focus-visible {
+    z-index: 7;
+    outline: 3px solid rgba(var(--bs-primary-rgb), .45);
+    outline-offset: -1px;
+}
+
+.availability-analysis-row--result .availability-analysis-segment--available {
+    background: #198754;
+}
+
+.availability-analysis-row--result .availability-analysis-segment--blocked,
+.availability-analysis-row--appointment-type .availability-analysis-segment--blocked,
+.availability-analysis-row--required .availability-analysis-segment--blocked,
+.availability-analysis-row--required-group .availability-analysis-segment--blocked,
+.availability-analysis-row--required-alternative .availability-analysis-segment--blocked {
+    background: repeating-linear-gradient(135deg, #dc3545 0 7px, #bd2d3a 7px 11px);
+}
+
+.availability-analysis-row--appointment-type .availability-analysis-segment--available {
+    background: #0f6f8c;
+}
+
+.availability-analysis-row--required .availability-analysis-segment--available,
+.availability-analysis-row--required-group .availability-analysis-segment--available {
+    background: #0d6efd;
+}
+
+.availability-analysis-row--required-alternative .availability-analysis-segment--available {
+    background: #4f8ff7;
+}
+
+.availability-analysis-row--optional .availability-analysis-segment--available {
+    background: #6f42c1;
+}
+
+.availability-analysis-row--optional .availability-analysis-segment--blocked {
+    color: #32185f;
+    background: repeating-linear-gradient(135deg, #e2d9f3 0 7px, #c5b3e6 7px 11px);
+    border-color: #8c68cc;
+}
+
+.availability-analysis-row--organization .availability-analysis-segment--available {
+    background: #5c636a;
+}
+
+.availability-analysis-row--organization .availability-analysis-segment--blocked {
+    color: #332701;
+    background: repeating-linear-gradient(135deg, #ffe69c 0 7px, #ffda6a 7px 11px);
+    border-color: #d3a900;
+}
+
+.availability-analysis-row--activity .availability-analysis-segment--appointment {
+    background: #495057;
+}
+
+.availability-analysis-row--activity .availability-analysis-segment--hold {
+    color: #332701;
+    background: #f0ad4e;
+}
+
 .price-line {
     display: flex;
     justify-content: space-between;
@@ -679,6 +1053,10 @@ table.table {
 }
 
 @media (max-width: 767.98px) {
+    .availability-analysis-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .row > .field,
     .row.three > .field {
         width: 100%;

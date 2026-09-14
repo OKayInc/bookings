@@ -19,6 +19,7 @@ class AvailabilityPreviewRequest extends FormRequest
             'date' => ['nullable', 'date_format:Y-m-d'],
             'duration_value' => ['nullable', 'integer', 'min:1'],
             'timezone' => ['nullable', 'string', 'max:64', new IanaTimezone()],
+            'include_optional' => ['nullable', 'boolean'],
         ];
     }
 }

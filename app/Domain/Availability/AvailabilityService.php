@@ -250,8 +250,14 @@ class AvailabilityService
         return $busy;
     }
 
-    /** @return list<AvailabilityInterval> */
-    private function scheduleIntervals(
+    /**
+     * Resolve the effective UTC windows produced by a schedule, including its
+     * available and unavailable exceptions. Availability diagnostics use this
+     * method so the preview cannot drift from the booking engine.
+     *
+     * @return list<AvailabilityInterval>
+     */
+    public function scheduleIntervals(
         AvailabilitySchedule $schedule,
         CarbonImmutable $rangeStartUtc,
         CarbonImmutable $rangeEndUtc,

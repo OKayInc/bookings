@@ -1,6 +1,14 @@
-# Appointment Software — M9-R9
+# Appointment Software — M9-R10
 
-M9-R9 adds organization-level tax registration, multiple precise tax rates, tax-inclusive and tax-exclusive pricing, checkout subtotal/tax disclosure, and immutable booking tax snapshots. See `docs/CHANGES-M9-R9.md`, `docs/UPGRADE-M9-R8-TO-M9-R9.md`, and `docs/VERIFICATION-M9-R9.md`.
+M9-R10 adds a visual availability-analysis timeline to the backend preview, with explicit explanations for appointment-type and required-resource blockers plus opt-in purple rows for optional resources. See `docs/CHANGES-M9-R10.md`, `docs/UPGRADE-M9-R9-TO-M9-R10.md`, and `docs/VERIFICATION-M9-R10.md`.
+
+## M9-R10 visual availability analysis
+
+- The result row displays the authoritative start times returned by the booking availability engine.
+- Organization hours and activity, the selected appointment type, required resources, and one-of-N replacement groups appear on a shared day timeline.
+- Schedule gaps, holidays, bookings, holds, connected calendars, inactive configuration, seasonal limits, and equipment shortages have local-time explanations.
+- Optional resources can be added to the analysis without changing whether the base appointment is bookable; their rows use a distinct purple treatment.
+- Timeline segments are keyboard-focusable, blockers have expandable text lists, and the full day remains readable through horizontal scrolling on narrow screens.
 
 ## M9-R9 organization taxes
 

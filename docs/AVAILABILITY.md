@@ -93,6 +93,16 @@ For a requested UTC range:
 
 Booking-hold acquisition recalculates availability inside its transaction. Booking creation and rescheduling recheck both organization and snapshotted required-resource closures when consuming a hold. Existing group sessions are checked against their assigned resources. This ensures a stale browser result, crafted request, pre-existing group session, or hold created just before a closure was enabled cannot create or move a booking onto the closed date.
 
+## Operator availability analysis
+
+**Availability → Preview slots** renders an operator-facing timeline for the selected appointment type, date, duration, and booking timezone. The first row is always the authoritative result returned by `AvailabilityService`; explanatory rows reuse the same resolved schedule intervals and evaluate the same duration and buffers.
+
+The timeline includes organization default hours and organization activity for context, the effective appointment-type schedule, every directly required resource, and the aggregate plus individual members of each replacement group. Optional resources are excluded by default and can be included explicitly. Optional rows use a separate purple colour family and never contribute blockers to the base appointment. Resources that can become required through a questionnaire answer are described as conditional when optional rows are displayed.
+
+Blocked periods explain inactive or missing schedules, weekly hours and exceptions, seasonal limits, organization and resource holidays, scheduled appointments, unexpired holds, connected-calendar busy/fail-closed intervals, and quantity-managed equipment shortages. Shared-resource conflicts from another organization are identified without disclosing the other organization's appointment type.
+
+The coloured blocks represent possible **start-time ranges**, rather than the literal duration of existing events. The separate organization-activity row displays existing appointments and holds using their blocked intervals, including buffers.
+
 ## Why start interval is separate from duration
 
 A 60-minute service may reasonably begin every 15 minutes. Tying start times to duration would incorrectly restrict it to starts every 60 minutes.
