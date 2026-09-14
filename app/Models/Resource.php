@@ -46,7 +46,12 @@ class Resource extends Model
         static::saving(function (Resource $resource): void {
             if (($resource->type ?? 'person') === 'person') {
                 $resource->deposit_amount_minor = 0;
+
+                return;
             }
+
+            $resource->person_id = null;
+            $resource->timezone = null;
         });
 
         static::saved(function (Resource $resource): void {
@@ -54,7 +59,17 @@ class Resource extends Model
                 $resource->conditionalRequirementRules()->newPivotStatement()
                     ->where('resource_id', $resource->getKey())
                     ->update(['deposit_amount_minor' => 0]);
+
+                return;
             }
+
+            $resource->organizations()->newPivotStatement()
+                ->where('resource_id', $resource->getKey())
+                ->update([
+                    'enforce_holidays' => false,
+                    'holiday_region' => null,
+                    'updated_at' => now(),
+                ]);
         });
 
         static::created(function (Resource $resource): void {
@@ -101,6 +116,10 @@ class Resource extends Model
 
     public function holidaySettingsForOrganization(Organization $organization): array
     {
+        if ($this->type !== 'person') {
+            return ['enforce' => false, 'region' => null];
+        }
+
         $shared = $this->organizations()->whereKey($organization->getKey())->first();
 
         return [

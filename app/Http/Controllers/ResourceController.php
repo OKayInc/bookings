@@ -59,13 +59,17 @@ class ResourceController extends Controller
         $organization = $context->organization();
         $this->authorize('manageScheduling', $organization);
         $data = $request->validated();
-        $personKey = $this->personKey($data, $organization);
+        $isPerson = $data['type'] === 'person';
+        $personKey = $isPerson ? $this->personKey($data, $organization) : null;
+        $timezone = $isPerson ? ($data['timezone'] ?? null) : null;
+        $enforceHolidays = $isPerson && $request->boolean('enforce_holidays');
+        $holidayRegion = $isPerson ? ($data['holiday_region'] ?? null) : null;
         $quantityEnabled = $data['type'] === 'equipment' && $request->boolean('quantity_enabled');
         $depositMinor = ($data['default_deposit'] ?? '') === ''
             ? null
             : $money->parse((string) $data['default_deposit'], $organization->currency);
 
-        DB::transaction(function () use ($request, $organization, $data, $personKey, $quantityEnabled, $depositMinor): void {
+        DB::transaction(function () use ($request, $organization, $data, $personKey, $timezone, $enforceHolidays, $holidayRegion, $quantityEnabled, $depositMinor): void {
             $resource = Resource::create([
                 'organization_id' => $organization->getKey(),
                 'person_id' => $personKey,
@@ -74,12 +78,18 @@ class ResourceController extends Controller
                 'inventory_quantity' => $quantityEnabled ? (int) $data['inventory_quantity'] : 1,
                 'quantity_enabled' => $quantityEnabled,
                 'deposit_amount_minor' => $depositMinor,
-                'timezone' => $data['timezone'] ?? null,
+                'timezone' => $timezone,
                 'is_active' => $request->boolean('is_active', true),
                 'is_required_by_default' => ($data['default_requirement'] ?? 'required') === 'required',
             ]);
 
-            $this->syncSharedOrganizations($request, $resource, $organization);
+            $this->syncSharedOrganizations(
+                $request,
+                $resource,
+                $organization,
+                $enforceHolidays,
+                $holidayRegion,
+            );
         });
 
         return redirect()->route('resources.index')->with('success', 'Resource created.');
@@ -90,19 +100,22 @@ class ResourceController extends Controller
         $organization = $context->organization();
         $this->authorize('manageScheduling', $organization);
         abort_unless($resource->isAvailableToOrganization($organization), 404);
+        $isPerson = $resource->type === 'person';
 
         $data = $request->validate([
             'default_requirement' => ['required', 'in:required,optional'],
-            'enforce_holidays' => ['nullable', 'boolean'],
+            'enforce_holidays' => [Rule::excludeIf(! $isPerson), 'nullable', 'boolean'],
             'holiday_region' => [
-                Rule::requiredIf(fn (): bool => $request->boolean('enforce_holidays')),
+                Rule::excludeIf(! $isPerson),
+                Rule::requiredIf(fn (): bool => $isPerson && $request->boolean('enforce_holidays')),
                 'nullable',
                 'string',
                 Rule::in(array_keys(app(HolidayRegionCatalog::class)->options())),
             ],
         ]);
         $required = $data['default_requirement'] === 'required';
-        $enforceHolidays = $request->boolean('enforce_holidays');
+        $enforceHolidays = $isPerson && $request->boolean('enforce_holidays');
+        $holidayRegion = $isPerson ? ($data['holiday_region'] ?? null) : null;
         if ($required && $this->conditionalRuleUsesInheritedRequirement($resource, $organization)) {
             return back()->withErrors([
                 'default_requirement' => 'This resource must remain optional while an appointment question promotes it conditionally. Change those appointment assignments to explicitly optional before changing the organization default.',
@@ -112,7 +125,7 @@ class ResourceController extends Controller
         $resource->organizations()->updateExistingPivot($organization->getKey(), [
             'is_required_by_default' => $required,
             'enforce_holidays' => $enforceHolidays,
-            'holiday_region' => $data['holiday_region'] ?? null,
+            'holiday_region' => $holidayRegion,
             'updated_at' => now(),
         ]);
 
@@ -147,7 +160,11 @@ class ResourceController extends Controller
         $this->ensureOwned($resource, $organization);
         $this->authorize('manage', $resource);
         $data = $request->validated();
-        $personKey = $this->personKey($data, $organization);
+        $isPerson = $data['type'] === 'person';
+        $personKey = $isPerson ? $this->personKey($data, $organization) : null;
+        $timezone = $isPerson ? ($data['timezone'] ?? null) : null;
+        $enforceHolidays = $isPerson && $request->boolean('enforce_holidays');
+        $holidayRegion = $isPerson ? ($data['holiday_region'] ?? null) : null;
         $defaultRequired = ($data['default_requirement'] ?? 'required') === 'required';
         $quantityEnabled = $data['type'] === 'equipment' && $request->boolean('quantity_enabled');
         $depositMinor = ($data['default_deposit'] ?? '') === ''
@@ -165,7 +182,7 @@ class ResourceController extends Controller
             ]);
         }
 
-        DB::transaction(function () use ($request, $resource, $organization, $data, $personKey, $defaultRequired, $quantityEnabled, $depositMinor): void {
+        DB::transaction(function () use ($request, $resource, $organization, $data, $personKey, $timezone, $enforceHolidays, $holidayRegion, $defaultRequired, $quantityEnabled, $depositMinor): void {
             $resource->update([
                 'person_id' => $personKey,
                 'name' => $data['name'],
@@ -173,18 +190,24 @@ class ResourceController extends Controller
                 'inventory_quantity' => $quantityEnabled ? (int) $data['inventory_quantity'] : 1,
                 'quantity_enabled' => $quantityEnabled,
                 'deposit_amount_minor' => $depositMinor,
-                'timezone' => $data['timezone'] ?? null,
+                'timezone' => $timezone,
                 'is_active' => $request->boolean('is_active'),
                 'is_required_by_default' => $defaultRequired,
             ]);
 
             $resource->organizations()->updateExistingPivot($organization->getKey(), [
                 'is_required_by_default' => $defaultRequired,
-                'enforce_holidays' => $request->boolean('enforce_holidays'),
-                'holiday_region' => $data['holiday_region'] ?? null,
+                'enforce_holidays' => $enforceHolidays,
+                'holiday_region' => $holidayRegion,
                 'updated_at' => now(),
             ]);
-            $this->syncSharedOrganizations($request, $resource, $organization);
+            $this->syncSharedOrganizations(
+                $request,
+                $resource,
+                $organization,
+                $enforceHolidays,
+                $holidayRegion,
+            );
 
             $resource->appointmentTypes()
                 ->where('appointment_types.organization_id', $organization->getKey())
@@ -330,12 +353,19 @@ class ResourceController extends Controller
             ->exists();
     }
 
-    private function syncSharedOrganizations(StoreResourceRequest $request, Resource $resource, Organization $owner): void
+    private function syncSharedOrganizations(
+        StoreResourceRequest $request,
+        Resource $resource,
+        Organization $owner,
+        bool $enforceHolidays,
+        ?string $holidayRegion,
+    ): void
     {
+        $isPerson = $resource->type === 'person';
         $ownerSettings = [
             'is_required_by_default' => (bool) $resource->is_required_by_default,
-            'enforce_holidays' => $request->boolean('enforce_holidays'),
-            'holiday_region' => $request->input('holiday_region') ?: null,
+            'enforce_holidays' => $isPerson && $enforceHolidays,
+            'holiday_region' => $isPerson ? $holidayRegion : null,
         ];
 
         if (! $this->userOwnsOrganization($owner)) {
@@ -354,8 +384,8 @@ class ResourceController extends Controller
             $existing = $resource->organizations()->whereKey($organization->getKey())->first();
             $sync[$organization->getKey()] = [
                 'is_required_by_default' => (bool) ($existing?->pivot?->is_required_by_default ?? $resource->is_required_by_default),
-                'enforce_holidays' => (bool) ($existing?->pivot?->enforce_holidays ?? false),
-                'holiday_region' => $existing?->pivot?->holiday_region,
+                'enforce_holidays' => $isPerson && (bool) ($existing?->pivot?->enforce_holidays ?? false),
+                'holiday_region' => $isPerson ? $existing?->pivot?->holiday_region : null,
             ];
         }
 
@@ -364,7 +394,7 @@ class ResourceController extends Controller
 
     private function personKey(array $data, Organization $organization): mixed
     {
-        if (empty($data['person_uuid'])) {
+        if (($data['type'] ?? null) !== 'person' || empty($data['person_uuid'])) {
             return null;
         }
 
