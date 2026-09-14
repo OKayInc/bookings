@@ -68,7 +68,7 @@
     <section id="who-we-are" aria-labelledby="who-we-are-title">
         <h2 class="h3" id="who-we-are-title">1. Who we are</h2>
         <p>
-            Appointment.to is an online booking service based in Cornwall, Ontario, Canada ("Appointment.to," "we," "us," or "our"). This Policy applies to the Appointment.to website, applications, booking pages, application programming interfaces, communications, and integrations that link to it (the "Service").
+            Appointment.to is an online booking service of OKay Inc, based in Cornwall, Ontario, Canada ("Appointment.to," "OKay Inc," "we," "us," or "our"). This Policy applies to the Appointment.to website, applications, booking pages, application programming interfaces, communications, and integrations that link to it (the "Service").
         </p>
         <p>Privacy questions, requests, and complaints may be sent to our Privacy Officer at <a href="mailto:privacy@appointment.to">privacy@appointment.to</a>.</p>
     </section>
@@ -215,7 +215,7 @@
             We may send operational communications such as verification messages, booking notices, reminders, receipts, security alerts, policy updates, and support replies. These are part of providing the Service and may continue while an account or booking remains active.
         </p>
         <p>
-            Where permitted, we may send Appointment.to product news or offers using contact information supplied directly to us. Recipients may unsubscribe using the message link or contact us. We do not use Google or Microsoft API data to determine or deliver marketing.
+            Where permitted, we may send OKay Inc's product news or offers using contact information supplied directly to us. Recipients may unsubscribe using the message link or contact us. We do not use Google or Microsoft API data to determine or deliver marketing.
         </p>
     </section>
 
@@ -229,7 +229,7 @@
     <section id="international-processing" aria-labelledby="international-processing-title">
         <h2 class="h3" id="international-processing-title">12. International processing</h2>
         <p>
-            Appointment.to is based in Canada. We and our service providers may process information in Canada, the United States, and other countries where privacy laws may differ. We use contractual, organizational, and technical safeguards required for applicable transfers, but information may be accessible to courts, law enforcement, or national-security authorities under local law.
+            Appointment.to, a service of OKay Inc, is based in Canada. We and our service providers may process information in Canada, the United States, and other countries where privacy laws may differ. We use contractual, organizational, and technical safeguards required for applicable transfers, but information may be accessible to courts, law enforcement, or national-security authorities under local law.
         </p>
     </section>
 
@@ -313,7 +313,7 @@
         <h2 class="h3" id="contact-title">21. Contact us</h2>
         <address class="card border-0 shadow-sm">
             <div class="card-body">
-                <p class="fw-semibold mb-1">Privacy Officer</p>
+                <p class="fw-semibold mb-1">Privacy Officer of OKay Inc</p>
                 <p class="mb-1">Appointment.to</p>
                 <p class="mb-1">Cornwall, Ontario, Canada</p>
                 <p class="mb-3"><a href="mailto:privacy@appointment.to">privacy@appointment.to</a></p>
