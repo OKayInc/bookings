@@ -74,7 +74,7 @@
     <section id="agreement" aria-labelledby="agreement-title">
         <h2 class="h3" id="agreement-title">1. Agreement and scope</h2>
         <p>
-            These Terms and Conditions ("Terms") form a binding agreement between you and Appointment.to ("Appointment.to," "we," "us," or "our") regarding your access to and use of the Appointment.to website, applications, booking pages, application programming interfaces, communications, and integrations that link to these Terms (collectively, the "Service").
+            These Terms and Conditions ("Terms") form a binding agreement between you and OKay Inc. ("OKay Inc.," "we," "us," or "our") regarding your access to and use of Appointment.to, including its website, applications, booking pages, application programming interfaces, communications, and integrations that link to these Terms (collectively, the "Service").
         </p>
         <p>
             These Terms apply to visitors, account holders, Organizations, their personnel, Clients, attendees, and anyone else who accesses or uses the Service. Additional written terms may apply to a paid plan, integration, feature, order, or enterprise arrangement. If additional terms conflict with these Terms, the additional terms control only for their subject matter.
@@ -88,7 +88,7 @@
             <li><strong>"Client"</strong> means a person who views a booking page or requests, purchases, attends, manages, cancels, or reschedules a booking.</li>
             <li><strong>"User"</strong> or <strong>"you"</strong> means any person or entity accessing or using the Service, including an Organization or Client.</li>
             <li><strong>"User Content"</strong> means information or material submitted, uploaded, transmitted, displayed, or made available by a User through the Service.</li>
-            <li><strong>"Third-Party Service"</strong> means a product or service not controlled by Appointment.to, including calendar, identity, payment, tax, messaging, video-conferencing, mapping, hosting, and communications providers.</li>
+            <li><strong>"Third-Party Service"</strong> means a product or service not controlled by OKay Inc., including calendar, identity, payment, tax, messaging, video-conferencing, mapping, hosting, and communications providers.</li>
         </ul>
     </section>
 
@@ -105,10 +105,10 @@
     <section id="platform-role" aria-labelledby="platform-role-title">
         <h2 class="h3" id="platform-role-title">4. Our platform role</h2>
         <p>
-            Appointment.to supplies scheduling and related technology. Unless we expressly identify ourselves as the provider of a particular offering, we do not provide, supervise, recommend, endorse, control, or guarantee any service, activity, product, venue, professional, Organization, Client, or other User appearing through the Service.
+            OKay Inc. provides Appointment.to as scheduling and related technology. Unless we expressly identify OKay Inc. as the provider of a particular offering, we do not provide, supervise, recommend, endorse, control, or guarantee any service, activity, product, venue, professional, Organization, Client, or other User appearing through the Service.
         </p>
         <p>
-            Organizations are independent from Appointment.to. Appointment.to is not their employer, partner, joint venturer, agent, insurer, licensor, credentialing body, or professional regulator. A booking can create a contract directly between an Organization and a Client; Appointment.to is not a party to that contract.
+            Organizations are independent from OKay Inc. OKay Inc. is not their employer, partner, joint venturer, agent, insurer, licensor, credentialing body, or professional regulator. A booking can create a contract directly between an Organization and a Client; OKay Inc. is not a party to that contract.
         </p>
         <p>
             We do not verify every identity, qualification, licence, certification, insurance policy, background, facility, description, availability statement, price, health or safety practice, or legal compliance claim. Any verification or badge shown by the Service is limited to what it expressly states and is not a warranty.
@@ -118,7 +118,7 @@
     <section id="voluntary-use" aria-labelledby="voluntary-use-title">
         <h2 class="h3" id="voluntary-use-title">5. Voluntary Use and Assumption of Risk</h2>
         <p class="fw-semibold">
-            Your use of the Service and your decision to request, offer, attend, host, perform, cancel, or rely on any booking are voluntary. No Appointment.to party requires you to use the Service or participate in an appointment or activity.
+            Your use of the Service and your decision to request, offer, attend, host, perform, cancel, or rely on any booking are voluntary. Neither OKay Inc. nor anyone acting on its behalf requires you to use the Service or participate in an appointment or activity.
         </p>
         <p>
             To the maximum extent permitted by law, you knowingly accept and assume the risks arising from your choices, conduct, User Content, bookings, communications, transactions, travel, locations, equipment, instructions, interactions with other Users, and use of services arranged through the platform. These risks may include inconvenience, scheduling conflicts, data loss, financial loss, property damage, illness, personal injury, emotional distress, disability, or death.
@@ -153,7 +153,7 @@
             <li>resolving complaints, no-shows, cancellations, refunds, chargebacks, injuries, losses, disputes, and claims relating to its offerings.</li>
         </ul>
         <p>
-            An Organization must not present Appointment.to as the provider, guarantor, insurer, certifier, or endorser of its services.
+            An Organization must not present OKay Inc. or the Appointment.to Service as the provider, guarantor, insurer, certifier, or endorser of the Organization's services.
         </p>
     </section>
 
@@ -175,7 +175,7 @@
             A booking request is subject to availability, Organization acceptance, payment requirements, confirmation rules, and any additional terms shown during the booking process. Automated confirmation does not guarantee that an Organization will perform an offering if it is unlawful, unsafe, unavailable, incorrectly described, or affected by circumstances beyond reasonable control.
         </p>
         <p>
-            Organizations may present their own contracts, waivers, questionnaires, and policies. Those materials are provided by the Organization, not Appointment.to. Appointment.to does not give legal advice or determine whether Organization terms are valid, sufficient, fair, or enforceable.
+            Organizations may present their own contracts, waivers, questionnaires, and policies. Those materials are provided by the Organization, not OKay Inc. OKay Inc. does not give legal advice or determine whether Organization terms are valid, sufficient, fair, or enforceable.
         </p>
         <p>
             Users are responsible for keeping their own records. Calendar events, emails, reminders, tickets, and platform status indicators are conveniences and may be delayed, filtered, duplicated, altered, or unavailable. Users must verify important details directly with the relevant Organization.
@@ -188,20 +188,20 @@
             An Organization controls the prices, deposits, retainers, taxes, fees, coupons, gift cards, cancellation charges, and refund rules for its offerings unless the Service expressly states otherwise. The Organization is responsible for required tax registration, calculation, collection, remittance, invoices, and records.
         </p>
         <p>
-            Payments may be processed by a Third-Party Service under its own terms. Appointment.to does not receive or store complete payment-card credentials when they are collected directly by that provider. Authorization, settlement, currency conversion, disputes, reserves, reversals, chargebacks, or provider outages may affect a transaction.
+            Payments may be processed by a Third-Party Service under its own terms. OKay Inc. does not receive or store complete payment-card credentials when they are collected directly by that provider. Authorization, settlement, currency conversion, disputes, reserves, reversals, chargebacks, or provider outages may affect a transaction.
         </p>
         <p>
-            Except where Appointment.to is expressly identified as the seller, payment facilitator, or merchant of record, payment for an offering is made to the Organization and refund obligations belong to the Organization. Platform subscription or usage fees paid directly to Appointment.to are governed by the applicable plan or order and are non-refundable except as stated there or required by law.
+            Except where OKay Inc. is expressly identified as the seller, payment facilitator, or merchant of record, payment for an offering is made to the Organization and refund obligations belong to the Organization. Platform subscription or usage fees paid directly to OKay Inc. are governed by the applicable plan or order and are non-refundable except as stated there or required by law.
         </p>
     </section>
 
     <section id="integrations" aria-labelledby="integrations-title">
         <h2 class="h3" id="integrations-title">11. Calendars, OAuth, and other integrations</h2>
         <p>
-            You may choose to connect Google, Microsoft, or another Third-Party Service. By doing so, you authorize Appointment.to to access and use the permitted account and calendar information to provide the requested feature, such as sign-in, calendar selection, availability checks, conflict prevention, and creation, updating, or deletion of Appointment.to-related events.
+            You may choose to connect Google, Microsoft, or another Third-Party Service. By doing so, you authorize OKay Inc. to access and use the permitted account and calendar information through Appointment.to to provide the requested feature, such as sign-in, calendar selection, availability checks, conflict prevention, and creation, updating, or deletion of Appointment.to-related events.
         </p>
         <p>
-            You are responsible for selecting the correct account and calendars, maintaining required third-party permissions, and reviewing synchronization results. Provider delays, revoked permissions, rate limits, duplicate events, time-zone settings, recurring-event behaviour, or inaccurate source data can cause conflicts or missed updates. Appointment.to does not guarantee that an integration will be uninterrupted or error-free.
+            You are responsible for selecting the correct account and calendars, maintaining required third-party permissions, and reviewing synchronization results. Provider delays, revoked permissions, rate limits, duplicate events, time-zone settings, recurring-event behaviour, or inaccurate source data can cause conflicts or missed updates. OKay Inc. does not guarantee that an integration will be uninterrupted or error-free.
         </p>
         <p>
             You may disconnect an integration through available settings and may also revoke access with the provider. Our handling of Google and Microsoft API data is described in the <a href="{{ route('legal.privacy') }}">Privacy Policy</a>.
@@ -221,7 +221,7 @@
     <section id="content" aria-labelledby="content-title">
         <h2 class="h3" id="content-title">13. User Content and data</h2>
         <p>
-            You retain ownership of your User Content. You grant Appointment.to a worldwide, non-exclusive, royalty-free licence to host, store, reproduce, process, adapt, transmit, display, and otherwise use User Content only as reasonably necessary to operate, secure, support, and improve the Service; follow your instructions; enforce these Terms; and comply with law.
+            You retain ownership of your User Content. You grant OKay Inc. a worldwide, non-exclusive, royalty-free licence to host, store, reproduce, process, adapt, transmit, display, and otherwise use User Content through the Service only as reasonably necessary to operate, secure, support, and improve the Service; follow your instructions; enforce these Terms; and comply with law.
         </p>
         <p>
             You represent that you have all rights, authority, notices, and consents required to submit User Content and permit its processing. Do not submit unnecessary sensitive information, passwords, government identification numbers, complete payment-card numbers, unlawful content, malware, or information you are not authorized to disclose.
@@ -251,7 +251,7 @@
     <section id="intellectual-property" aria-labelledby="intellectual-property-title">
         <h2 class="h3" id="intellectual-property-title">15. Appointment.to intellectual property</h2>
         <p>
-            The Service, including its software, design, documentation, trademarks, logos, and content supplied by Appointment.to, is owned by Appointment.to or its licensors and protected by intellectual-property laws. Subject to these Terms, we grant you a limited, revocable, non-exclusive, non-transferable right to access and use the Service for its intended purpose.
+            The Service, including its software, design, documentation, trademarks, logos, and content supplied by Appointment.to, is owned by OKay Inc. or its licensors and protected by intellectual-property laws. Subject to these Terms, we grant you a limited, revocable, non-exclusive, non-transferable right to access and use the Service for its intended purpose.
         </p>
         <p>
             Feedback may be used without restriction or compensation, provided we do not identify you as its source without permission. No rights are granted except those expressly stated.
@@ -261,14 +261,14 @@
     <section id="privacy" aria-labelledby="privacy-title">
         <h2 class="h3" id="privacy-title">16. Privacy</h2>
         <p>
-            Our <a href="{{ route('legal.privacy') }}">Privacy Policy</a> explains how Appointment.to handles personal information and Google and Microsoft API data. Organizations may have separate privacy notices and are responsible for information they control. Review the relevant notices before submitting personal information.
+            Our <a href="{{ route('legal.privacy') }}">Privacy Policy</a> explains how OKay Inc. handles personal information and Google and Microsoft API data through Appointment.to. Organizations may have separate privacy notices and are responsible for information they control. Review the relevant notices before submitting personal information.
         </p>
     </section>
 
     <section id="third-parties" aria-labelledby="third-parties-title">
         <h2 class="h3" id="third-parties-title">17. Third-party services and links</h2>
         <p>
-            The Service may link to or interoperate with Third-Party Services. Appointment.to does not control and is not responsible for their availability, accuracy, security, content, fees, decisions, acts, omissions, or data practices. Your use of them is governed by their own terms and may require a separate account. Enabling an integration authorizes the exchange of information needed to provide it.
+            The Service may link to or interoperate with Third-Party Services. OKay Inc. does not control and is not responsible for their availability, accuracy, security, content, fees, decisions, acts, omissions, or data practices. Your use of them is governed by their own terms and may require a separate account. Enabling an integration authorizes the exchange of information needed to provide it.
         </p>
     </section>
 
@@ -285,10 +285,10 @@
     <section id="disclaimers" aria-labelledby="disclaimers-title">
         <h2 class="h3" id="disclaimers-title">19. Disclaimers of warranties</h2>
         <p class="fw-semibold text-uppercase">
-            To the maximum extent permitted by law, the Service is provided "as is" and "as available." Appointment.to and its owners, directors, officers, employees, contractors, affiliates, licensors, and service providers (collectively, the "Appointment.to Parties") disclaim all express, implied, statutory, and collateral warranties and conditions, including merchantability, fitness for a particular purpose, title, non-infringement, accuracy, availability, security, quiet enjoyment, and any warranty arising from course of dealing or usage of trade.
+            To the maximum extent permitted by law, the Service is provided "as is" and "as available." OKay Inc. and its owners, directors, officers, employees, contractors, affiliates, licensors, and service providers (collectively, the "OKay Inc. Parties") disclaim all express, implied, statutory, and collateral warranties and conditions, including merchantability, fitness for a particular purpose, title, non-infringement, accuracy, availability, security, quiet enjoyment, and any warranty arising from course of dealing or usage of trade.
         </p>
         <p>
-            The Appointment.to Parties do not warrant that the Service, a booking, an Organization, a Client, an offering, User Content, a calendar result, a payment, or a Third-Party Service will be safe, suitable, lawful, accurate, complete, timely, available, successful, profitable, error-free, or free from harmful components. Information provided through the Service is general operational information and is not medical, legal, financial, tax, insurance, safety, or other professional advice.
+            The OKay Inc. Parties do not warrant that the Service, a booking, an Organization, a Client, an offering, User Content, a calendar result, a payment, or a Third-Party Service will be safe, suitable, lawful, accurate, complete, timely, available, successful, profitable, error-free, or free from harmful components. Information provided through the Service is general operational information and is not medical, legal, financial, tax, insurance, safety, or other professional advice.
         </p>
         <p>
             Some jurisdictions do not allow the exclusion of certain warranties or consumer rights. In that case, the exclusions apply only to the fullest extent permitted, and non-waivable rights remain unaffected.
@@ -298,20 +298,20 @@
     <section id="release" aria-labelledby="release-title">
         <h2 class="h3" id="release-title">20. Release regarding Users and third parties</h2>
         <p>
-            To the maximum extent permitted by law, you release and discharge the Appointment.to Parties from claims, demands, damages, losses, and liabilities arising from or relating to: dealings or disputes between Users; an Organization's offering, premises, personnel, equipment, policies, advice, representations, or performance; a Client's conduct, information, attendance, or non-attendance; or a Third-Party Service.
+            To the maximum extent permitted by law, you release and discharge the OKay Inc. Parties from claims, demands, damages, losses, and liabilities arising from or relating to: dealings or disputes between Users; an Organization's offering, premises, personnel, equipment, policies, advice, representations, or performance; a Client's conduct, information, attendance, or non-attendance; or a Third-Party Service.
         </p>
         <p>
-            This release does not apply to a claim caused directly by an Appointment.to Party to the extent the claim cannot lawfully be released. You waive any law that would limit a general release to claims known or suspected at the time of release, but only where that waiver is lawful and effective.
+            This release does not apply to a claim caused directly by an OKay Inc. Party to the extent the claim cannot lawfully be released. You waive any law that would limit a general release to claims known or suspected at the time of release, but only where that waiver is lawful and effective.
         </p>
     </section>
 
     <section id="liability" aria-labelledby="liability-title">
         <h2 class="h3" id="liability-title">21. Limitation of Liability</h2>
         <p class="fw-semibold text-uppercase">
-            To the maximum extent permitted by law, the Appointment.to Parties will not be liable for any indirect, incidental, special, exemplary, punitive, aggravated, or consequential loss or damage; loss of profits, revenue, business, opportunity, goodwill, data, or anticipated savings; service interruption; substitute services; personal decisions; or claims by another person, whether arising in contract, tort (including negligence), statute, strict liability, equity, or otherwise, even if advised that the loss was possible.
+            To the maximum extent permitted by law, the OKay Inc. Parties will not be liable for any indirect, incidental, special, exemplary, punitive, aggravated, or consequential loss or damage; loss of profits, revenue, business, opportunity, goodwill, data, or anticipated savings; service interruption; substitute services; personal decisions; or claims by another person, whether arising in contract, tort (including negligence), statute, strict liability, equity, or otherwise, even if advised that the loss was possible.
         </p>
         <p class="fw-semibold text-uppercase">
-            To the maximum extent permitted by law, the aggregate liability of all Appointment.to Parties for all claims arising out of or relating to the Service or these Terms will not exceed the greater of: (a) CAD $100; or (b) the amount you paid directly to Appointment.to for the Service during the 12 months immediately before the event giving rise to the first claim.
+            To the maximum extent permitted by law, the aggregate liability of all OKay Inc. Parties for all claims arising out of or relating to the Service or these Terms will not exceed the greater of: (a) CAD $100; or (b) the amount you paid directly to OKay Inc. for the Service during the 12 months immediately before the event giving rise to the first claim.
         </p>
         <p>
             These limitations allocate risk between the parties and apply to the Service even if a limited remedy fails of its essential purpose. They do not limit liability for fraud, wilful misconduct, gross negligence, death or personal injury caused by negligence, or any other liability to the extent it cannot be limited under applicable law.
@@ -321,7 +321,7 @@
     <section id="indemnity" aria-labelledby="indemnity-title">
         <h2 class="h3" id="indemnity-title">22. Indemnification</h2>
         <p>
-            To the maximum extent permitted by law, you will defend, indemnify, and hold harmless the Appointment.to Parties from third-party claims, proceedings, damages, judgments, losses, liabilities, costs, and reasonable legal fees arising from or relating to:
+            To the maximum extent permitted by law, you will defend, indemnify, and hold harmless the OKay Inc. Parties from third-party claims, proceedings, damages, judgments, losses, liabilities, costs, and reasonable legal fees arising from or relating to:
         </p>
         <ul>
             <li>your access to or use of the Service, User Content, booking pages, offerings, bookings, communications, or transactions;</li>
@@ -331,7 +331,7 @@
             <li>a dispute between you and another User or Third-Party Service.</li>
         </ul>
         <p>
-            You have no obligation to indemnify an Appointment.to Party for a claim to the extent finally determined to have resulted from that party's own conduct for which indemnification cannot lawfully be required. We may control the defence and settlement of an indemnified claim, and you will provide reasonable cooperation. You may not settle a claim in a way that admits wrongdoing by or imposes an obligation on an Appointment.to Party without our written consent.
+            You have no obligation to indemnify an OKay Inc. Party for a claim to the extent finally determined to have resulted from that party's own conduct for which indemnification cannot lawfully be required. We may control the defence and settlement of an indemnified claim, and you will provide reasonable cooperation. You may not settle a claim in a way that admits wrongdoing by or imposes an obligation on an OKay Inc. Party without our written consent.
         </p>
     </section>
 
@@ -373,7 +373,7 @@
             <li><strong>No waiver:</strong> A failure to enforce a provision is not a waiver.</li>
             <li><strong>Assignment:</strong> You may not assign these Terms without our written consent. We may assign them as part of a reorganization, financing, merger, acquisition, asset transfer, or operation of the Service, subject to law.</li>
             <li><strong>Force majeure:</strong> We are not responsible for delay or failure caused by events beyond reasonable control, including internet or utility failures, labour disputes, disasters, epidemics, war, civil disorder, government action, cyberattack, or provider failure.</li>
-            <li><strong>No third-party beneficiaries:</strong> Except for the Appointment.to Parties entitled to rely on protections stated for them, these Terms do not create rights for another person.</li>
+            <li><strong>No third-party beneficiaries:</strong> Except for the OKay Inc. Parties entitled to rely on protections stated for them, these Terms do not create rights for another person.</li>
             <li><strong>Language:</strong> The parties request that these Terms and related documents be drawn up in English. Les parties demandent que les présentes modalités et les documents qui s'y rattachent soient rédigés en anglais.</li>
         </ul>
     </section>
@@ -382,7 +382,7 @@
         <h2 class="h3" id="contact-title">27. Contact</h2>
         <address class="card border-0 shadow-sm">
             <div class="card-body">
-                <p class="fw-semibold mb-1">Appointment.to</p>
+                <p class="fw-semibold mb-1">OKay Inc.</p>
                 <p class="mb-1">Cornwall, Ontario, Canada</p>
                 <p class="mb-3"><a href="mailto:privacy@appointment.to">privacy@appointment.to</a></p>
                 <p class="small text-secondary mb-0">
