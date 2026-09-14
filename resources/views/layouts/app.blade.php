@@ -127,7 +127,10 @@
 <footer class="border-top bg-white py-3 mt-auto">
     <div class="container-xl d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 small text-secondary">
         <span>&copy; {{ now()->year }} {{ config('app.name') }}</span>
-        <a href="{{ route('legal.privacy') }}">Privacy Policy</a>
+        <nav class="d-flex gap-3" aria-label="Legal">
+            <a href="{{ route('legal.terms') }}">Terms &amp; Conditions</a>
+            <a href="{{ route('legal.privacy') }}">Privacy Policy</a>
+        </nav>
     </div>
 </footer>
 
