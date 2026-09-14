@@ -61,6 +61,6 @@ $resourceUnavailable=array_key_exists($question->uuid,$resourceUnavailableDefaul
 
 @if($hasQuestions || $hasShortNoticeFees || $type->pricing_mode->value === 'per_attendee')
 <div class="section-card" id="questionnaire-price-card">
-<h2>Price</h2><div id="questionnaire-price-lines"></div><p><strong>Total: <span id="questionnaire-total">Calculating…</span></strong></p><p class="muted">The server recalculates the total when the booking is submitted.</p>
+<h2>Price</h2><div id="questionnaire-price-lines"></div><div class="price-line total"><span>Total</span><strong id="questionnaire-total">Calculating…</strong></div><p class="muted">The server recalculates the total when the booking is submitted.</p>
 </div>
 @endif

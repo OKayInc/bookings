@@ -6,6 +6,16 @@ use Tests\TestCase;
 
 class BladeCompilationTest extends TestCase
 {
+    public function test_checkout_price_total_uses_the_price_line_alignment(): void
+    {
+        $view = file_get_contents(resource_path('views/public/bookings/partials/questionnaire.blade.php'));
+
+        $this->assertStringContainsString(
+            '<div class="price-line total"><span>Total</span><strong id="questionnaire-total">',
+            $view,
+        );
+    }
+
     public function test_numeric_constraint_editor_and_checkout_views_compile(): void
     {
         foreach ([
