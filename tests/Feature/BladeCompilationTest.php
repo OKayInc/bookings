@@ -53,6 +53,7 @@ class BladeCompilationTest extends TestCase
             'admin/health.blade.php',
             'gallery/manage.blade.php',
             'gallery/public-grid.blade.php',
+            'home.blade.php',
             'legal/privacy.blade.php',
             'layouts/app.blade.php',
             'layouts/public.blade.php',

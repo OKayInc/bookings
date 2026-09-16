@@ -12,7 +12,7 @@ class PrivacyPolicyTest extends TestCase
             ->assertOk()
             ->assertSee('Privacy Policy')
             ->assertSee('Appointment.to is an online booking service of OKay Inc')
-            ->assertSee("OKay Inc's product news or offers")
+            ->assertSee("OKay Inc's product news or offers", false)
             ->assertSee('Appointment.to, a service of OKay Inc, is based in Canada')
             ->assertSee('Privacy Officer of OKay Inc')
             ->assertSee('Google Workspace scopes')

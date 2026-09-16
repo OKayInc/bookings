@@ -19,7 +19,7 @@
         @isset($organization)
             <a class="navbar-brand fw-semibold text-truncate d-flex align-items-center gap-2" href="{{ route('public.appointment-types.index', $organization->slug) }}">@if($organization->logo_url)<img src="{{ $organization->logo_url }}" alt="{{ $organization->name }} logo" style="height:32px;width:auto;max-width:120px;object-fit:contain">@endif<span>{{ $organization->name }}</span></a>
         @else
-            <span class="navbar-brand fw-semibold mb-0">{{ config('app.name') }}</span>
+            <a class="navbar-brand fw-semibold" href="{{ route('home') }}">{{ config('app.name') }}</a>
         @endisset
     </div>
 </nav>

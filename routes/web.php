@@ -40,7 +40,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => redirect()->route('login'));
+Route::view('/', 'home')->name('home');
 
 Route::view('/a/privacy.html', 'legal.privacy')->name('legal.privacy');
 Route::view('/a/terms.html', 'legal.terms')->name('legal.terms');
