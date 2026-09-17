@@ -26,6 +26,13 @@
     </div>
 </div>
 
+<?php if ($booking->appointment->ticketing_enabled && $booking->appointment->event_location): ?>
+<div class="card">
+    <h2>Event location</h2>
+    <p><?= nl2br(e(app(\App\Domain\Tickets\EventLocationDisclosureService::class)->attendeeLabel($booking))) ?></p>
+</div>
+<?php endif; ?>
+
 <?php if ($booking->deposit_minor > 0): ?>
 <div class="card">
     <h2>Refundable resource deposit</h2>
@@ -94,7 +101,7 @@ $mayPay = $activeBooking && $paymentAmount > 0
     <?php endif; ?>
 </div>
 
-<?php if ($booking->tickets->isNotEmpty()): ?>
+<?php if ($booking->tickets->isNotEmpty() && $booking->status->value === 'confirmed'): ?>
 <div class="card">
     <h2>Your tickets</h2>
     <p>Each attendee has an individual ticket. Open and print each ticket or show its barcode at admission.</p>
@@ -115,6 +122,8 @@ $mayPay = $activeBooking && $paymentAmount > 0
         <p class="muted">Reserved tickets become valid automatically when the booking reaches Confirmed status.</p>
     <?php endif; ?>
 </div>
+<?php elseif ($booking->requires_event_approval && $booking->status->value === 'pending_event_approval'): ?>
+<div class="card"><h2>Your tickets</h2><p class="muted">Your request is waiting for the event coordinator. QR-code tickets will appear here only if your request is accepted.</p></div>
 <?php endif; ?>
 
 <?php if ($booking->appointment->meeting_provider && !in_array($booking->status->value, ['cancelled', 'declined'], true)): ?>

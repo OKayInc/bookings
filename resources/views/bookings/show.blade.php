@@ -8,6 +8,9 @@
     <div class="card"><h3>{{ $booking->appointment->ticketing_enabled ? 'Event schedule' : 'Schedule' }}</h3>@if($booking->appointment->ticketing_enabled)<p><strong>Doors open:</strong> {{ $booking->appointment->starts_at_utc->setTimezone($booking->booking_timezone)->format('D, M j Y · g:i A') }}<br><strong>Show starts:</strong> {{ $booking->appointment->show_starts_at_utc->setTimezone($booking->booking_timezone)->format('D, M j Y · g:i A') }}@if($booking->appointment->show_ends_at_utc)<br><strong>Show ends:</strong> {{ $booking->appointment->show_ends_at_utc->setTimezone($booking->booking_timezone)->format('D, M j Y · g:i A') }}@endif<br><span class="muted">Resource booking ends {{ $booking->appointment->ends_at_utc->setTimezone($booking->booking_timezone)->format('g:i A') }}</span></p>@else<p>{{ $booking->appointment->starts_at_utc->setTimezone($booking->booking_timezone)->format('D, M j Y · g:i A') }} – {{ $booking->appointment->ends_at_utc->setTimezone($booking->booking_timezone)->format('g:i A') }}</p>@endif<p class="muted">Client: {{ $booking->booking_timezone }}</p></div>
     <div class="card"><h3>Price</h3><p>{{ app(\App\Domain\Money\MoneyService::class)->format($booking->price_minor, $booking->currency) }}</p><p>{{ $booking->attendee_count }} attendee(s)</p></div>
 </div>
+@if($booking->appointment->ticketing_enabled && $booking->appointment->event_location)
+<div class="card"><h2>Event location</h2><p>{!! nl2br(e($booking->appointment->event_location)) !!}</p><p class="muted">Attendee disclosure: {{ $booking->appointment->location_disclosure_mode->label() }}@if($booking->appointment->location_disclosure_mode === \App\Enums\LocationDisclosureMode::HoursBeforeEvent) · {{ $booking->appointment->location_disclosure_hours }} hours before show start @endif</p></div>
+@endif
 
 @php
     $money = app(\App\Domain\Money\MoneyService::class);
@@ -263,6 +266,31 @@ document.querySelectorAll('[data-deposit-refund-form]').forEach((form) => {
 @endif
 
 @include('bookings.partials.questionnaire-answers')
+
+@if($booking->requires_event_approval)
+<div class="card">
+    <h2>Private event admission</h2>
+    <p class="muted">Review the questionnaire answers above before deciding. The first coordinator decision is final.</p>
+    <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Coordinator</th><th>Email</th><th>Delivery</th><th>Response</th></tr></thead><tbody>
+    @foreach($booking->eventAdmissionApprovals as $approvalRow)<tr><td>{{ $approvalRow->coordinator?->full_name ?? 'Coordinator' }}</td><td>{{ $approvalRow->recipient_email }}</td><td>{{ $approvalRow->notification_sent_at_utc ? 'Sent' : 'Not sent' }}</td><td>{{ $approvalRow->status->label() }}</td></tr>@endforeach
+    </tbody></table></div>
+    @php
+        $decision = $booking->eventAdmissionApprovals->first(fn ($item) => in_array($item->status->value, ['accepted', 'declined'], true));
+        $pendingApproval = $booking->eventAdmissionApprovals->first(fn ($item) => $item->status->value === 'pending');
+    @endphp
+    @if($decision)
+        <p><span class="badge">{{ $decision->status->label() }}</span> @if($decision->respondedBy)by {{ $decision->respondedBy->full_name }}@endif @if($decision->responded_at_utc)on {{ $decision->responded_at_utc->setTimezone($booking->organization->timezone)->format('D, M j Y · g:i A') }}@endif</p>
+        @if($decision->response_note)<p><strong>Internal note:</strong> {{ $decision->response_note }}</p>@endif
+    @elseif($pendingApproval && $canManage)
+        <form method="post" action="{{ route('bookings.event-admission.respond', [$booking, $pendingApproval]) }}">@csrf
+            <div class="field"><label for="event_approval_note">Internal decision note (optional)</label><textarea id="event_approval_note" name="response_note" maxlength="5000"></textarea></div>
+            <div class="actions"><button class="btn btn-primary" name="action" value="accepted">Accept and issue tickets</button><button class="btn btn-danger" name="action" value="declined">Decline request</button></div>
+        </form>
+    @else
+        <p class="muted">Awaiting a coordinator decision.</p>
+    @endif
+</div>
+@endif
 
 @if($booking->requires_resource_confirmation)
 <div class="card">

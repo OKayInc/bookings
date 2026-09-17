@@ -13,6 +13,7 @@ use App\Enums\PricingMode;
 use App\Enums\SeasonRecurrence;
 use App\Enums\TicketSeatingScheme;
 use App\Models\AppointmentType;
+use App\Domain\Tickets\EventLocationDisclosureService;
 
 class AppointmentTypeSummaryService
 {
@@ -129,6 +130,9 @@ class AppointmentTypeSummaryService
 
     public function location(AppointmentType $type): string
     {
+        if ($type->ticketing_enabled) {
+            return app(EventLocationDisclosureService::class)->publicLabel($type);
+        }
         if (! $type->is_online || $type->meeting_provider === null) {
             return 'In person or arranged by the organization';
         }

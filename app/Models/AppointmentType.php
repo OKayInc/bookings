@@ -15,6 +15,7 @@ use App\Enums\PaymentCollectionMode;
 use App\Enums\RetainerType;
 use App\Enums\SeasonRecurrence;
 use App\Enums\TicketSeatingScheme;
+use App\Enums\LocationDisclosureMode;
 use App\Models\Concerns\HasBinaryUuid;
 use App\Support\Html\RichTextSanitizer;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -41,6 +42,10 @@ class AppointmentType extends Model
         'public_token',
         'attendance_mode',
         'ticketing_enabled',
+        'private_event_enabled',
+        'event_location',
+        'location_disclosure_mode',
+        'location_disclosure_hours',
         'show_start_offset_minutes',
         'show_end_offset_minutes',
         'ticket_seating_scheme',
@@ -92,7 +97,7 @@ class AppointmentType extends Model
         'reminder_before_unit', 'reminder_clients', 'reminder_resources',
     ];
 
-    protected $hidden = ['id', 'access_password', 'public_token'];
+    protected $hidden = ['id', 'access_password', 'public_token', 'event_location'];
 
     protected $appends = ['uuid', 'logo_url'];
 
@@ -102,6 +107,9 @@ class AppointmentType extends Model
             'visibility' => AppointmentVisibility::class,
             'attendance_mode' => AttendanceMode::class,
             'ticketing_enabled' => 'boolean',
+            'private_event_enabled' => 'boolean',
+            'location_disclosure_mode' => LocationDisclosureMode::class,
+            'location_disclosure_hours' => 'integer',
             'show_start_offset_minutes' => 'integer',
             'show_end_offset_minutes' => 'integer',
             'ticket_seating_scheme' => TicketSeatingScheme::class,

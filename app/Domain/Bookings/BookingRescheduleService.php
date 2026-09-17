@@ -183,6 +183,7 @@ class BookingRescheduleService
                 'appointment_id' => $to->getKey(),
                 'booking_timezone' => $hold->booking_timezone,
                 'reschedule_count' => (int) $lockedBooking->reschedule_count + ($clientInitiated ? 1 : 0),
+                'location_notification_sent_at_utc' => null,
             ]);
             $hold->update(['status' => BookingHoldStatus::Consumed->value]);
             $this->confirmations->resetForReschedule($lockedBooking);

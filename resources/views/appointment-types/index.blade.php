@@ -14,6 +14,7 @@
                 <strong>{{ $type->name }}</strong><div class="muted">/{{ $type->slug }}</div>
                 @if($type->requires_resource_confirmation)<span class="badge">staff confirmation</span>@endif
                 @if($type->ticketing_enabled)<span class="badge text-bg-primary">ticketed event</span>@endif
+                @if($type->private_event_enabled)<span class="badge text-bg-warning">private approval</span>@endif
             </td>
             <td>
                 {{ ucwords(str_replace('_', ' ', $type->visibility->value)) }}

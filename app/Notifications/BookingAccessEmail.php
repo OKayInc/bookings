@@ -43,8 +43,12 @@ class BookingAccessEmail extends Notification
         if ($booking->appointment->ticketing_enabled) {
             $message
                 ->line('Doors open: '.$booking->appointment->starts_at_utc->setTimezone($booking->booking_timezone)->format('D, M j Y · g:i A').' ('.$booking->booking_timezone.')')
-                ->line('Show starts: '.$booking->appointment->show_starts_at_utc->setTimezone($booking->booking_timezone)->format('D, M j Y · g:i A'))
-                ->line($booking->tickets->count().' ticket(s) are available from your private booking page.');
+                ->line('Show starts: '.$booking->appointment->show_starts_at_utc->setTimezone($booking->booking_timezone)->format('D, M j Y · g:i A'));
+            if ($booking->requires_event_approval && $booking->status->value === 'pending_event_approval') {
+                $message->line('Your admission request is awaiting a coordinator decision. Tickets will be issued only if it is accepted.');
+            } elseif ($booking->status->value === 'confirmed') {
+                $message->line($booking->tickets->count().' ticket(s) are available from your private booking page.');
+            }
         }
 
         return $message

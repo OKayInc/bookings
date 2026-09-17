@@ -311,6 +311,7 @@ class PublicBookingManageController extends Controller
     ): View {
         $this->authorizeToken($booking, $token);
         abort_unless(hash_equals($ticket->booking_id, $booking->getKey()), 404);
+        abort_unless($booking->status->value === 'confirmed', 403, 'Tickets are available only after the booking is confirmed.');
         $booking->loadMissing(['organization', 'appointmentType']);
         $ticket->load(['attendee', 'appointment']);
 

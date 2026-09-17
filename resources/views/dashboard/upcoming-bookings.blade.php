@@ -57,6 +57,7 @@
                             $pending = in_array($booking->status, [
                                 \App\Enums\BookingStatus::PendingEmailVerification,
                                 \App\Enums\BookingStatus::PendingContractReview,
+                                \App\Enums\BookingStatus::PendingEventApproval,
                                 \App\Enums\BookingStatus::PendingStaffConfirmation,
                                 \App\Enums\BookingStatus::PendingPayment,
                             ], true);

@@ -59,3 +59,9 @@ Paid tickets remain **Reserved** while their booking is `pending_payment`. A suc
 The private passwordless booking-management page lists every ticket and opens a print-friendly ticket page. A pure server-side Code 128 SVG is generated from the unique `AT-…` code; no external barcode service or JavaScript dependency is required.
 
 The backend **Scheduling → Ticket check-in** desk accepts a USB/Bluetooth barcode scanner or manual code entry. Any active organization member may operate admission, including employees, but codes are always tenant-scoped to the active organization. Check-in uses a row lock and a POST request, so concurrent or repeated scans cannot admit the same ticket twice. Staff may undo an accidental check-in from the recent activity table.
+
+## Private free events
+
+A free ticketed appointment type may require admission approval. Active owners, administrators, and managers receive one private review request each, including the questionnaire answers. A row lock makes the first acceptance or decline authoritative and supersedes every other pending coordinator link. Until acceptance, ticket rows remain reserved and the attendee cannot open or print a QR-code ticket.
+
+An event location can be public, withheld until acceptance, or withheld until a configured number of hours before the show starts. Delayed disclosure requires an accepted booking. The ten-minute scheduler sends the address when it becomes due, while the private booking page calculates the threshold live so scheduler delay never keeps an already-due location hidden.

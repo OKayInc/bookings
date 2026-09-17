@@ -60,6 +60,7 @@ class BookingCreationService
         private readonly CouponRedemptionService $coupons,
         private readonly ConditionalResourceRequirementService $conditionalResourceRequirements,
         private readonly OrganizationTaxService $taxes,
+        private readonly EventAdmissionApprovalService $eventApprovals,
     ) {
     }
 
@@ -78,6 +79,7 @@ class BookingCreationService
     ): BookingCreationResult {
         $emailVerificationToken = null;
         $manageToken = Str::random(64);
+        $eventApprovalDeliveries = [];
 
         $booking = DB::transaction(function () use (
             $holdToken,
@@ -88,6 +90,7 @@ class BookingCreationService
             $manageToken,
             $questionnaire,
             $couponCode,
+            &$eventApprovalDeliveries,
         ): Booking {
             $hold = BookingHold::query()
                 ->where('token_hash', hash('sha256', $holdToken, true))
@@ -230,6 +233,9 @@ class BookingCreationService
             }
             $taxQuote = $this->taxes->quote($organization, $questionnaire->quote);
             $priceMinor = $taxQuote->totalMinor;
+            if ($type->private_event_enabled && $priceMinor !== 0) {
+                throw new RuntimeException('Private admission approval is only available for a completely free event. Remove questionnaire, equipment, seating, or tax charges.');
+            }
             $depositMinor = (int) collect($questionnaire->quote->lines)
                 ->where('lineType', 'resource_deposit')
                 ->sum('amountMinor');
@@ -280,6 +286,7 @@ class BookingCreationService
                     : now('UTC')->addHours((int) config('booking.email_verification_ttl_hours', 24)),
                 'manage_token_hash' => hash('sha256', $manageToken, true),
                 'requires_resource_confirmation' => (bool) $type->requires_resource_confirmation,
+                'requires_event_approval' => (bool) ($type->ticketing_enabled && $type->private_event_enabled),
                 'expires_at_utc' => $emailVerificationToken === null
                     ? null
                     : now('UTC')->addHours((int) config('booking.email_verification_ttl_hours', 24)),
@@ -322,6 +329,7 @@ class BookingCreationService
 
             $this->questionnairePersistence->persist($booking->load('organization'), $questionnaire);
             $this->taxes->persist($booking, $taxQuote);
+            $eventApprovalDeliveries = $this->eventApprovals->createForBooking($booking);
 
             if ($couponApplication instanceof CouponApplication) {
                 $this->coupons->record($couponApplication, $booking);
@@ -351,6 +359,7 @@ class BookingCreationService
             return $booking->fresh(['appointment', 'appointmentType', 'organization', 'contact', 'attendees', 'answers.files', 'priceLines', 'taxLines', 'contractSubmissions.files']);
         }, 3);
 
+        $this->eventApprovals->sendNotifications($eventApprovalDeliveries);
         $this->conferenceMeetings->safeSync($booking->appointment);
         $this->calendarSync->safeSyncAppointment($booking->appointment);
         $this->resourceNotifications->safeNotifyBookingCreated($booking);

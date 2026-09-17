@@ -218,6 +218,36 @@
         <p class="muted">Show start and show end must both fall inside the doors-open-to-booking-end range. Show end may be omitted when it is not advertised.</p>
 
         <div class="field">
+            <label for="event_location">Event location</label>
+            <textarea id="event_location" name="event_location" maxlength="5000" placeholder="Venue name and complete address">{{ old('event_location', $appointmentType?->event_location) }}</textarea>
+        </div>
+
+        <div class="card compact">
+            <input type="hidden" name="private_event_enabled" value="0">
+            <label class="inline-check">
+                <input id="private_event_enabled" type="checkbox" name="private_event_enabled" value="1" @checked((bool) old('private_event_enabled', $appointmentType?->private_event_enabled ?? false))>
+                Private free event — coordinator approval required before tickets are issued
+            </label>
+            <p class="muted">Every active owner, administrator, and manager receives an approval email with the attendee's questionnaire answers. The first decision is final.</p>
+
+            <div class="field">
+                <label for="location_disclosure_mode">Location disclosure</label>
+                <select id="location_disclosure_mode" name="location_disclosure_mode">
+                    @foreach(\App\Enums\LocationDisclosureMode::cases() as $mode)
+                        <option value="{{ $mode->value }}" @selected(old('location_disclosure_mode', $appointmentType?->location_disclosure_mode?->value ?? 'public') === $mode->value)>{{ $mode->label() }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div id="location-disclosure-hours-field" class="field">
+                <label for="location_disclosure_hours">Disclose location before the show starts</label>
+                <div class="input-group">
+                    <input id="location_disclosure_hours" class="form-control" type="number" min="1" max="8760" name="location_disclosure_hours" value="{{ old('location_disclosure_hours', $appointmentType?->location_disclosure_hours ?? 24) }}">
+                    <span class="input-group-text">hours</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="field">
             <label for="ticket_seating_scheme">Seat numbering</label>
             <select id="ticket_seating_scheme" name="ticket_seating_scheme">
                 @foreach($ticketSeatingSchemes as $scheme)
@@ -1027,6 +1057,9 @@
     const attendance = document.getElementById('attendance_mode');
     const duration = document.getElementById('duration_mode');
     const pricing = document.getElementById('pricing_mode');
+    const privateEvent = document.getElementById('private_event_enabled');
+    const disclosureMode = document.getElementById('location_disclosure_mode');
+    const disclosureHoursField = document.getElementById('location-disclosure-hours-field');
     const singleAttendance = attendance.querySelector('option[value="single"]');
     const variableDuration = duration.querySelector('option[value="variable"]');
     const fixedTotalPricing = pricing.querySelector('option[value="fixed"]');
@@ -1089,6 +1122,12 @@
             pricing.value = 'per_attendee';
             pricing.dispatchEvent(new Event('change'));
         }
+        if (privateEvent.checked && pricing.value !== 'free') {
+            pricing.value = 'free';
+            pricing.dispatchEvent(new Event('change'));
+        }
+        if (!privateEvent.checked && disclosureMode.value !== 'public') disclosureMode.value = 'public';
+        sectionState(disclosureHoursField, privateEvent.checked && disclosureMode.value === 'hours_before_event');
 
         const selected = scheme.value;
         const paidTickets = pricing.value === 'per_attendee';
@@ -1118,7 +1157,7 @@
         prepare(row);
         sync();
     });
-    [enabled, scheme, optional, attendance, duration, pricing].forEach(control => control.addEventListener('change', sync));
+    [enabled, scheme, optional, attendance, duration, pricing, privateEvent, disclosureMode].forEach(control => control.addEventListener('change', sync));
     sync();
 })();
 </script>

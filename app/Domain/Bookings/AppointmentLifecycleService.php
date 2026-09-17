@@ -49,6 +49,7 @@ class AppointmentLifecycleService
         $activeBookingStatuses = [
             BookingStatus::PendingEmailVerification->value,
             BookingStatus::PendingContractReview->value,
+            BookingStatus::PendingEventApproval->value,
             BookingStatus::PendingStaffConfirmation->value,
             BookingStatus::PendingPayment->value,
             BookingStatus::Confirmed->value,

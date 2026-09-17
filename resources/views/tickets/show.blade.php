@@ -37,6 +37,10 @@
         @endif
     </div>
 
+    @if($ticket->appointment->event_location)
+    <div><h3>Location</h3><p>{!! nl2br(e(app(\App\Domain\Tickets\EventLocationDisclosureService::class)->attendeeLabel($booking))) !!}</p></div>
+    @endif
+
     <div class="grid">
         <div><h3>Attendee</h3><p>{{ trim(($ticket->attendee?->first_name ?? '').' '.($ticket->attendee?->last_name ?? '')) ?: 'Guest' }}</p></div>
         <div><h3>Admission</h3><p>{{ $ticket->seat_display }}</p></div>

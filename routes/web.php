@@ -33,6 +33,7 @@ use App\Http\Controllers\PublicBookingManageController;
 use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\StaffConfirmationController;
 use App\Http\Controllers\TicketController;
+use App\Http\Controllers\EventAdmissionApprovalController;
 use App\Http\Controllers\ScheduleProposalController;
 use App\Models\User;
 use Illuminate\Auth\Events\Verified;
@@ -140,6 +141,13 @@ Route::post('/staff-confirmation/{confirmation}/{token}', [StaffConfirmationCont
     ->middleware('throttle:20,1')
     ->name('public.staff-confirmations.respond');
 
+Route::get('/event-admission/{approval}/{token}', [EventAdmissionApprovalController::class, 'show'])
+    ->name('public.event-admission-approvals.show');
+Route::post('/event-admission/{approval}/{token}', [EventAdmissionApprovalController::class, 'respond'])
+    ->middleware('throttle:20,1')->name('public.event-admission-approvals.respond');
+Route::get('/event-admission/{approval}/{token}/answer-files/{file}', [EventAdmissionApprovalController::class, 'answerFile'])
+    ->name('public.event-admission-approvals.answer-file');
+
 Route::get('/organization-invitation/{token}', [OrganizationInvitationAcceptanceController::class, 'show'])
     ->middleware('throttle:30,1')
     ->name('organization-invitations.show');
@@ -232,6 +240,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('bookings.show');
         Route::post('/bookings/{booking}/confirmations/{confirmation}/respond', [BookingController::class, 'respondConfirmation'])->name('bookings.confirmations.respond');
         Route::post('/bookings/{booking}/confirmations/{confirmation}/remind', [BookingController::class, 'remindConfirmation'])->name('bookings.confirmations.remind');
+        Route::post('/bookings/{booking}/event-admission/{approval}/respond', [BookingController::class, 'respondEventAdmission'])->name('bookings.event-admission.respond');
         Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
         Route::post('/bookings/{booking}/refunds', [BookingRefundController::class, 'store'])->name('bookings.refunds.store');
         Route::post('/bookings/{booking}/deposit-refunds', [BookingRefundController::class, 'deposit'])->name('bookings.deposit-refunds.store');

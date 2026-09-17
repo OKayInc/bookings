@@ -32,6 +32,7 @@ class Booking extends Model
         'email_verification_token_hash', 'email_verification_expires_at_utc',
         'manage_token_hash', 'expires_at_utc',
         'requires_resource_confirmation', 'cancellation_allowed', 'cancellation_notice_value', 'cancellation_notice_unit', 'cancellation_policy_text',
+        'requires_event_approval', 'location_notification_sent_at_utc',
         'cancelled_at_utc', 'cancellation_reason', 'cancellation_origin', 'rescheduling_allowed', 'rescheduling_notice_value',
         'rescheduling_notice_unit', 'rescheduling_max_count', 'reschedule_count', 'rescheduling_policy_text',
     ];
@@ -69,6 +70,8 @@ class Booking extends Model
             'email_verification_expires_at_utc' => 'immutable_datetime',
             'expires_at_utc' => 'immutable_datetime',
             'requires_resource_confirmation' => 'boolean',
+            'requires_event_approval' => 'boolean',
+            'location_notification_sent_at_utc' => 'immutable_datetime',
             'cancellation_allowed' => 'boolean',
             'cancellation_notice_value' => 'integer',
             'cancellation_notice_unit' => \App\Enums\BookingNoticeUnit::class,
@@ -169,6 +172,11 @@ class Booking extends Model
     public function resourceConfirmations(): HasMany
     {
         return $this->hasMany(ResourceConfirmation::class)->orderByDesc('is_required')->orderBy('created_at');
+    }
+
+    public function eventAdmissionApprovals(): HasMany
+    {
+        return $this->hasMany(EventAdmissionApproval::class)->orderBy('created_at');
     }
 
     public function reschedules(): HasMany

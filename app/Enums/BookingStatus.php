@@ -6,6 +6,7 @@ enum BookingStatus: string
 {
     case PendingEmailVerification = 'pending_email_verification';
     case PendingContractReview = 'pending_contract_review';
+    case PendingEventApproval = 'pending_event_approval';
     case PendingStaffConfirmation = 'pending_staff_confirmation';
     case PendingPayment = 'pending_payment';
     case Confirmed = 'confirmed';
@@ -17,6 +18,7 @@ enum BookingStatus: string
         return match ($this) {
             self::PendingEmailVerification => 'Pending email verification',
             self::PendingContractReview => 'Pending contract review',
+            self::PendingEventApproval => 'To confirm',
             self::PendingStaffConfirmation => 'Pending staff confirmation',
             self::PendingPayment => 'Pending payment',
             self::Confirmed => 'Confirmed',
@@ -38,6 +40,7 @@ enum BookingStatus: string
             self::Declined => 'text-bg-dark',
             self::PendingEmailVerification,
             self::PendingContractReview,
+            self::PendingEventApproval,
             self::PendingStaffConfirmation,
             self::PendingPayment => 'text-bg-warning',
         };

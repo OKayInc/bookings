@@ -18,6 +18,7 @@ class SyncStaffConfirmationsCommand extends Command
         Booking::query()
             ->whereIn('status', [
                 BookingStatus::PendingContractReview->value,
+                BookingStatus::PendingEventApproval->value,
                 BookingStatus::PendingStaffConfirmation->value,
                 BookingStatus::PendingPayment->value,
                 BookingStatus::Confirmed->value,

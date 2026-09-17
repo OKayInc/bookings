@@ -1,6 +1,14 @@
-# Appointment Software — M9-R10
+# Appointment Software — M9-R11
 
-M9-R10 adds a visual availability-analysis timeline to the backend preview, with explicit explanations for appointment-type and required-resource blockers plus opt-in purple rows for optional resources. See `docs/CHANGES-M9-R10.md`, `docs/UPGRADE-M9-R9-TO-M9-R10.md`, and `docs/VERIFICATION-M9-R10.md`.
+M9-R11 adds coordinator-reviewed admission for free ticketed events plus mystery locations disclosed after acceptance or a configured number of hours before show time. See `docs/CHANGES-M9-R11.md`, `docs/UPGRADE-M9-R10-TO-M9-R11.md`, and `docs/VERIFICATION-M9-R11.md`.
+
+## M9-R11 private ticketed events
+
+- Free ticketed events can require owner, administrator, or manager approval before QR tickets are issued.
+- Coordinator email and web review show the prospective attendee's questionnaire answers.
+- The first coordinator decision wins; acceptance issues reserved tickets and decline voids them.
+- Event locations may be public, disclosed after acceptance, or disclosed to accepted attendees a configured number of hours before the show starts.
+- Delayed locations are released by email and on the private booking/ticket pages without exposing the address in the public catalog.
 
 ## M9-R10 visual availability analysis
 

@@ -1,4 +1,12 @@
-# Database — M9-R9
+# Database — M9-R11
+
+## M9-R11 private event admission
+
+`appointment_types` stores the private-event switch, event location, disclosure mode, and optional hour threshold. `appointments` copies these values so an existing scheduled event is not changed when its appointment type is edited.
+
+`bookings.requires_event_approval` snapshots the admission requirement. `location_notification_sent_at_utc` is an idempotency marker for delayed location email.
+
+`event_admission_approvals` stores one tokenized request per eligible coordinator, with recipient snapshot, pending/accepted/declined/superseded status, optional decision note, responder, and timestamps. Booking and organization deletion cascade; deleting the recorded responder only nulls that audit link.
 
 ## M9-R9 organization taxes
 

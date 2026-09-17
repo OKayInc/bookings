@@ -20,6 +20,7 @@ use App\Enums\ReminderThresholdBasis;
 use App\Enums\ResourceRequirementMode;
 use App\Enums\SeasonRecurrence;
 use App\Enums\TicketSeatingScheme;
+use App\Enums\LocationDisclosureMode;
 use App\Models\Resource;
 use App\Models\AppointmentType;
 use App\Domain\Money\MoneyService;
@@ -85,6 +86,13 @@ class StoreAppointmentTypeRequest extends FormRequest
 
             'attendance_mode' => ['required', Rule::enum(AttendanceMode::class)],
             'ticketing_enabled' => ['nullable', 'boolean'],
+            'private_event_enabled' => ['nullable', 'boolean'],
+            'event_location' => ['nullable', 'string', 'max:5000'],
+            'location_disclosure_mode' => ['nullable', Rule::enum(LocationDisclosureMode::class)],
+            'location_disclosure_hours' => [
+                Rule::requiredIf(fn (): bool => $this->input('location_disclosure_mode') === LocationDisclosureMode::HoursBeforeEvent->value),
+                'nullable', 'integer', 'min:1', 'max:8760',
+            ],
             'show_start_offset_minutes' => [
                 Rule::requiredIf(fn (): bool => $this->boolean('ticketing_enabled')),
                 'nullable', 'integer', 'min:0',
@@ -797,7 +805,36 @@ class StoreAppointmentTypeRequest extends FormRequest
         $this->validateTicketingSnapshotLock($validator);
 
         if (! $this->boolean('ticketing_enabled')) {
+            if ($this->boolean('private_event_enabled')) {
+                $validator->errors()->add('private_event_enabled', 'Private admission approval is only available for ticketed events.');
+            }
             return;
+        }
+
+        $privateEvent = $this->boolean('private_event_enabled');
+        $disclosureMode = LocationDisclosureMode::tryFrom((string) $this->input('location_disclosure_mode', LocationDisclosureMode::Public->value))
+            ?? LocationDisclosureMode::Public;
+        if ($privateEvent && ($this->input('pricing_mode') !== PricingMode::Free->value || $this->hasPaidEquipment())) {
+            $validator->errors()->add('private_event_enabled', 'Private admission approval is only available when the ticketed event and its equipment are free.');
+        }
+        if ($privateEvent && collect((array) $this->input('short_notice_fees', []))->isNotEmpty()) {
+            $validator->errors()->add('short_notice_fees', 'A free private event cannot have short-notice fees.');
+        }
+        if ($disclosureMode !== null && $disclosureMode !== LocationDisclosureMode::Public && ! $privateEvent) {
+            $validator->errors()->add('location_disclosure_mode', 'A mystery location requires private admission approval.');
+        }
+        if ($disclosureMode !== LocationDisclosureMode::Public && blank($this->input('event_location'))) {
+            $validator->errors()->add('event_location', 'Enter the private event location that will be disclosed to accepted attendees.');
+        }
+        if ($privateEvent) {
+            $hasCoordinator = app(OrganizationContext::class)->organization()->memberships()
+                ->where('status', 'active')
+                ->whereIn('role', ['owner', 'administrator', 'manager'])
+                ->whereHas('person', fn ($query) => $query->whereNotNull('primary_email')->where('primary_email', '!=', ''))
+                ->exists();
+            if (! $hasCoordinator) {
+                $validator->errors()->add('private_event_enabled', 'Add an active owner, administrator, or manager with an email address before enabling private admission approval.');
+            }
         }
 
         if ($this->input('attendance_mode') !== AttendanceMode::Group->value) {

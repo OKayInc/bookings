@@ -8,16 +8,19 @@ use App\Domain\Bookings\ResourceConfirmationService;
 use App\Domain\Bookings\ContractSubmissionService;
 use App\Domain\Bookings\BookingScheduleProposalService;
 use App\Domain\Bookings\PublicBookingAvailabilityService;
+use App\Domain\Bookings\EventAdmissionApprovalService;
 use App\Domain\Conferences\ConferenceMeetingService;
 use App\Domain\Tickets\TicketEventService;
 use App\Enums\ContractReviewStatus;
 use App\Enums\ResourceConfirmationStatus;
+use App\Enums\EventAdmissionApprovalStatus;
 use App\Models\Booking;
 use App\Models\BookingContractFile;
 use App\Models\BookingAnswerFile;
 use App\Models\BookingContractSubmission;
 use App\Models\ResourceConfirmation;
 use App\Models\BookingScheduleProposal;
+use App\Models\EventAdmissionApproval;
 use App\Notifications\BookingAccessEmail;
 use App\Support\Organizations\OrganizationContext;
 use Illuminate\Http\JsonResponse;
@@ -55,7 +58,7 @@ class BookingController extends Controller
         $isAssignedStaff = $this->isAssignedStaff($booking, $request);
         abort_unless($canManage || $isAssignedStaff, 403);
         $canProposeScheduleChange = $canManage || $isAssignedStaff;
-        $booking->load(['organization.paymentSettings', 'appointmentType', 'appointment.resources.person', 'contact', 'attendees', 'tickets.attendee', 'tickets.checkedInBy', 'contractTemplate', 'contractSubmissions.files', 'contractSubmissions.reviewedBy', 'answers.files', 'priceLines', 'taxLines', 'resourceDeposits', 'resourceConfirmations.resource', 'resourceConfirmations.person', 'resourceConfirmations.respondedBy', 'reschedules', 'scheduleProposals.proposedBy', 'scheduleProposals.hold', 'appointment.externalEvents.calendar.connection.resource', 'payments.refunds', 'refunds.transaction', 'refunds.requestedBy']);
+        $booking->load(['organization.paymentSettings', 'appointmentType', 'appointment.resources.person', 'contact', 'attendees', 'tickets.attendee', 'tickets.checkedInBy', 'contractTemplate', 'contractSubmissions.files', 'contractSubmissions.reviewedBy', 'answers.files', 'priceLines', 'taxLines', 'resourceDeposits', 'resourceConfirmations.resource', 'resourceConfirmations.person', 'resourceConfirmations.respondedBy', 'eventAdmissionApprovals.coordinator', 'eventAdmissionApprovals.respondedBy', 'reschedules', 'scheduleProposals.proposedBy', 'scheduleProposals.hold', 'appointment.externalEvents.calendar.connection.resource', 'payments.refunds', 'refunds.transaction', 'refunds.requestedBy']);
         app(BookingScheduleProposalService::class)->expireForBooking($booking);
         $booking->load('scheduleProposals.proposedBy', 'scheduleProposals.hold');
 
@@ -67,6 +70,34 @@ class BookingController extends Controller
             'refundablePriceMinor' => app(\App\Domain\Payments\PaymentRefundService::class)->refundablePriceMinor($booking),
             'timezones' => \DateTimeZone::listIdentifiers(),
         ]);
+    }
+
+    public function respondEventAdmission(
+        Request $request,
+        Booking $booking,
+        EventAdmissionApproval $approval,
+        OrganizationContext $context,
+        EventAdmissionApprovalService $service,
+    ): RedirectResponse {
+        $this->sameOrganization($booking, $context);
+        $this->authorize('manageScheduling', $context->organization());
+        abort_unless(hash_equals($approval->booking_id, $booking->getKey()), 404);
+        $data = $request->validate([
+            'action' => ['required', 'in:accepted,declined'],
+            'response_note' => ['nullable', 'string', 'max:5000'],
+        ]);
+        try {
+            $service->respond(
+                $approval,
+                EventAdmissionApprovalStatus::from($data['action']),
+                $data['response_note'] ?? null,
+                $request->user()->person,
+            );
+        } catch (\RuntimeException $exception) {
+            return back()->withErrors(['approval' => $exception->getMessage()]);
+        }
+
+        return back()->with('success', 'The admission request was '.$data['action'].'.');
     }
 
     public function reviewContract(

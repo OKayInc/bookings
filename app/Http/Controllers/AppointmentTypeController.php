@@ -29,6 +29,7 @@ use App\Enums\ResourceRequirementMode;
 use App\Enums\ReminderThresholdBasis;
 use App\Enums\SeasonRecurrence;
 use App\Enums\TicketSeatingScheme;
+use App\Enums\LocationDisclosureMode;
 use App\Domain\Tickets\TicketSeatingService;
 use App\Http\Requests\StoreAppointmentTypeRequest;
 use App\Models\AppointmentType;
@@ -343,6 +344,13 @@ class AppointmentTypeController extends Controller
             ], $data['attendee_price_ranges']), (int) $data['capacity'])
             : null;
         $ticketingEnabled = $request->boolean('ticketing_enabled');
+        $privateEventEnabled = $ticketingEnabled
+            && $request->boolean('private_event_enabled')
+            && $data['pricing_mode'] === PricingMode::Free->value;
+        $locationDisclosureMode = $ticketingEnabled
+            ? (LocationDisclosureMode::tryFrom((string) ($data['location_disclosure_mode'] ?? LocationDisclosureMode::Public->value))
+                ?? LocationDisclosureMode::Public)
+            : LocationDisclosureMode::Public;
         $ticketScheme = $ticketingEnabled
             ? TicketSeatingScheme::from($data['ticket_seating_scheme'])
             : TicketSeatingScheme::None;
@@ -376,6 +384,14 @@ class AppointmentTypeController extends Controller
         return [
             'attendance_mode' => $data['attendance_mode'],
             'ticketing_enabled' => $ticketingEnabled,
+            'private_event_enabled' => $privateEventEnabled,
+            'event_location' => $ticketingEnabled && filled($data['event_location'] ?? null)
+                ? trim((string) $data['event_location'])
+                : null,
+            'location_disclosure_mode' => $locationDisclosureMode->value,
+            'location_disclosure_hours' => $locationDisclosureMode === LocationDisclosureMode::HoursBeforeEvent
+                ? (int) $data['location_disclosure_hours']
+                : null,
             'show_start_offset_minutes' => $ticketingEnabled ? (int) $data['show_start_offset_minutes'] : null,
             'show_end_offset_minutes' => $ticketingEnabled && ($data['show_end_offset_minutes'] ?? '') !== ''
                 ? (int) $data['show_end_offset_minutes']

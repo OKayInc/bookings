@@ -20,6 +20,10 @@ class TicketEventService
         if (! $type->ticketing_enabled) {
             return [
                 'ticketing_enabled' => false,
+                'private_event_enabled' => false,
+                'event_location' => null,
+                'location_disclosure_mode' => 'public',
+                'location_disclosure_hours' => null,
                 'show_starts_at_utc' => null,
                 'show_ends_at_utc' => null,
                 'ticket_seating_scheme' => null,
@@ -52,6 +56,10 @@ class TicketEventService
 
         return [
             'ticketing_enabled' => true,
+            'private_event_enabled' => (bool) $type->private_event_enabled,
+            'event_location' => $type->event_location,
+            'location_disclosure_mode' => $type->location_disclosure_mode?->value ?? 'public',
+            'location_disclosure_hours' => $type->location_disclosure_hours,
             'show_starts_at_utc' => $showStarts,
             'show_ends_at_utc' => $showEnds,
             'ticket_seating_scheme' => $type->ticket_seating_scheme?->value ?? 'none',
