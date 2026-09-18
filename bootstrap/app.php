@@ -40,5 +40,12 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(function (\Illuminate\Http\Exceptions\PostTooLargeException $exception, \Illuminate\Http\Request $request) {
+            $message = 'The upload exceeds the server request limit. Upload fewer or smaller files, or ask the administrator to increase PHP post_max_size and upload_max_filesize.';
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['message' => $message], 413);
+            }
+            return response()->view('errors.upload-too-large', ['message' => $message], 413);
+        });
         $exceptions->shouldRenderJsonWhen(fn (\Illuminate\Http\Request $request, \Throwable $e) => $request->is('api/*') || $request->expectsJson());
     })->create();

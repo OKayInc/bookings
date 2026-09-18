@@ -209,6 +209,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('/organizations/{organization}/edit', [OrganizationController::class, 'edit'])->name('organizations.edit');
     Route::put('/organizations/{organization}', [OrganizationController::class, 'update'])->name('organizations.update');
     Route::post('/organizations/{organization}/gallery-photos', [GalleryPhotoController::class, 'storeForOrganization'])->name('organizations.gallery-photos.store');
+    Route::patch('/gallery-photos/{galleryPhoto}', [GalleryPhotoController::class, 'update'])->name('gallery-photos.update');
     Route::delete('/gallery-photos/{galleryPhoto}', [GalleryPhotoController::class, 'destroy'])->name('gallery-photos.destroy');
     Route::delete('/organizations/{organization}', [OrganizationController::class, 'destroy'])->name('organizations.destroy');
     Route::post('/organizations/{organization}/switch', [OrganizationController::class, 'switch'])->name('organizations.switch');

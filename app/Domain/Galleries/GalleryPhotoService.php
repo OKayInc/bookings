@@ -40,6 +40,42 @@ class GalleryPhotoService
         return $this->upload($appointmentType->organization, $appointmentType, $files, $placement);
     }
 
+    public function reposition(GalleryPhoto $photo, GalleryPlacement $placement, int $position, ?string $move = null): void
+    {
+        DB::transaction(function () use ($photo, $placement, $position, $move): void {
+            // Match the upload lock order so uploads and reorders cannot race.
+            Organization::query()->whereKey($photo->organization_id)->lockForUpdate()->firstOrFail();
+            $query = GalleryPhoto::query()->where('organization_id', $photo->organization_id);
+            $photo->appointment_type_id
+                ? $query->where('appointment_type_id', $photo->appointment_type_id)
+                : $query->whereNull('appointment_type_id');
+            $all = $query->orderBy('position')->orderBy('created_at')->orderBy('id')->lockForUpdate()->get();
+            $current = $all->first(fn ($item) => $item->getKey() === $photo->getKey());
+            abort_unless($current, 404);
+            $target = $all->filter(fn ($item) => $item->placement === $placement)->values();
+            $index = $target->search(fn ($item) => $item->getKey() === $photo->getKey());
+            $target = $target->reject(fn ($item) => $item->getKey() === $photo->getKey())->values();
+            $offset = match ($move) {
+                'first' => 0,
+                'last' => $target->count(),
+                'earlier' => $index === false ? 0 : $index - 1,
+                'later' => $index === false ? $target->count() : $index + 1,
+                default => $position - 1,
+            };
+            $target->splice(max(0, min($offset, $target->count())), 0, [$current]);
+            $oldPlacement = $current->placement;
+            foreach ($target as $i => $item) {
+                $item->update(['placement' => $placement, 'position' => $i + 1]);
+            }
+            if ($oldPlacement !== $placement) {
+                $remaining = $all->filter(fn ($item) => $item->placement === $oldPlacement)->values();
+                foreach ($remaining as $i => $item) {
+                    $item->update(['position' => $i + 1]);
+                }
+            }
+        }, 3);
+    }
+
     public function delete(GalleryPhoto $photo): void
     {
         $disk = $photo->disk;

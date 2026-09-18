@@ -25,7 +25,7 @@
 
         document.addEventListener('submit', (event) => {
             const form = event.target;
-            if (!(form instanceof HTMLFormElement) || form.target === '_blank') return;
+            if (event.defaultPrevented || !(form instanceof HTMLFormElement) || form.target === '_blank') return;
             show('Processing…');
         });
 

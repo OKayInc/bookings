@@ -185,6 +185,72 @@ class M9R8GalleryTest extends TestCase
         $this->assertSame('image/webp', app(GalleryImageConverter::class)->details(Storage::disk('public')->get($photo->path))['mime_type']);
     }
 
+    public function test_existing_photos_can_be_reordered_and_moved_between_top_and_bottom(): void
+    {
+        Storage::fake('public');
+        [$user, $organization] = $this->ownerAndOrganization();
+        $first = $this->galleryRecord($organization, null, 'above', 'first.webp', str_repeat('1', 64));
+        $second = $this->galleryRecord($organization, null, 'above', 'second.webp', str_repeat('2', 64));
+        $second->update(['position' => 2]);
+        $bottom = $this->galleryRecord($organization, null, 'below', 'bottom.webp', str_repeat('3', 64));
+        $type = $this->appointmentType($organization, 'Separate gallery');
+        $separate = $this->galleryRecord($organization, $type, 'above', 'separate.webp', str_repeat('4', 64));
+
+        $this->actingAs($user)->patch(route('gallery-photos.update', $second), [
+            'placement' => 'above', 'position' => 2, 'move' => 'first',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame(1, $second->fresh()->position);
+        $this->assertSame(2, $first->fresh()->position);
+        $this->actingAs($user)->patch(route('gallery-photos.update', $second), [
+            'placement' => 'below', 'position' => 1,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('below', $second->fresh()->placement->value);
+        $this->assertSame(1, $second->fresh()->position);
+        $this->assertSame(2, $bottom->fresh()->position);
+        $this->assertSame(1, $first->fresh()->position);
+        $this->assertSame(1, $separate->fresh()->position);
+        Storage::disk('public')->assertExists($second->path);
+    }
+
+    public function test_photo_reordering_rejects_another_tenant_and_invalid_positions(): void
+    {
+        Storage::fake('public');
+        [$user] = $this->ownerAndOrganization();
+        [$owner, $organization] = $this->ownerAndOrganization();
+        foreach ([null, $this->appointmentType($organization, 'Private gallery')] as $type) {
+            $photo = $this->galleryRecord($organization, $type, 'above', Str::random(10).'.webp', hash('sha256', Str::random(20)));
+            $this->actingAs($user)->patch(route('gallery-photos.update', $photo), [
+                'placement' => 'below', 'position' => 1,
+            ])->assertForbidden();
+            $this->actingAs($owner)->patch(route('gallery-photos.update', $photo), [
+                'placement' => 'invalid', 'position' => 0,
+            ])->assertSessionHasErrors(['placement', 'position']);
+            $this->assertSame('above', $photo->fresh()->placement->value);
+        }
+    }
+
+    public function test_sequential_gallery_upload_returns_json_confirmation(): void
+    {
+        $this->requireWebpEncoder();
+        Storage::fake('public');
+        [$user, $organization] = $this->ownerAndOrganization();
+        $this->actingAs($user)->postJson(route('organizations.gallery-photos.store', $organization), [
+            'placement' => 'above', 'photos' => [$this->image('one.png', 50, 80, 90)],
+        ])->assertOk()->assertJsonPath('count', 1);
+    }
+
+    public function test_oversized_upload_has_a_friendly_html_and_json_response_even_in_debug_mode(): void
+    {
+        config(['app.debug' => true]);
+        \Illuminate\Support\Facades\Route::post('/test-oversized-upload', function () {
+            throw new \Illuminate\Http\Exceptions\PostTooLargeException;
+        });
+        $this->post('/test-oversized-upload')->assertStatus(413)
+            ->assertSee('Upload too large')->assertSee('Go back')->assertDontSee('Stack trace');
+        $this->postJson('/test-oversized-upload')->assertStatus(413)
+            ->assertJsonStructure(['message'])->assertJsonMissingPath('trace');
+    }
+
     private function requireWebpEncoder(): void
     {
         if (! app(GalleryImageConverter::class)->canConvert()) {

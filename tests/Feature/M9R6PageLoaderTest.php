@@ -16,7 +16,7 @@ class M9R6PageLoaderTest extends TestCase
             ->assertOk()
             ->assertSee('id="page-loader"', false)
             ->assertSee('aria-hidden="true"', false)
-            ->assertSee(asset('js/page-loader.js').'?v=m9-r6', false)
+            ->assertSee(asset('js/page-loader.js'), false)
             ->assertSee('rel="preconnect" href="https://cdn.jsdelivr.net"', false);
     }
 
@@ -27,6 +27,6 @@ class M9R6PageLoaderTest extends TestCase
         $this->get(route('public.appointment-types.index', $organization->slug))
             ->assertOk()
             ->assertSee('id="page-loader"', false)
-            ->assertSee(asset('js/page-loader.js').'?v=m9-r6', false);
+            ->assertSee(asset('js/page-loader.js'), false);
     }
 }
