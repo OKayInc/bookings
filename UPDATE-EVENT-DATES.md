@@ -33,3 +33,14 @@ The existing event-location input is saved as the occurrence venue, and location
 67 focused tests passed (375 assertions) on PHP 8.4.24 and MariaDB 10.11.14, covering ticketing, private-event approval, fixed-date validation, timezone conversion, nonexistent daylight-saving times, booking holds, availability, payment/equipment behavior, appointment configuration, seasons and Blade compilation.
 
 The rendered edit form also passed JavaScript DOM checks for pricing/ticketing toggles, restored season controls, and disabled hidden fields. A full visual browser check was unavailable because the browser download timed out.
+
+
+## September 18 visual and online-location update
+
+- Start-time interval and Rescheduling policy are hidden in the appointment-type editor when ticketing is enabled. Their saved settings are preserved.
+- Location remains visible for ticketed events so event addresses and disclosure can be configured. Event address, online provider and disclosure controls are now together in this section.
+- Online events hide and disable the physical address field. Custom providers use the configured organization meeting URL; other providers use their generated attendee meeting URL. The join button, ticket location and disclosure email respect approval and timed disclosure.
+- Completely free booking holds hide Price and Gift card or coupon. Both stay available if an active question can add charges or the current quote includes a short-notice fee, equipment charge or deposit. A coupon reducing the total to zero does not hide its own input.
+- No additional database migration is needed for these visual/location changes if migration 000076 is already installed. Run `php artisan optimize:clear` after replacing files.
+
+Verification for this update: 57 tests, 509 assertions, plus JavaScript DOM checks for the editor and booking-hold pricing visibility. Tests cover free and chargeable questions, applicable versus non-applicable short-notice fees, configured online URLs and delayed disclosure of generated meeting links.
