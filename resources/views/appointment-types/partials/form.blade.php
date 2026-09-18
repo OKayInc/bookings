@@ -196,9 +196,24 @@
         <input id="ticketing_enabled" type="checkbox" name="ticketing_enabled" value="1" @checked((bool) old('ticketing_enabled', $appointmentType?->ticketing_enabled ?? false))>
         Issue one admission ticket per attendee
     </label>
-    <p class="muted">Ticketed events use group attendance and a fixed duration. The selected booking start is <strong>doors open</strong>; resources remain busy for the complete booking range.</p>
+    <p class="muted">Ticketed events use group attendance and a fixed duration. The fixed event start is <strong>doors open</strong>; resources remain busy for the complete booking range.</p>
 
+    @php
+        $eventOccurrence = $appointmentType?->currentEventOccurrence();
+        $eventLocalStart = $eventOccurrence?->starts_at_utc?->setTimezone($organization->timezone);
+    @endphp
     <div id="ticketing-fields" style="margin-top:1rem">
+        <div class="row">
+            <div class="field">
+                <label for="event_date">Event date</label>
+                <input id="event_date" name="event_date" type="date" value="{{ old('event_date', $eventLocalStart?->format('Y-m-d')) }}">
+            </div>
+            <div class="field">
+                <label for="event_time">Doors open at</label>
+                <input id="event_time" name="event_time" type="time" value="{{ old('event_time', $eventLocalStart?->format('H:i')) }}">
+            </div>
+        </div>
+        <p class="muted">One fixed event, in {{ $organization->timezone }} time. Tickets are available only for this date and time. Availability and resource requirements still apply.</p>
         <div class="row">
             <div class="field">
                 <label for="show_start_offset_minutes">Show starts after doors open</label>
@@ -282,7 +297,7 @@
     </div>
 </div>
 
-<div class="section-card">
+<div class="section-card" id="booking-notice-section" style="{{ (bool) old('ticketing_enabled', $appointmentType?->ticketing_enabled ?? false) ? 'display:none' : '' }}">
     <h2>Booking notice</h2>
     <div class="row">
         <div class="field">
@@ -321,7 +336,7 @@
     <div class="muted">Use 0 for no maximum: clients may then book arbitrarily far into the future, subject to configured availability.</div>
 </div>
 
-<div class="section-card">
+<div class="section-card" id="booking-season-section" style="{{ (bool) old('ticketing_enabled', $appointmentType?->ticketing_enabled ?? false) ? 'display:none' : '' }}">
     <h2>Booking season</h2>
     <input type="hidden" name="seasonal_availability_enabled" value="0">
     <label class="inline-check">
@@ -529,7 +544,7 @@
     </div>
 </div>
 
-<div class="section-card">
+<div class="section-card" id="payment-collection-section" style="{{ old('pricing_mode', $appointmentType?->pricing_mode?->value ?? 'free') === 'free' ? 'display:none' : '' }}">
     <h2>Payment collection and refunds</h2>
     <p class="muted">Stripe and PayPal credentials are configured per organization under <a href="{{ route('payment-settings.edit') }}">Organization → Payments</a>. These terms are copied into each booking and later edits do not change existing clients.</p>
     <div id="free-payment-help" class="alert alert-info">Free appointment types do not create a payment request.</div>
@@ -946,7 +961,10 @@
         const passwordProtected = visibility.value === 'password_protected';
         const groupAttendance = attendanceMode.value === 'group';
         const onlineAppointment = online.checked;
-        const seasonalAppointment = seasonalAvailability.checked;
+        const ticketed = document.getElementById('ticketing_enabled').checked;
+        const seasonalAppointment = seasonalAvailability.checked && !ticketed;
+        setSectionState(document.getElementById('booking-notice-section'), !ticketed);
+        setSectionState(document.getElementById('booking-season-section'), !ticketed);
         const fixedDurationMode = durationMode.value === 'fixed';
         perAttendeeOption.hidden = !groupAttendance;
         perAttendeeOption.disabled = !groupAttendance;
@@ -988,7 +1006,7 @@
         setRequired(document.getElementById('attendee_price'), flatAttendeePricing);
     }
 
-    [visibility, attendanceMode, online, seasonalAvailability, durationMode, pricingMode, attendeePricingMode].forEach((element) => element.addEventListener('change', sync));
+    [visibility, attendanceMode, online, seasonalAvailability, durationMode, pricingMode, attendeePricingMode, document.getElementById('ticketing_enabled')].forEach((element) => element.addEventListener('change', sync));
     addAttendeeRange.addEventListener('click', () => { addRange(); sync(); });
     attendeeRangeList.addEventListener('click', (event) => {
         const button = event.target.closest('[data-remove-attendee-range]');
@@ -1017,14 +1035,11 @@
     }
 
     function sync() {
-        const paidEquipment = equipmentPricing.some(select => {
-            const selected = select.closest('.card.compact').querySelector('input[name="resource_uuids[]"]');
-            return selected.checked && select.value !== 'free';
-        });
-        const paid = (pricing.value !== 'free' && pricing.value !== '') || paidEquipment;
+        const paid = pricing.value !== 'free' && pricing.value !== '';
+        state(document.getElementById('payment-collection-section'), paid);
         policy.style.display = paid ? 'block' : 'none';
         freeHelp.style.display = paid ? 'none' : 'block';
-        collection.disabled = false;
+        collection.disabled = !paid;
         if (!paid) collection.value = 'full';
         const usesRetainer = paid && collection.value === 'retainer';
         state(retainer, usesRetainer);
@@ -1104,6 +1119,8 @@
     function sync() {
         const active = enabled.checked;
         sectionState(fields, active);
+        document.getElementById('event_date').required = active;
+        document.getElementById('event_time').required = active;
         optionState(singleAttendance, !active);
         optionState(variableDuration, !active);
         optionState(fixedTotalPricing, !active);

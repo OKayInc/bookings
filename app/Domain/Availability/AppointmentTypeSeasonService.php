@@ -18,7 +18,7 @@ class AppointmentTypeSeasonService
         CarbonImmutable $startsAtUtc,
         CarbonImmutable $endsAtUtc,
     ): bool {
-        if (! $type->seasonal_availability_enabled) {
+        if ($type->ticketing_enabled || ! $type->seasonal_availability_enabled) {
             return true;
         }
 

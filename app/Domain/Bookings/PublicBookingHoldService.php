@@ -47,6 +47,9 @@ class PublicBookingHoldService
         ?int $ttlMinutes = null,
     ): BookingHoldLease {
         $type->loadMissing('organization');
+        if (! $type->permitsEventStart($startsAtUtc)) {
+            throw new RuntimeException('Please select the configured event date and time.');
+        }
         if ($enforceNotice && ($message = $this->notice->failureMessage($type, $startsAtUtc)) !== null) {
             throw new RuntimeException($message);
         }
@@ -116,6 +119,9 @@ class PublicBookingHoldService
             $locked->load('resources');
 
             $start = CarbonImmutable::instance($locked->starts_at_utc)->utc();
+            if (! $lockedType->permitsEventStart($start)) {
+                throw new RuntimeException('Please select the configured event date and time.');
+            }
             $end = CarbonImmutable::instance($locked->ends_at_utc)->utc();
             if (! $this->seasons->contains($lockedType, $start, $end)) {
                 throw new RuntimeException('This appointment type is not offered during the selected dates.');

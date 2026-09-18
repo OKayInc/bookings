@@ -87,22 +87,26 @@ class AppointmentTypeController extends Controller
         $data = $request->validated();
         $slug = $this->uniqueSlug($organization->getKey(), $data['slug'] ?? $data['name']);
 
-        $appointmentType = $organization->appointmentTypes()->create(array_merge(
-            [
-                'name' => $data['name'],
-                'slug' => $slug,
-                'description' => $data['description'] ?? null,
-                'visibility' => $data['visibility'],
-                'access_password' => $data['visibility'] === AppointmentVisibility::PasswordProtected->value
-                    ? Hash::make($data['access_password'])
-                    : null,
-                'public_token' => $data['visibility'] === AppointmentVisibility::Unlisted->value
-                    ? Str::random(48)
-                    : null,
-                'is_active' => $request->boolean('is_active', true),
-            ],
-            $this->configurationData($data, $organization->currency, $request, $money),
-        ));
+        $appointmentType = \Illuminate\Support\Facades\DB::transaction(function () use ($organization, $data, $slug, $request, $money) {
+            $appointmentType = $organization->appointmentTypes()->create(array_merge(
+                [
+                    'name' => $data['name'],
+                    'slug' => $slug,
+                    'description' => $data['description'] ?? null,
+                    'visibility' => $data['visibility'],
+                    'access_password' => $data['visibility'] === AppointmentVisibility::PasswordProtected->value
+                        ? Hash::make($data['access_password'])
+                        : null,
+                    'public_token' => $data['visibility'] === AppointmentVisibility::Unlisted->value
+                        ? Str::random(48)
+                        : null,
+                    'is_active' => $request->boolean('is_active', true),
+                ],
+                $this->configurationData($data, $organization->currency, $request, $money),
+            ));
+            $this->saveEventOccurrence($appointmentType, $data);
+            return $appointmentType;
+        });
 
         $appointmentType->resources()->sync($this->resourceSyncData(
             $data,
@@ -213,20 +217,23 @@ class AppointmentTypeController extends Controller
             $password = Hash::make($data['access_password']);
         }
 
-        $appointmentType->update(array_merge(
-            [
-                'name' => $data['name'],
-                'slug' => $this->uniqueSlug($context->organization()->getKey(), $data['slug'] ?? $data['name'], $appointmentType),
-                'description' => $data['description'] ?? null,
-                'visibility' => $data['visibility'],
-                'access_password' => $password,
-                'public_token' => $data['visibility'] === AppointmentVisibility::Unlisted->value
-                    ? ($appointmentType->public_token ?: Str::random(48))
-                    : null,
-                'is_active' => $request->boolean('is_active'),
-            ],
-            $this->configurationData($data, $context->organization()->currency, $request, $money),
-        ));
+        \Illuminate\Support\Facades\DB::transaction(function () use ($appointmentType, $data, $password, $context, $request, $money) {
+            $appointmentType->update(array_merge(
+                [
+                    'name' => $data['name'],
+                    'slug' => $this->uniqueSlug($context->organization()->getKey(), $data['slug'] ?? $data['name'], $appointmentType),
+                    'description' => $data['description'] ?? null,
+                    'visibility' => $data['visibility'],
+                    'access_password' => $password,
+                    'public_token' => $data['visibility'] === AppointmentVisibility::Unlisted->value
+                        ? ($appointmentType->public_token ?: Str::random(48))
+                        : null,
+                    'is_active' => $request->boolean('is_active'),
+                ],
+                $this->configurationData($data, $context->organization()->currency, $request, $money),
+            ));
+            $this->saveEventOccurrence($appointmentType, $data);
+        });
 
         $appointmentType->resources()->sync($this->resourceSyncData(
             $data,
@@ -301,6 +308,34 @@ class AppointmentTypeController extends Controller
         }
 
         return redirect()->route('appointment-types.index')->with('success', 'Appointment type permanently deleted.');
+    }
+
+    private function saveEventOccurrence(AppointmentType $type, array $data): void
+    {
+        AppointmentType::whereKey($type->getKey())->lockForUpdate()->firstOrFail();
+        if (! $type->ticketing_enabled) {
+            $type->eventOccurrences()->update(['is_active' => false]);
+            return;
+        }
+        $event = $type->currentEventOccurrence();
+        $timezone = $type->organization->timezone;
+        $start = \Carbon\CarbonImmutable::createFromFormat('!Y-m-d H:i', $data['event_date'].' '.$data['event_time'], $timezone)->utc();
+        $changed = $event && (! $event->starts_at_utc->equalTo($start) || $event->venue !== $type->event_location);
+        if ($changed && ($type->appointments()->where('status', 'scheduled')->where('ends_at_utc', '>', now('UTC'))->exists()
+            || $type->bookingHolds()->where('status', 'active')->where('expires_at_utc', '>', now('UTC'))->exists())) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['event_date' => 'The event has bookings or active holds; its date, time and venue cannot change.']);
+        }
+        // Keep historical occurrences for existing tickets when scheduling a new event.
+        if ($changed && $event->starts_at_utc->isPast()
+            && $type->appointments()->where('event_occurrence_id', $event->getKey())->exists()) {
+            $event = null;
+        }
+        $event ??= new \App\Models\EventOccurrence;
+        $event->fill([
+            'starts_at_utc' => $start,
+            'timezone' => $timezone, 'venue' => $type->event_location, 'is_active' => true,
+        ]);
+        $type->eventOccurrences()->save($event);
     }
 
     private function formData(OrganizationContext $context): array

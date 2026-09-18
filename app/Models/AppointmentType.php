@@ -271,6 +271,24 @@ class AppointmentType extends Model
         return $this->hasMany(BookingHold::class);
     }
 
+    public function eventOccurrences(): HasMany
+    {
+        return $this->hasMany(EventOccurrence::class)->orderBy('starts_at_utc');
+    }
+
+    public function currentEventOccurrence(): ?EventOccurrence
+    {
+        return $this->eventOccurrences()->where('is_active', true)
+            ->where('starts_at_utc', '>', now('UTC'))->first()
+            ?? $this->eventOccurrences()->where('is_active', true)->reorder('starts_at_utc', 'desc')->first();
+    }
+
+    public function permitsEventStart(\Carbon\CarbonImmutable $start): bool
+    {
+        return ! $this->ticketing_enabled || $this->eventOccurrences()
+            ->where('is_active', true)->where('starts_at_utc', $start->utc()->format('Y-m-d H:i:s.u'))->exists();
+    }
+
     public function appointments(): HasMany
     {
         return $this->hasMany(Appointment::class);

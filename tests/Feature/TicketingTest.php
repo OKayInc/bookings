@@ -328,9 +328,96 @@ class TicketingTest extends TestCase
         $this->assertNull($ticket->seat_key);
     }
 
+    public function test_ticket_date_and_time_are_required_and_round_trip_in_organization_timezone(): void
+    {
+        [$user, $organization] = $this->ownerContext();
+        $this->actingAs($user)->withSession(['active_organization_uuid' => $organization->uuid]);
+        $this->post(route('appointment-types.store'), $this->configuration(['event_date' => '', 'event_time' => '']))
+            ->assertSessionHasErrors(['event_date', 'event_time']);
+        $this->post(route('appointment-types.store'), $this->configuration([
+            'event_date' => '2027-10-31', 'event_time' => '18:37',
+            'booking_notice_value' => 900, 'maximum_booking_notice_value' => 1,
+            'seasonal_availability_enabled' => '1', 'season_start_date' => 'bad',
+            'payment_collection_mode' => 'retainer', 'retainer_percentage' => 'bad',
+        ]))->assertSessionHasNoErrors();
+        $type = AppointmentType::where('name', 'Ticketed Concert')->firstOrFail();
+        $event = $type->currentEventOccurrence();
+        $this->assertSame('2027-10-31 22:37', $event->starts_at_utc->format('Y-m-d H:i'));
+        $this->assertSame('America/Toronto', $event->timezone);
+        $this->assertFalse($type->seasonal_availability_enabled);
+        $this->assertSame(0, $type->booking_notice_value);
+        $this->assertSame(0, $type->maximum_booking_notice_value);
+        $this->assertSame('full', $type->payment_collection_mode->value);
+        $this->get(route('appointment-types.edit', $type))->assertOk()->assertSee('2027-10-31')->assertSee('18:37');
+        $this->put(route('appointment-types.update', $type), $this->configuration([
+            'event_date' => '2027-11-01', 'event_time' => '19:00', 'event_location' => 'Concert Hall',
+        ]))->assertSessionHasNoErrors();
+        $this->assertSame(1, $type->eventOccurrences()->count());
+        $this->assertSame('Concert Hall', $type->currentEventOccurrence()->venue);
+    }
+
+    public function test_fixed_event_ignores_notice_and_season_but_rejects_other_times(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-24 12:00 UTC');
+        [, $organization] = $this->ownerContext();
+        $this->availability($organization);
+        $type = $this->ticketType($organization, [
+            'duration_value' => 60, 'show_start_offset_minutes' => 0, 'show_end_offset_minutes' => 60,
+            'booking_notice_value' => 900, 'maximum_booking_notice_value' => 1,
+            'seasonal_availability_enabled' => true, 'season_start_date' => '2025-01-01',
+            'season_end_date' => '2025-01-02', 'season_recurrence' => 'once',
+        ]);
+        $start = CarbonImmutable::parse('2026-08-31 09:07', 'America/Toronto')->utc();
+        $type->eventOccurrences()->update(['starts_at_utc' => $start]);
+        $slots = app(\App\Domain\Bookings\PublicBookingAvailabilityService::class)->slots(
+            $type, $start->startOfDay(), $start->startOfDay()->addDay(), 60, 'Asia/Tokyo', 1,
+        );
+        $this->assertCount(1, $slots);
+        $this->assertTrue($slots[0]->startsAtUtc->equalTo($start));
+        $this->assertFalse(app(\App\Domain\Availability\AvailabilityService::class)->isAvailableAt($type, $start->addDay(), 60));
+        $this->expectException(\RuntimeException::class);
+        app(PublicBookingHoldService::class)->acquire($type, $start->addMinutes(15), 60, 'America/Toronto', 1);
+    }
+
+    public function test_event_date_cannot_change_with_an_active_hold(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-24 12:00 UTC');
+        [$user, $organization] = $this->ownerContext();
+        $this->availability($organization);
+        $type = $this->ticketType($organization);
+        app(PublicBookingHoldService::class)->acquire($type,
+            CarbonImmutable::parse('2026-08-31 09:00', 'America/Toronto')->utc(), 180, 'America/Toronto', 1);
+        $this->actingAs($user)->withSession(['active_organization_uuid' => $organization->uuid])
+            ->put(route('appointment-types.update', $type), $this->configuration([
+                'event_date' => '2026-09-07', 'capacity' => 5, 'duration_value' => 180,
+                'show_end_offset_minutes' => 120,
+            ]))->assertSessionHasErrors('event_date');
+        $this->assertSame('2026-08-31', $type->currentEventOccurrence()->starts_at_utc->format('Y-m-d'));
+    }
+
+    public function test_unscheduled_ticket_type_has_no_slots(): void
+    {
+        [, $organization] = $this->ownerContext();
+        $this->availability($organization);
+        $type = $this->ticketType($organization);
+        $type->eventOccurrences()->delete();
+        $start = CarbonImmutable::parse('2026-08-31 00:00', 'America/Toronto')->utc();
+        $this->assertSame([], app(\App\Domain\Availability\AvailabilityService::class)->slots($type, $start, $start->addDay()));
+    }
+
+    public function test_daylight_saving_missing_time_is_rejected(): void
+    {
+        [$user, $organization] = $this->ownerContext();
+        $this->actingAs($user)->withSession(['active_organization_uuid' => $organization->uuid])
+            ->post(route('appointment-types.store'), $this->configuration([
+                'event_date' => '2027-03-14', 'event_time' => '02:30',
+            ]))->assertSessionHasErrors('event_time');
+    }
+
     private function configuration(array $overrides = []): array
     {
         return array_replace([
+            'event_date' => '2026-08-31', 'event_time' => '09:00',
             'name' => 'Ticketed Concert',
             'visibility' => 'public',
             'attendance_mode' => 'group',
@@ -353,7 +440,7 @@ class TicketingTest extends TestCase
 
     private function ticketType(Organization $organization, array $overrides = []): AppointmentType
     {
-        return AppointmentType::create(array_replace([
+        $type = AppointmentType::create(array_replace([
             'organization_id' => $organization->getKey(),
             'name' => 'Live Concert', 'slug' => 'live-concert', 'visibility' => 'public',
             'attendance_mode' => 'group', 'capacity' => 5,
@@ -363,6 +450,11 @@ class TicketingTest extends TestCase
             'start_interval_minutes' => 180, 'buffer_before_minutes' => 0, 'buffer_after_minutes' => 0,
             'pricing_mode' => 'free', 'email_verification_mode' => 'none', 'is_active' => true,
         ], $overrides));
+        $type->eventOccurrences()->create([
+            'starts_at_utc' => CarbonImmutable::parse('2026-08-31 09:00', 'America/Toronto')->utc(),
+            'timezone' => 'America/Toronto', 'venue' => $type->event_location, 'is_active' => true,
+        ]);
+        return $type;
     }
 
     private function availability(Organization $organization): void

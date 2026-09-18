@@ -15,7 +15,7 @@ class BookingNoticeService
         $type->loadMissing('organization');
         $nowUtc ??= CarbonImmutable::now('UTC');
 
-        $value = max(0, (int) $type->booking_notice_value);
+        $value = $type->ticketing_enabled ? 0 : max(0, (int) $type->booking_notice_value);
         if ($value === 0) {
             return $nowUtc->utc();
         }
@@ -35,7 +35,7 @@ class BookingNoticeService
         $type->loadMissing('organization');
         $nowUtc ??= CarbonImmutable::now('UTC');
 
-        $value = max(0, (int) ($type->maximum_booking_notice_value ?? 365));
+        $value = $type->ticketing_enabled ? 0 : max(0, (int) ($type->maximum_booking_notice_value ?? 365));
         if ($value === 0) {
             return null;
         }
@@ -54,7 +54,7 @@ class BookingNoticeService
         ?CarbonImmutable $nowUtc = null,
     ): bool {
         $nowUtc ??= CarbonImmutable::now('UTC');
-        $minimumValue = max(0, (int) $type->booking_notice_value);
+        $minimumValue = $type->ticketing_enabled ? 0 : max(0, (int) $type->booking_notice_value);
         $earliest = $this->earliestBookableStartUtc($type, $nowUtc);
 
         $minimumSatisfied = $minimumValue === 0
@@ -76,7 +76,7 @@ class BookingNoticeService
         ?CarbonImmutable $nowUtc = null,
     ): ?string {
         $nowUtc ??= CarbonImmutable::now('UTC');
-        $minimumValue = max(0, (int) $type->booking_notice_value);
+        $minimumValue = $type->ticketing_enabled ? 0 : max(0, (int) $type->booking_notice_value);
         $earliest = $this->earliestBookableStartUtc($type, $nowUtc);
         $tooSoon = $minimumValue === 0
             ? $startsAtUtc->lte($earliest)
@@ -96,7 +96,7 @@ class BookingNoticeService
 
     public function minimumLabel(AppointmentType $type): string
     {
-        $value = max(0, (int) $type->booking_notice_value);
+        $value = $type->ticketing_enabled ? 0 : max(0, (int) $type->booking_notice_value);
         if ($value === 0) {
             return 'No minimum notice';
         }
@@ -108,7 +108,7 @@ class BookingNoticeService
 
     public function maximumLabel(AppointmentType $type): string
     {
-        $value = max(0, (int) ($type->maximum_booking_notice_value ?? 365));
+        $value = $type->ticketing_enabled ? 0 : max(0, (int) ($type->maximum_booking_notice_value ?? 365));
         if ($value === 0) {
             return 'No maximum advance-booking limit';
         }

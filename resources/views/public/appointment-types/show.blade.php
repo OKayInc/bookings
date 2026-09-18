@@ -35,10 +35,10 @@
     </div>
     <div class="card"><h3>Attendance</h3><p>{{ $summary->attendance($type) }}</p></div>
     <div class="card"><h3>Location</h3><p>{{ $summary->location($type) }}</p></div>
-    <div class="card"><h3>Season</h3><p>{{ $summary->season($type) }}</p></div>
-    <div class="card"><h3>Booking notice</h3><p>{{ $summary->bookingNotice($type) }}</p></div>
+    @unless($type->ticketing_enabled)<div class="card"><h3>Season</h3><p>{{ $summary->season($type) }}</p></div>@endunless
+    @unless($type->ticketing_enabled)<div class="card"><h3>Booking notice</h3><p>{{ $summary->bookingNotice($type) }}</p></div>@endunless
     @if($type->ticketing_enabled)
-        <div class="card"><h3>Event timing</h3><p>Doors open at the selected start time.<br>Show starts {{ $type->show_start_offset_minutes === 0 ? 'when doors open' : $type->show_start_offset_minutes.' minutes later' }}.@if($type->show_end_offset_minutes !== null)<br>Show ends {{ $type->show_end_offset_minutes }} minutes after doors open.@endif</p></div>
+        <div class="card"><h3>Event timing</h3><p>@if($event = $type->currentEventOccurrence())Doors open {{ $event->starts_at_utc->setTimezone($organization->timezone)->format('D, M j, Y · g:i A') }} ({{ $organization->timezone }}).@elseEvent date not yet set.@endif<br>Show starts {{ $type->show_start_offset_minutes === 0 ? 'when doors open' : $type->show_start_offset_minutes.' minutes later' }}.@if($type->show_end_offset_minutes !== null)<br>Show ends {{ $type->show_end_offset_minutes }} minutes after doors open.@endif</p></div>
         <div class="card"><h3>Admission</h3><p>{{ $summary->seating($type) }}</p></div>
     @endif
 </div>
@@ -136,8 +136,19 @@
     const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (detected && [...timezone.options].some(option => option.value === detected)) timezone.value = detected;
 
+    const eventStart = @json($type->ticketing_enabled ? $type->currentEventOccurrence()?->starts_at_utc?->toIso8601String() : null);
+    function setEventDate() {
+        if (!eventStart) return;
+        const parts = new Intl.DateTimeFormat('en-CA', {timeZone: timezone.value, year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(new Date(eventStart));
+        const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+        date.value = `${values.year}-${values.month}-${values.day}`;
+        date.readOnly = true;
+    }
+    timezone.addEventListener('change', setEventDate);
     const today = new Date();
     date.value = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+    setEventDate();
 
     async function loadSlots() {
         const requestVersion = ++slotRequestVersion;

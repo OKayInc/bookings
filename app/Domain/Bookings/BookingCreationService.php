@@ -105,6 +105,9 @@ class BookingCreationService
             $this->conditionalResourceRequirements->applySubmissionToHold($hold, $questionnaire);
             $type = $hold->appointmentType;
             $organization = $type->organization;
+            if (! $type->permitsEventStart(CarbonImmutable::instance($hold->starts_at_utc)->utc())) {
+                throw new RuntimeException('This event date is no longer available. Please choose the configured event.');
+            }
             if (! $this->seasons->contains(
                 $type,
                 CarbonImmutable::instance($hold->starts_at_utc)->utc(),

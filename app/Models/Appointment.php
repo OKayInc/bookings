@@ -21,14 +21,15 @@ class Appointment extends Model
         'organization_id', 'appointment_type_id', 'starts_at_utc', 'ends_at_utc',
         'blocked_starts_at_utc', 'blocked_ends_at_utc', 'scheduling_timezone',
         'duration_value', 'capacity', 'status',
-        'ticketing_enabled', 'private_event_enabled', 'event_location', 'location_disclosure_mode',
+        'ticketing_enabled',
+        'event_occurrence_id', 'private_event_enabled', 'event_location', 'location_disclosure_mode',
         'location_disclosure_hours', 'show_starts_at_utc', 'show_ends_at_utc',
         'ticket_seating_scheme', 'ticket_seat_optional', 'ticket_seat_blocks',
         'meeting_provider', 'meeting_external_id', 'meeting_join_url', 'meeting_host_url',
         'meeting_status', 'meeting_error',
     ];
 
-    protected $hidden = ['id', 'organization_id', 'appointment_type_id', 'event_location', 'meeting_join_url', 'meeting_host_url'];
+    protected $hidden = ['event_occurrence_id', 'id', 'organization_id', 'appointment_type_id', 'event_location', 'meeting_join_url', 'meeting_host_url'];
     protected $appends = ['uuid'];
 
     protected function casts(): array
@@ -59,6 +60,11 @@ class Appointment extends Model
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    public function eventOccurrence(): BelongsTo
+    {
+        return $this->belongsTo(EventOccurrence::class);
     }
 
     public function appointmentType(): BelongsTo

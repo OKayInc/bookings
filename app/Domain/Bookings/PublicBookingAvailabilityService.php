@@ -80,6 +80,9 @@ class PublicBookingAvailabilityService
             }
 
             $start = CarbonImmutable::instance($appointment->starts_at_utc)->utc();
+            if (! $type->permitsEventStart($start)) {
+                continue;
+            }
             if ($enforceNotice && ! $this->notice->permits($type, $start, $nowUtc)) {
                 continue;
             }

@@ -45,6 +45,22 @@ class StoreAppointmentTypeRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if ($this->boolean('ticketing_enabled')) {
+            $this->merge([
+                'booking_notice_value' => 0, 'maximum_booking_notice_value' => 0,
+                'booking_notice_unit' => 'hour', 'maximum_booking_notice_unit' => 'day',
+                'seasonal_availability_enabled' => false, 'season_start_date' => null,
+                'season_end_date' => null, 'season_recurrence' => null,
+            ]);
+        }
+        if ($this->input('pricing_mode') === PricingMode::Free->value) {
+            $this->merge([
+                'payment_collection_mode' => 'full', 'retainer_type' => null,
+                'retainer_amount' => null, 'retainer_percentage' => null,
+                'balance_due_value' => 0, 'balance_due_unit' => 'day',
+                'client_refund_percentage' => '0', 'staff_refund_percentage' => '100',
+            ]);
+        }
         $sanitized = [];
 
         foreach (['description', 'cancellation_policy_text', 'rescheduling_policy_text'] as $field) {
@@ -86,6 +102,8 @@ class StoreAppointmentTypeRequest extends FormRequest
 
             'attendance_mode' => ['required', Rule::enum(AttendanceMode::class)],
             'ticketing_enabled' => ['nullable', 'boolean'],
+            'event_date' => [Rule::excludeIf(fn () => ! $this->boolean('ticketing_enabled')), 'required', 'date_format:Y-m-d'],
+            'event_time' => [Rule::excludeIf(fn () => ! $this->boolean('ticketing_enabled')), 'required', 'date_format:H:i'],
             'private_event_enabled' => ['nullable', 'boolean'],
             'event_location' => ['nullable', 'string', 'max:5000'],
             'location_disclosure_mode' => ['nullable', Rule::enum(LocationDisclosureMode::class)],
@@ -307,6 +325,25 @@ class StoreAppointmentTypeRequest extends FormRequest
             $this->validateSeason($validator);
             $this->validateAttendeePricing($validator);
             $this->validateTicketing($validator);
+            if ($this->boolean('ticketing_enabled') && ! $validator->errors()->hasAny(['event_date', 'event_time'])) {
+                $local = $this->input('event_date').' '.$this->input('event_time');
+                $timezone = app(OrganizationContext::class)->organization()->timezone;
+                $start = \Carbon\CarbonImmutable::createFromFormat('!Y-m-d H:i', $local, $timezone);
+                if ($start->format('Y-m-d H:i') !== $local) {
+                    $validator->errors()->add('event_time', 'This local time does not exist because of a daylight-saving time change.');
+                }
+                $type = $this->route('appointment_type');
+                if ($type instanceof AppointmentType) {
+                    $event = $type->currentEventOccurrence();
+                    $reserved = $type->appointments()->where('status', 'scheduled')->where('ends_at_utc', '>', now('UTC'))->exists()
+                        || $type->bookingHolds()->where('status', 'active')->where('expires_at_utc', '>', now('UTC'))->exists();
+                    $venue = is_string($this->input('event_location')) && filled($this->input('event_location'))
+                        ? trim($this->input('event_location')) : null;
+                    if ($event && $reserved && (! $event->starts_at_utc->equalTo($start) || $event->venue !== $venue)) {
+                        $validator->errors()->add('event_date', 'The event date, time and venue cannot change while it has future bookings or active holds.');
+                    }
+                }
+            }
             $this->validatePayments($validator);
 
             if ($this->input('pricing_mode') === PricingMode::PerAttendee->value
@@ -893,7 +930,8 @@ class StoreAppointmentTypeRequest extends FormRequest
     {
         $type = $this->route('appointment_type');
         if (! $type instanceof AppointmentType
-            || ! $type->appointments()->where('status', 'scheduled')->where('ends_at_utc', '>', now('UTC'))->exists()) {
+            || (! $type->appointments()->where('status', 'scheduled')->where('ends_at_utc', '>', now('UTC'))->exists()
+                && ! $type->bookingHolds()->where('status', 'active')->where('expires_at_utc', '>', now('UTC'))->exists())) {
             return;
         }
 

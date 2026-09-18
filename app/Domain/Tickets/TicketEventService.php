@@ -19,6 +19,7 @@ class TicketEventService
     ): array {
         if (! $type->ticketing_enabled) {
             return [
+                'event_occurrence_id' => null,
                 'ticketing_enabled' => false,
                 'private_event_enabled' => false,
                 'event_location' => null,
@@ -42,6 +43,12 @@ class TicketEventService
             throw new RuntimeException('Ticketed events must use free or per-attendee pricing.');
         }
 
+        $occurrence = $type->eventOccurrences()->where('is_active', true)
+            ->where('starts_at_utc', $startsAtUtc->utc()->format('Y-m-d H:i:s.u'))->first();
+        if (! $occurrence) {
+            throw new RuntimeException('Please select the configured event date and time.');
+        }
+
         $showStarts = $startsAtUtc->addMinutes((int) $type->show_start_offset_minutes);
         $showEnds = $type->show_end_offset_minutes === null
             ? null
@@ -55,9 +62,10 @@ class TicketEventService
         }
 
         return [
+            'event_occurrence_id' => $occurrence->getKey(),
             'ticketing_enabled' => true,
             'private_event_enabled' => (bool) $type->private_event_enabled,
-            'event_location' => $type->event_location,
+            'event_location' => $occurrence->venue,
             'location_disclosure_mode' => $type->location_disclosure_mode?->value ?? 'public',
             'location_disclosure_hours' => $type->location_disclosure_hours,
             'show_starts_at_utc' => $showStarts,

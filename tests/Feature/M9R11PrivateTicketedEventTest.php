@@ -188,7 +188,7 @@ class M9R11PrivateTicketedEventTest extends TestCase
 
     private function privateEvent(Organization $organization, array $overrides = []): AppointmentType
     {
-        return AppointmentType::create(array_replace([
+        $type = AppointmentType::create(array_replace([
             'organization_id' => $organization->getKey(),
             'name' => 'Secret Concert', 'slug' => 'secret-concert', 'visibility' => 'public',
             'attendance_mode' => 'group', 'capacity' => 20, 'ticketing_enabled' => true,
@@ -200,6 +200,11 @@ class M9R11PrivateTicketedEventTest extends TestCase
             'start_interval_minutes' => 180, 'buffer_before_minutes' => 0, 'buffer_after_minutes' => 0,
             'pricing_mode' => 'free', 'email_verification_mode' => 'none', 'is_active' => true,
         ], $overrides));
+        $type->eventOccurrences()->create([
+            'starts_at_utc' => CarbonImmutable::parse('2026-09-21 09:00', 'America/Toronto')->utc(),
+            'timezone' => 'America/Toronto', 'venue' => $type->event_location, 'is_active' => true,
+        ]);
+        return $type;
     }
 
     private function availability(Organization $organization): void
@@ -234,6 +239,7 @@ class M9R11PrivateTicketedEventTest extends TestCase
     private function configuration(array $overrides = []): array
     {
         return array_replace([
+            'event_date' => '2026-09-21', 'event_time' => '09:00',
             'name' => 'Secret Concert', 'visibility' => 'public', 'attendance_mode' => 'group',
             'capacity' => 20, 'ticketing_enabled' => '1', 'show_start_offset_minutes' => 60,
             'show_end_offset_minutes' => 180, 'ticket_seating_scheme' => 'consecutive',

@@ -44,6 +44,14 @@ class AvailabilityService
 
         $type->loadMissing(['organization', 'resources']);
         $bookingTimezone ??= $type->organization->timezone;
+        $eventStarts = $type->ticketing_enabled
+            ? $type->eventOccurrences()->where('is_active', true)
+                ->where('starts_at_utc', '>=', $rangeStartUtc)->where('starts_at_utc', '<', $rangeEndUtc)
+                ->get()->pluck('starts_at_utc')->all()
+            : null;
+        if ($eventStarts === []) {
+            return [];
+        }
         $replacementGroups = $this->requirements->replacementGroups($type);
 
         // rangeEndUtc limits when a slot may start; it is not a deadline for the
@@ -102,7 +110,14 @@ class AvailabilityService
         $slots = [];
 
         foreach ($windows ?? [] as $window) {
-            $candidate = $this->alignUp($window->start, $bookingTimezone, $intervalMinutes);
+            $candidates = $eventStarts === null ? null : array_values(array_filter($eventStarts,
+                fn ($start) => $start->gte($window->start) && $start->lt($window->end)));
+            $candidate = $candidates === null
+                ? $this->alignUp($window->start, $bookingTimezone, $intervalMinutes)
+                : array_shift($candidates);
+            if ($candidate === null) {
+                continue;
+            }
 
             while ($candidate->lt($window->end) && $candidate->lt($rangeEndUtc)) {
                 $end = $this->durations->endAt($candidate, $type, $durationValue, $bookingTimezone);
@@ -110,7 +125,7 @@ class AvailabilityService
                     break;
                 }
                 if (! $this->seasons->contains($type, $candidate, $end)) {
-                    $candidate = $candidate->addMinutes($intervalMinutes);
+                    $candidate = $candidates === null ? $candidate->addMinutes($intervalMinutes) : (array_shift($candidates) ?? $window->end);
                     continue;
                 }
 
@@ -129,7 +144,7 @@ class AvailabilityService
                     );
                 }
 
-                $candidate = $candidate->addMinutes($intervalMinutes);
+                $candidate = $candidates === null ? $candidate->addMinutes($intervalMinutes) : (array_shift($candidates) ?? $window->end);
             }
         }
 
