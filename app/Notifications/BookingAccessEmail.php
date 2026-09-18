@@ -25,6 +25,12 @@ class BookingAccessEmail extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
+        $mail = $this->defaultMail($notifiable);
+        return app(\App\Domain\Email\AttendeeEmailTemplates::class)->apply('booking_access', $this->booking, $mail);
+    }
+
+    private function defaultMail(object $notifiable): MailMessage
+    {
         $booking = $this->booking->loadMissing(['appointment', 'appointmentType', 'tickets']);
         $url = route('public.bookings.manage', [$this->booking, $this->manageToken]);
         $message = (new MailMessage)

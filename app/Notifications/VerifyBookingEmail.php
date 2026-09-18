@@ -24,6 +24,12 @@ class VerifyBookingEmail extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
+        $mail = $this->defaultMail($notifiable);
+        return app(\App\Domain\Email\AttendeeEmailTemplates::class)->apply('booking_verification', $this->booking, $mail);
+    }
+
+    private function defaultMail(object $notifiable): MailMessage
+    {
         $url = route('public.bookings.verify', [$this->booking, $this->token]);
 
         return (new MailMessage)

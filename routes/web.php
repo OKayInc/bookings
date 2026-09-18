@@ -216,6 +216,9 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::middleware('organization')->group(function (): void {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
         Route::get('/admin/health', HealthController::class)->name('admin.health');
+        Route::get('/email-templates', [\App\Http\Controllers\AttendeeEmailTemplateController::class, 'edit'])->name('email-templates.edit');
+        Route::put('/email-templates', [\App\Http\Controllers\AttendeeEmailTemplateController::class, 'update'])->name('email-templates.update');
+        Route::delete('/email-templates', [\App\Http\Controllers\AttendeeEmailTemplateController::class, 'destroy'])->name('email-templates.destroy');
         Route::get('/settings', [OrganizationSettingsController::class, 'edit'])->name('settings.edit');
         Route::put('/settings', [OrganizationSettingsController::class, 'update'])->name('settings.update');
         Route::get('/payment-settings', [PaymentSettingsController::class, 'edit'])->name('payment-settings.edit');

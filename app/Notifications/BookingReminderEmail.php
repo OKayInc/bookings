@@ -16,6 +16,12 @@ class BookingReminderEmail extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
+        $mail = $this->defaultMail($notifiable);
+        return app(\App\Domain\Email\AttendeeEmailTemplates::class)->apply('booking_reminder', $this->booking, $mail);
+    }
+
+    private function defaultMail(object $notifiable): MailMessage
+    {
         $start = $this->booking->appointment->starts_at_utc
             ->setTimezone($this->booking->booking_timezone)
             ->format('D, M j Y · g:i A');

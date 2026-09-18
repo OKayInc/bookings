@@ -21,6 +21,12 @@ class BookingScheduleProposalEmail extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
+        $mail = $this->defaultMail($notifiable);
+        return app(\App\Domain\Email\AttendeeEmailTemplates::class)->apply('schedule_proposal', $this->proposal->booking, $mail);
+    }
+
+    private function defaultMail(object $notifiable): MailMessage
+    {
         $proposal = $this->proposal->loadMissing(['booking.appointmentType', 'booking.organization']);
         $booking = $proposal->booking;
         $timezone = $booking->booking_timezone;

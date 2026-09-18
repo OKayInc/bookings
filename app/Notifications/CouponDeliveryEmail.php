@@ -20,6 +20,12 @@ class CouponDeliveryEmail extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
+        $mail = $this->defaultMail($notifiable);
+        return app(\App\Domain\Email\AttendeeEmailTemplates::class)->apply('coupon_delivery', $this->coupon, $mail);
+    }
+
+    private function defaultMail(object $notifiable): MailMessage
+    {
         $coupon = $this->coupon->loadMissing('organization');
         $url = route('public.coupons.view', $coupon->view_token);
         $mail = (new MailMessage)

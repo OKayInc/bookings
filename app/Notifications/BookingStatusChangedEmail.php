@@ -17,6 +17,12 @@ class BookingStatusChangedEmail extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
+        $mail = $this->defaultMail($notifiable);
+        return app(\App\Domain\Email\AttendeeEmailTemplates::class)->apply('booking_status', $this->booking, $mail);
+    }
+
+    private function defaultMail(object $notifiable): MailMessage
+    {
         $mail = (new MailMessage)
             ->subject('Booking update '.$this->booking->reference)
             ->greeting('Hello '.$this->booking->first_name.',')
