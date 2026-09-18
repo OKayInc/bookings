@@ -1,0 +1,331 @@
+<?php
+
+namespace App\Models;
+
+use App\Enums\AppointmentVisibility;
+use App\Enums\AttendanceMode;
+use App\Enums\AttendeePricingMode;
+use App\Enums\BookingNoticeUnit;
+use App\Enums\DurationMode;
+use App\Enums\DurationUnit;
+use App\Enums\EmailVerificationMode;
+use App\Enums\ConferenceProvider;
+use App\Enums\PricingMode;
+use App\Enums\PaymentCollectionMode;
+use App\Enums\RetainerType;
+use App\Enums\SeasonRecurrence;
+use App\Enums\TicketSeatingScheme;
+use App\Enums\LocationDisclosureMode;
+use App\Models\Concerns\HasBinaryUuid;
+use App\Support\Html\RichTextSanitizer;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Storage;
+
+class AppointmentType extends Model
+{
+    use HasBinaryUuid, HasFactory;
+
+    protected $fillable = [
+        'organization_id',
+        'name',
+        'slug',
+        'description',
+        'logo_path',
+        'visibility',
+        'access_password',
+        'public_token',
+        'attendance_mode',
+        'ticketing_enabled',
+        'private_event_enabled',
+        'event_location',
+        'location_disclosure_mode',
+        'location_disclosure_hours',
+        'show_start_offset_minutes',
+        'show_end_offset_minutes',
+        'ticket_seating_scheme',
+        'ticket_seat_optional',
+        'ticket_seat_blocks',
+        'is_online',
+        'meeting_provider',
+        'capacity',
+        'duration_mode',
+        'duration_unit',
+        'duration_value',
+        'minimum_duration_value',
+        'maximum_duration_value',
+        'duration_increment_value',
+        'buffer_before_minutes',
+        'start_interval_minutes',
+        'booking_notice_value',
+        'booking_notice_unit',
+        'maximum_booking_notice_value',
+        'maximum_booking_notice_unit',
+        'seasonal_availability_enabled',
+        'season_start_date',
+        'season_end_date',
+        'season_recurrence',
+        'buffer_after_minutes',
+        'pricing_mode',
+        'fixed_price_minor',
+        'attendee_price_minor',
+        'attendee_pricing_mode',
+        'attendee_price_ranges',
+        'rate_amount_minor',
+        'rate_unit',
+        'payment_collection_mode',
+        'retainer_type',
+        'retainer_amount_minor',
+        'retainer_percentage_bps',
+        'balance_due_value',
+        'balance_due_unit',
+        'client_refund_percentage_bps',
+        'staff_refund_percentage_bps',
+        'requires_resource_confirmation',
+        'show_resources_to_clients',
+        'email_verification_mode',
+        'redirect_url',
+        'is_active',
+        'cancellation_allowed', 'cancellation_notice_value', 'cancellation_notice_unit', 'cancellation_policy_text',
+        'rescheduling_allowed', 'rescheduling_notice_value', 'rescheduling_notice_unit', 'rescheduling_max_count', 'rescheduling_policy_text',
+        'reminder_enabled', 'reminder_threshold_basis', 'reminder_threshold_days', 'reminder_before_value',
+        'reminder_before_unit', 'reminder_clients', 'reminder_resources',
+    ];
+
+    protected $hidden = ['id', 'access_password', 'public_token', 'event_location'];
+
+    protected $appends = ['uuid', 'logo_url'];
+
+    protected function casts(): array
+    {
+        return [
+            'visibility' => AppointmentVisibility::class,
+            'attendance_mode' => AttendanceMode::class,
+            'ticketing_enabled' => 'boolean',
+            'private_event_enabled' => 'boolean',
+            'location_disclosure_mode' => LocationDisclosureMode::class,
+            'location_disclosure_hours' => 'integer',
+            'show_start_offset_minutes' => 'integer',
+            'show_end_offset_minutes' => 'integer',
+            'ticket_seating_scheme' => TicketSeatingScheme::class,
+            'ticket_seat_optional' => 'boolean',
+            'ticket_seat_blocks' => 'array',
+            'is_online' => 'boolean',
+            'meeting_provider' => ConferenceProvider::class,
+            'capacity' => 'integer',
+            'duration_mode' => DurationMode::class,
+            'duration_unit' => DurationUnit::class,
+            'duration_value' => 'integer',
+            'minimum_duration_value' => 'integer',
+            'maximum_duration_value' => 'integer',
+            'duration_increment_value' => 'integer',
+            'buffer_before_minutes' => 'integer',
+            'start_interval_minutes' => 'integer',
+            'booking_notice_value' => 'integer',
+            'booking_notice_unit' => BookingNoticeUnit::class,
+            'maximum_booking_notice_value' => 'integer',
+            'maximum_booking_notice_unit' => BookingNoticeUnit::class,
+            'seasonal_availability_enabled' => 'boolean',
+            'season_start_date' => 'immutable_date',
+            'season_end_date' => 'immutable_date',
+            'season_recurrence' => SeasonRecurrence::class,
+            'buffer_after_minutes' => 'integer',
+            'pricing_mode' => PricingMode::class,
+            'fixed_price_minor' => 'integer',
+            'attendee_price_minor' => 'integer',
+            'attendee_pricing_mode' => AttendeePricingMode::class,
+            'attendee_price_ranges' => 'array',
+            'rate_amount_minor' => 'integer',
+            'rate_unit' => DurationUnit::class,
+            'payment_collection_mode' => PaymentCollectionMode::class,
+            'retainer_type' => RetainerType::class,
+            'retainer_amount_minor' => 'integer',
+            'retainer_percentage_bps' => 'integer',
+            'balance_due_value' => 'integer',
+            'balance_due_unit' => BookingNoticeUnit::class,
+            'client_refund_percentage_bps' => 'integer',
+            'staff_refund_percentage_bps' => 'integer',
+            'requires_resource_confirmation' => 'boolean',
+            'show_resources_to_clients' => 'boolean',
+            'email_verification_mode' => EmailVerificationMode::class,
+            'is_active' => 'boolean',
+            'cancellation_allowed' => 'boolean',
+            'cancellation_notice_value' => 'integer',
+            'cancellation_notice_unit' => BookingNoticeUnit::class,
+            'rescheduling_allowed' => 'boolean',
+            'rescheduling_notice_value' => 'integer',
+            'rescheduling_notice_unit' => BookingNoticeUnit::class,
+            'rescheduling_max_count' => 'integer',
+            'reminder_enabled' => 'boolean',
+            'reminder_threshold_basis' => \App\Enums\ReminderThresholdBasis::class,
+            'reminder_threshold_days' => 'integer',
+            'reminder_before_value' => 'integer',
+            'reminder_before_unit' => BookingNoticeUnit::class,
+            'reminder_clients' => 'boolean',
+            'reminder_resources' => 'boolean',
+        ];
+    }
+
+    protected function description(): Attribute
+    {
+        return $this->sanitizedRichTextAttribute();
+    }
+
+    protected function cancellationPolicyText(): Attribute
+    {
+        return $this->sanitizedRichTextAttribute();
+    }
+
+    protected function reschedulingPolicyText(): Attribute
+    {
+        return $this->sanitizedRichTextAttribute();
+    }
+
+    public function getLogoUrlAttribute(): ?string
+    {
+        if (! $this->logo_path) {
+            return null;
+        }
+
+        return Storage::disk((string) config('appointment-types.logo_disk', 'public'))->url($this->logo_path);
+    }
+
+    public function safeDescriptionHtml(): ?string
+    {
+        return app(RichTextSanitizer::class)->sanitize($this->description);
+    }
+
+    public function safeCancellationPolicyHtml(): ?string
+    {
+        return app(RichTextSanitizer::class)->sanitize($this->cancellation_policy_text);
+    }
+
+    public function safeReschedulingPolicyHtml(): ?string
+    {
+        return app(RichTextSanitizer::class)->sanitize($this->rescheduling_policy_text);
+    }
+
+    private function sanitizedRichTextAttribute(): Attribute
+    {
+        return Attribute::make(
+            set: fn (mixed $value): ?string => is_string($value)
+                ? app(RichTextSanitizer::class)->sanitize($value)
+                : null,
+        );
+    }
+
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class);
+    }
+
+    public function couponOffers(): BelongsToMany
+    {
+        return $this->belongsToMany(CouponOffer::class, 'coupon_offer_appointment_type');
+    }
+
+    public function coupons(): BelongsToMany
+    {
+        return $this->belongsToMany(Coupon::class, 'coupon_appointment_type');
+    }
+
+    public function resources(): BelongsToMany
+    {
+        return $this->belongsToMany(Resource::class, 'appointment_type_resources')
+            ->withPivot(
+                'is_required',
+                'requirement_mode',
+                'replacement_group',
+                'quantity_required',
+                'equipment_pricing_mode',
+                'equipment_unit_price_minor',
+                'equipment_fixed_price_minor',
+                'equipment_bundle_prices',
+            )
+            ->withTimestamps();
+    }
+
+    public function contractTemplates(): HasMany
+    {
+        return $this->hasMany(AppointmentContractTemplate::class);
+    }
+
+    public function contractTemplate(): HasOne
+    {
+        return $this->hasOne(AppointmentContractTemplate::class)->where('is_active', true);
+    }
+
+    public function availabilitySchedules(): HasMany
+    {
+        return $this->hasMany(AvailabilitySchedule::class, 'scope_id', 'id')
+            ->where('scope_type', \App\Enums\AvailabilityScope::AppointmentType->value);
+    }
+
+    public function bookingHolds(): HasMany
+    {
+        return $this->hasMany(BookingHold::class);
+    }
+
+    public function eventOccurrences(): HasMany
+    {
+        return $this->hasMany(EventOccurrence::class)->orderBy('starts_at_utc');
+    }
+
+    public function currentEventOccurrence(): ?EventOccurrence
+    {
+        return $this->eventOccurrences()->where('is_active', true)
+            ->where('starts_at_utc', '>', now('UTC'))->first()
+            ?? $this->eventOccurrences()->where('is_active', true)->reorder('starts_at_utc', 'desc')->first();
+    }
+
+    public function permitsEventStart(\Carbon\CarbonImmutable $start): bool
+    {
+        return ! $this->ticketing_enabled || $this->eventOccurrences()
+            ->where('is_active', true)->where('starts_at_utc', $start->utc()->format('Y-m-d H:i:s.u'))->exists();
+    }
+
+    public function appointments(): HasMany
+    {
+        return $this->hasMany(Appointment::class);
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
+
+    public function galleryPhotos(): HasMany
+    {
+        return $this->hasMany(GalleryPhoto::class)
+            ->orderBy('placement')
+            ->orderBy('position')
+            ->orderBy('created_at');
+    }
+
+    public function questions(): HasMany
+    {
+        return $this->hasMany(AppointmentQuestion::class)->orderBy('position');
+    }
+
+    public function shortNoticeFeeRules(): HasMany
+    {
+        return $this->hasMany(ShortNoticeFeeRule::class)->orderBy('position');
+    }
+
+    public function invitations(): HasMany
+    {
+        return $this->hasMany(AppointmentTypeInvitation::class);
+    }
+
+    public function externalCalendars(): BelongsToMany
+    {
+        return $this->belongsToMany(ExternalCalendar::class, 'appointment_type_calendars')
+            ->withPivot('check_availability', 'create_event')
+            ->withTimestamps();
+    }
+}

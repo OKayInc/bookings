@@ -1,0 +1,639 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Domain\Appointments\AppointmentTypeDeletionService;
+use App\Domain\Appointments\AppointmentTypeLogoService;
+use App\Domain\Appointments\AppointmentTypeSummaryService;
+use App\Domain\Appointments\AttendeePricingService;
+use App\Domain\Contracts\ContractTemplateService;
+use App\Domain\Galleries\GalleryLimitService;
+use App\Domain\Bookings\ShortNoticeFeeRuleService;
+use App\Domain\Conferences\ConferenceProviderCatalog;
+use App\Domain\Money\MoneyService;
+use App\Domain\Questionnaires\PercentageService;
+use App\Domain\Resources\EquipmentPricingService;
+use App\Enums\AppointmentVisibility;
+use App\Enums\AttendanceMode;
+use App\Enums\ConferenceProvider;
+use App\Enums\AttendeePricingMode;
+use App\Enums\BookingNoticeUnit;
+use App\Enums\DurationMode;
+use App\Enums\DurationUnit;
+use App\Enums\EmailVerificationMode;
+use App\Enums\EquipmentPricingMode;
+use App\Enums\PricingMode;
+use App\Enums\PaymentCollectionMode;
+use App\Enums\RetainerType;
+use App\Enums\PricingAdjustmentType;
+use App\Enums\ResourceRequirementMode;
+use App\Enums\ReminderThresholdBasis;
+use App\Enums\SeasonRecurrence;
+use App\Enums\TicketSeatingScheme;
+use App\Enums\LocationDisclosureMode;
+use App\Domain\Tickets\TicketSeatingService;
+use App\Http\Requests\StoreAppointmentTypeRequest;
+use App\Models\AppointmentType;
+use App\Models\Organization;
+use App\Models\Resource;
+use App\Support\Organizations\OrganizationContext;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Illuminate\View\View;
+
+class AppointmentTypeController extends Controller
+{
+    public function index(OrganizationContext $context, AppointmentTypeSummaryService $summary): View
+    {
+        $appointmentTypes = $context->organization()->appointmentTypes()
+            ->with(['organization', 'resources'])
+            ->withCount(['resources', 'bookings'])
+            ->withExists(['contractTemplate as has_contract'])
+            ->orderBy('name')
+            ->get();
+
+        return view('appointment-types.index', compact('appointmentTypes', 'summary'));
+    }
+
+    public function create(OrganizationContext $context): View
+    {
+        $this->authorize('manageScheduling', $context->organization());
+
+        return view('appointment-types.create', array_merge($this->formData($context), [
+            'fixedPriceInput' => '',
+            'attendeePriceInput' => '',
+            'attendeePriceRangeInputs' => [],
+            'rateAmountInput' => '',
+            'retainerAmountInput' => '',
+            'retainerPercentageInput' => '',
+            'clientRefundPercentageInput' => '0',
+            'staffRefundPercentageInput' => '100',
+            'shortNoticeFeeInputs' => [],
+            'ticketSeatBlockInputs' => [],
+            'resourceEquipmentPricingInputs' => [],
+        ]));
+    }
+
+    public function store(
+        StoreAppointmentTypeRequest $request,
+        OrganizationContext $context,
+        ContractTemplateService $contracts,
+        AppointmentTypeLogoService $logos,
+        MoneyService $money,
+        ShortNoticeFeeRuleService $shortNoticeFees,
+    ): RedirectResponse {
+        $organization = $context->organization();
+        $this->authorize('manageScheduling', $organization);
+        $data = $request->validated();
+        $slug = $this->uniqueSlug($organization->getKey(), $data['slug'] ?? $data['name']);
+
+        $appointmentType = \Illuminate\Support\Facades\DB::transaction(function () use ($organization, $data, $slug, $request, $money) {
+            $appointmentType = $organization->appointmentTypes()->create(array_merge(
+                [
+                    'name' => $data['name'],
+                    'slug' => $slug,
+                    'description' => $data['description'] ?? null,
+                    'visibility' => $data['visibility'],
+                    'access_password' => $data['visibility'] === AppointmentVisibility::PasswordProtected->value
+                        ? Hash::make($data['access_password'])
+                        : null,
+                    'public_token' => $data['visibility'] === AppointmentVisibility::Unlisted->value
+                        ? Str::random(48)
+                        : null,
+                    'is_active' => $request->boolean('is_active', true),
+                ],
+                $this->configurationData($data, $organization->currency, $request, $money),
+            ));
+            $this->saveEventOccurrence($appointmentType, $data);
+            return $appointmentType;
+        });
+
+        $appointmentType->resources()->sync($this->resourceSyncData(
+            $data,
+            $organization->getKey(),
+            $organization->currency,
+            $money,
+        ));
+        $shortNoticeFees->sync($appointmentType, $data['short_notice_fees'] ?? [], $organization->currency);
+
+        if ($request->hasFile('logo_file')) {
+            $logos->replace($appointmentType, $request->file('logo_file'));
+        }
+
+        if ($request->hasFile('contract_file')) {
+            $contracts->replace($appointmentType, $request->file('contract_file'), $request->user()->person);
+        }
+
+        return redirect()->route('appointment-types.index')->with('success', 'Appointment type created.');
+    }
+
+    public function edit(
+        AppointmentType $appointmentType,
+        OrganizationContext $context,
+        MoneyService $money,
+        PercentageService $percentages,
+        GalleryLimitService $galleryLimits,
+    ): View
+    {
+        $this->ensureSameOrganization($appointmentType, $context);
+        $this->authorize('manage', $appointmentType);
+        $appointmentType->loadCount('bookings');
+        $appointmentType->load([
+            'organization',
+            'resources',
+            'shortNoticeFeeRules',
+            'contractTemplate',
+            'galleryPhotos',
+            'invitations' => fn ($query) => $query->latest()->limit(50),
+        ]);
+
+        return view('appointment-types.edit', array_merge(
+            $this->formData($context),
+            [
+                'appointmentType' => $appointmentType,
+                'fixedPriceInput' => $appointmentType->fixed_price_minor === null
+                    ? ''
+                    : $money->decimal((int) $appointmentType->fixed_price_minor, $context->organization()->currency),
+                'rateAmountInput' => $appointmentType->rate_amount_minor === null
+                    ? ''
+                    : $money->decimal((int) $appointmentType->rate_amount_minor, $context->organization()->currency),
+                'attendeePriceInput' => $appointmentType->attendee_price_minor === null
+                    ? ''
+                    : $money->decimal((int) $appointmentType->attendee_price_minor, $context->organization()->currency),
+                'retainerAmountInput' => $appointmentType->retainer_amount_minor === null
+                    ? ''
+                    : $money->decimal((int) $appointmentType->retainer_amount_minor, $context->organization()->currency),
+                'retainerPercentageInput' => $percentages->display($appointmentType->retainer_percentage_bps),
+                'clientRefundPercentageInput' => $percentages->display($appointmentType->client_refund_percentage_bps),
+                'staffRefundPercentageInput' => $percentages->display($appointmentType->staff_refund_percentage_bps),
+                'attendeePriceRangeInputs' => array_map(fn (array $range): array => [
+                    'min_attendees' => $range['min_attendees'],
+                    'max_attendees' => $range['max_attendees'],
+                    'unit_price' => $money->decimal($range['unit_amount_minor'], $context->organization()->currency),
+                ], $appointmentType->attendee_price_ranges ?? []),
+                'shortNoticeFeeInputs' => $appointmentType->shortNoticeFeeRules->map(fn ($rule): array => [
+                    'threshold_value' => $rule->threshold_value,
+                    'threshold_unit' => $rule->threshold_unit->value,
+                    'adjustment_type' => $rule->adjustment_type->value,
+                    'fixed_amount' => $rule->fixed_amount_minor === null
+                        ? ''
+                        : $money->decimal((int) $rule->fixed_amount_minor, $context->organization()->currency),
+                    'percentage' => $percentages->display($rule->percentage_bps),
+                ])->values()->all(),
+                'ticketSeatBlockInputs' => array_map(fn (array $block): array => [
+                    ...$block,
+                    'seat_fee' => (int) ($block['seat_fee_minor'] ?? 0) > 0
+                        ? $money->decimal((int) $block['seat_fee_minor'], $context->organization()->currency)
+                        : '',
+                ], $appointmentType->ticket_seat_blocks ?? []),
+                'resourceEquipmentPricingInputs' => $this->equipmentPricingInputs(
+                    $appointmentType,
+                    $money,
+                    $context->organization()->currency,
+                ),
+                'galleryLimit' => $galleryLimits->forAppointmentType($appointmentType),
+            ],
+        ));
+    }
+
+    public function update(
+        StoreAppointmentTypeRequest $request,
+        AppointmentType $appointmentType,
+        OrganizationContext $context,
+        ContractTemplateService $contracts,
+        AppointmentTypeLogoService $logos,
+        MoneyService $money,
+        ShortNoticeFeeRuleService $shortNoticeFees,
+    ): RedirectResponse {
+        $this->ensureSameOrganization($appointmentType, $context);
+        $this->authorize('manage', $appointmentType);
+        $data = $request->validated();
+        $previousVisibility = $appointmentType->visibility;
+
+        $password = $appointmentType->access_password;
+        if ($data['visibility'] !== AppointmentVisibility::PasswordProtected->value) {
+            $password = null;
+        } elseif (! empty($data['access_password'])) {
+            $password = Hash::make($data['access_password']);
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($appointmentType, $data, $password, $context, $request, $money) {
+            $appointmentType->update(array_merge(
+                [
+                    'name' => $data['name'],
+                    'slug' => $this->uniqueSlug($context->organization()->getKey(), $data['slug'] ?? $data['name'], $appointmentType),
+                    'description' => $data['description'] ?? null,
+                    'visibility' => $data['visibility'],
+                    'access_password' => $password,
+                    'public_token' => $data['visibility'] === AppointmentVisibility::Unlisted->value
+                        ? ($appointmentType->public_token ?: Str::random(48))
+                        : null,
+                    'is_active' => $request->boolean('is_active'),
+                ],
+                $this->configurationData($data, $context->organization()->currency, $request, $money),
+            ));
+            $this->saveEventOccurrence($appointmentType, $data);
+        });
+
+        $appointmentType->resources()->sync($this->resourceSyncData(
+            $data,
+            $context->organization()->getKey(),
+            $context->organization()->currency,
+            $money,
+        ));
+        $shortNoticeFees->sync(
+            $appointmentType,
+            $data['short_notice_fees'] ?? [],
+            $context->organization()->currency,
+        );
+
+        if ($previousVisibility === AppointmentVisibility::InviteOnly && $appointmentType->visibility !== AppointmentVisibility::InviteOnly) {
+            $appointmentType->invitations()->where('is_active', true)->update(['is_active' => false, 'updated_at' => now()]);
+        }
+
+        if ($request->hasFile('logo_file')) {
+            $logos->replace($appointmentType, $request->file('logo_file'));
+        } elseif ($request->boolean('remove_logo')) {
+            $logos->remove($appointmentType);
+        }
+
+        if ($request->boolean('remove_contract')) {
+            $contracts->remove($appointmentType);
+        }
+
+        if ($request->hasFile('contract_file')) {
+            $contracts->replace($appointmentType, $request->file('contract_file'), $request->user()->person);
+        }
+
+        return redirect()->route('appointment-types.index')->with('success', 'Appointment type updated.');
+    }
+
+
+    public function disable(AppointmentType $appointmentType, OrganizationContext $context): RedirectResponse
+    {
+        $this->ensureSameOrganization($appointmentType, $context);
+        $this->authorize('manage', $appointmentType);
+
+        if (! $appointmentType->is_active) {
+            return redirect()->route('appointment-types.index')->with('success', 'Appointment type is already disabled.');
+        }
+
+        $appointmentType->forceFill(['is_active' => false])->save();
+
+        // A hold is not yet a booking. Once the type is disabled, prevent an already
+        // open guest browser from completing a new booking through an old hold.
+        $appointmentType->bookingHolds()
+            ->where('status', \App\Enums\BookingHoldStatus::Active->value)
+            ->update([
+                'status' => \App\Enums\BookingHoldStatus::Released->value,
+                'updated_at' => now(),
+            ]);
+
+        return redirect()->route('appointment-types.index')->with('success', 'Appointment type disabled. Existing bookings were preserved.');
+    }
+
+    public function destroy(
+        AppointmentType $appointmentType,
+        OrganizationContext $context,
+        AppointmentTypeDeletionService $deletion,
+    ): RedirectResponse {
+        $this->ensureSameOrganization($appointmentType, $context);
+        $this->authorize('manage', $appointmentType);
+
+        if (! $deletion->deleteIfUnused($appointmentType)) {
+            return redirect()->route('appointment-types.index')->with(
+                'error',
+                'This appointment type has booking history and cannot be deleted. Disable it instead.',
+            );
+        }
+
+        return redirect()->route('appointment-types.index')->with('success', 'Appointment type permanently deleted.');
+    }
+
+    private function saveEventOccurrence(AppointmentType $type, array $data): void
+    {
+        AppointmentType::whereKey($type->getKey())->lockForUpdate()->firstOrFail();
+        if (! $type->ticketing_enabled) {
+            $type->eventOccurrences()->update(['is_active' => false]);
+            return;
+        }
+        $event = $type->currentEventOccurrence();
+        $timezone = $type->organization->timezone;
+        $start = \Carbon\CarbonImmutable::createFromFormat('!Y-m-d H:i', $data['event_date'].' '.$data['event_time'], $timezone)->utc();
+        $changed = $event && (! $event->starts_at_utc->equalTo($start) || $event->venue !== $type->event_location);
+        if ($changed && ($type->appointments()->where('status', 'scheduled')->where('ends_at_utc', '>', now('UTC'))->exists()
+            || $type->bookingHolds()->where('status', 'active')->where('expires_at_utc', '>', now('UTC'))->exists())) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['event_date' => 'The event has bookings or active holds; its date, time and venue cannot change.']);
+        }
+        // Keep historical occurrences for existing tickets when scheduling a new event.
+        if ($changed && $event->starts_at_utc->isPast()
+            && $type->appointments()->where('event_occurrence_id', $event->getKey())->exists()) {
+            $event = null;
+        }
+        $event ??= new \App\Models\EventOccurrence;
+        $event->fill([
+            'starts_at_utc' => $start,
+            'timezone' => $timezone, 'venue' => $type->event_location, 'is_active' => true,
+        ]);
+        $type->eventOccurrences()->save($event);
+    }
+
+    private function formData(OrganizationContext $context): array
+    {
+        return [
+            'appointmentType' => null,
+            'resources' => $context->organization()->resources()->where('resources.is_active', true)->orderBy('name')->get(),
+            'visibilities' => AppointmentVisibility::cases(),
+            'attendanceModes' => AttendanceMode::cases(),
+            'meetingProviders' => app(ConferenceProviderCatalog::class)->options($context->organization()),
+            'durationModes' => DurationMode::cases(),
+            'durationUnits' => DurationUnit::cases(),
+            'bookingNoticeUnits' => BookingNoticeUnit::cases(),
+            'emailVerificationModes' => EmailVerificationMode::cases(),
+            'pricingModes' => PricingMode::cases(),
+            'paymentCollectionModes' => PaymentCollectionMode::cases(),
+            'retainerTypes' => RetainerType::cases(),
+            'attendeePricingModes' => AttendeePricingMode::cases(),
+            'shortNoticeAdjustmentTypes' => [PricingAdjustmentType::Fixed, PricingAdjustmentType::Percentage],
+            'resourceRequirementModes' => ResourceRequirementMode::cases(),
+            'equipmentPricingModes' => EquipmentPricingMode::cases(),
+            'reminderThresholdBases' => ReminderThresholdBasis::cases(),
+            'seasonRecurrences' => SeasonRecurrence::cases(),
+            'ticketSeatingSchemes' => TicketSeatingScheme::cases(),
+            'organization' => $context->organization(),
+        ];
+    }
+
+    private function configurationData(array $data, string $currency, StoreAppointmentTypeRequest $request, MoneyService $money): array
+    {
+        $isFixedDuration = $data['duration_mode'] === DurationMode::Fixed->value;
+        $isFixedPrice = $data['pricing_mode'] === PricingMode::Fixed->value;
+        $isRatePrice = $data['pricing_mode'] === PricingMode::Rate->value;
+        $isPerAttendee = $data['pricing_mode'] === PricingMode::PerAttendee->value;
+        $attendeeMode = $isPerAttendee ? AttendeePricingMode::from($data['attendee_pricing_mode']) : AttendeePricingMode::Flat;
+        $attendeeRanges = $isPerAttendee && $attendeeMode !== AttendeePricingMode::Flat
+            ? app(AttendeePricingService::class)->validateRanges(array_map(fn (array $range): array => [
+                'min_attendees' => (int) $range['min_attendees'],
+                'max_attendees' => (int) $range['max_attendees'],
+                'unit_amount_minor' => $money->parse($range['unit_price'], $currency),
+            ], $data['attendee_price_ranges']), (int) $data['capacity'])
+            : null;
+        $ticketingEnabled = $request->boolean('ticketing_enabled');
+        $privateEventEnabled = $ticketingEnabled
+            && $request->boolean('private_event_enabled')
+            && $data['pricing_mode'] === PricingMode::Free->value;
+        $locationDisclosureMode = $ticketingEnabled
+            ? (LocationDisclosureMode::tryFrom((string) ($data['location_disclosure_mode'] ?? LocationDisclosureMode::Public->value))
+                ?? LocationDisclosureMode::Public)
+            : LocationDisclosureMode::Public;
+        $ticketScheme = $ticketingEnabled
+            ? TicketSeatingScheme::from($data['ticket_seating_scheme'])
+            : TicketSeatingScheme::None;
+        $ticketSeatOptional = $ticketingEnabled
+            && $ticketScheme->supportsOptionalSeat()
+            && $request->boolean('ticket_seat_optional');
+        $ticketSeatBlocks = $ticketingEnabled
+            ? app(TicketSeatingService::class)->normalizeInput(
+                $ticketScheme,
+                $ticketSeatOptional,
+                $data['ticket_seat_blocks'] ?? [],
+                (int) $data['capacity'],
+                $currency,
+                $data['pricing_mode'] === PricingMode::PerAttendee->value,
+            )
+            : null;
+        $selectedResources = array_fill_keys($data['resource_uuids'] ?? [], true);
+        $hasPaidEquipment = collect($data['resource_equipment_pricing_modes'] ?? [])->contains(
+            fn (mixed $mode, string $uuid): bool => isset($selectedResources[$uuid])
+                && $mode !== EquipmentPricingMode::Free->value,
+        );
+        $paid = $data['pricing_mode'] !== PricingMode::Free->value || $hasPaidEquipment;
+        $paymentCollectionMode = $paid
+            ? PaymentCollectionMode::from($data['payment_collection_mode'] ?? PaymentCollectionMode::Full->value)
+            : PaymentCollectionMode::Full;
+        $retainerType = $paid && $paymentCollectionMode === PaymentCollectionMode::Retainer
+            ? RetainerType::from($data['retainer_type'])
+            : null;
+        $percentages = app(PercentageService::class);
+
+        return [
+            'attendance_mode' => $data['attendance_mode'],
+            'ticketing_enabled' => $ticketingEnabled,
+            'private_event_enabled' => $privateEventEnabled,
+            'event_location' => ! $ticketingEnabled ? null : ($request->boolean('is_online')
+                ? (($data['meeting_provider'] ?? null) === ConferenceProvider::Custom->value
+                    ? app(ConferenceProviderCatalog::class)->settings(app(OrganizationContext::class)->organization())?->custom_meeting_url : null)
+                : (filled($data['event_location'] ?? null) ? trim((string) $data['event_location']) : null)),
+            'location_disclosure_mode' => $locationDisclosureMode->value,
+            'location_disclosure_hours' => $locationDisclosureMode === LocationDisclosureMode::HoursBeforeEvent
+                ? (int) $data['location_disclosure_hours']
+                : null,
+            'show_start_offset_minutes' => $ticketingEnabled ? (int) $data['show_start_offset_minutes'] : null,
+            'show_end_offset_minutes' => $ticketingEnabled && ($data['show_end_offset_minutes'] ?? '') !== ''
+                ? (int) $data['show_end_offset_minutes']
+                : null,
+            'ticket_seating_scheme' => $ticketScheme->value,
+            'ticket_seat_optional' => $ticketSeatOptional,
+            'ticket_seat_blocks' => $ticketSeatBlocks,
+            'is_online' => $request->boolean('is_online'),
+            'meeting_provider' => $request->boolean('is_online') ? $data['meeting_provider'] : null,
+            'capacity' => $data['attendance_mode'] === AttendanceMode::Single->value ? 1 : (int) $data['capacity'],
+            'duration_mode' => $data['duration_mode'],
+            'duration_unit' => $data['duration_unit'],
+            'duration_value' => $isFixedDuration ? (int) $data['duration_value'] : 1,
+            'minimum_duration_value' => $isFixedDuration ? null : (int) $data['minimum_duration_value'],
+            'maximum_duration_value' => $isFixedDuration ? null : (int) $data['maximum_duration_value'],
+            'duration_increment_value' => $isFixedDuration ? null : (int) $data['duration_increment_value'],
+            'start_interval_minutes' => (int) ($data['start_interval_minutes'] ?? config('availability.default_start_interval_minutes', 15)),
+            'booking_notice_value' => (int) ($data['booking_notice_value'] ?? 0),
+            'booking_notice_unit' => $data['booking_notice_unit'] ?? BookingNoticeUnit::Hour->value,
+            'maximum_booking_notice_value' => (int) ($data['maximum_booking_notice_value'] ?? 365),
+            'maximum_booking_notice_unit' => $data['maximum_booking_notice_unit'] ?? BookingNoticeUnit::Day->value,
+            'seasonal_availability_enabled' => $request->boolean('seasonal_availability_enabled'),
+            'season_start_date' => $request->boolean('seasonal_availability_enabled') ? $data['season_start_date'] : null,
+            'season_end_date' => $request->boolean('seasonal_availability_enabled') ? $data['season_end_date'] : null,
+            'season_recurrence' => $request->boolean('seasonal_availability_enabled') ? $data['season_recurrence'] : null,
+            'buffer_before_minutes' => (int) $data['buffer_before_minutes'],
+            'buffer_after_minutes' => (int) $data['buffer_after_minutes'],
+            'pricing_mode' => $data['pricing_mode'],
+            'fixed_price_minor' => $isFixedPrice ? $money->parse($data['fixed_price'], $currency) : null,
+            'attendee_price_minor' => $isPerAttendee && $attendeeMode === AttendeePricingMode::Flat
+                ? $money->parse($data['attendee_price'], $currency)
+                : null,
+            'attendee_pricing_mode' => $attendeeMode,
+            'attendee_price_ranges' => $attendeeRanges,
+            'rate_amount_minor' => $isRatePrice ? $money->parse($data['rate_amount'], $currency) : null,
+            'rate_unit' => $isRatePrice ? $data['rate_unit'] : null,
+            'payment_collection_mode' => $paymentCollectionMode->value,
+            'retainer_type' => $retainerType?->value,
+            'retainer_amount_minor' => $retainerType === RetainerType::Fixed
+                ? $money->parse($data['retainer_amount'], $currency)
+                : null,
+            'retainer_percentage_bps' => $retainerType === RetainerType::Percentage
+                ? $percentages->parseToBasisPoints($data['retainer_percentage'])
+                : null,
+            'balance_due_value' => $paymentCollectionMode === PaymentCollectionMode::Retainer
+                ? (int) ($data['balance_due_value'] ?? 0)
+                : 0,
+            'balance_due_unit' => $data['balance_due_unit'] ?? BookingNoticeUnit::Day->value,
+            'client_refund_percentage_bps' => (int) $percentages->parseToBasisPoints($data['client_refund_percentage'] ?? '0'),
+            'staff_refund_percentage_bps' => (int) $percentages->parseToBasisPoints($data['staff_refund_percentage'] ?? '100'),
+            'requires_resource_confirmation' => $request->boolean('requires_resource_confirmation'),
+            'show_resources_to_clients' => $request->has('show_resources_to_clients')
+                ? $request->boolean('show_resources_to_clients')
+                : true,
+            'email_verification_mode' => $data['email_verification_mode'] ?? EmailVerificationMode::BeforeConfirmation->value,
+            'cancellation_allowed' => $request->has('cancellation_allowed') ? $request->boolean('cancellation_allowed') : true,
+            'cancellation_notice_value' => (int) ($data['cancellation_notice_value'] ?? 24),
+            'cancellation_notice_unit' => $data['cancellation_notice_unit'] ?? BookingNoticeUnit::Hour->value,
+            'cancellation_policy_text' => $data['cancellation_policy_text'] ?? null,
+            'rescheduling_allowed' => $request->has('rescheduling_allowed') ? $request->boolean('rescheduling_allowed') : true,
+            'rescheduling_notice_value' => (int) ($data['rescheduling_notice_value'] ?? 24),
+            'rescheduling_notice_unit' => $data['rescheduling_notice_unit'] ?? BookingNoticeUnit::Hour->value,
+            'rescheduling_max_count' => (int) ($data['rescheduling_max_count'] ?? 0),
+            'rescheduling_policy_text' => $data['rescheduling_policy_text'] ?? null,
+            'reminder_enabled' => $request->boolean('reminder_enabled'),
+            'reminder_threshold_basis' => $data['reminder_threshold_basis'] ?? ReminderThresholdBasis::LeadTime->value,
+            'reminder_threshold_days' => (int) ($data['reminder_threshold_days'] ?? 7),
+            'reminder_before_value' => (int) ($data['reminder_before_value'] ?? 1),
+            'reminder_before_unit' => $data['reminder_before_unit'] ?? BookingNoticeUnit::Day->value,
+            'reminder_clients' => $request->has('reminder_enabled') ? $request->boolean('reminder_clients') : true,
+            'reminder_resources' => $request->has('reminder_enabled') ? $request->boolean('reminder_resources') : true,
+            'redirect_url' => $data['redirect_url'] ?? null,
+        ];
+    }
+
+    private function uniqueSlug(string $organizationKey, string $source, ?AppointmentType $ignore = null): string
+    {
+        $base = Str::slug($source) ?: 'appointment';
+        $slug = $base;
+        $counter = 2;
+
+        while (AppointmentType::where('organization_id', $organizationKey)
+            ->where('slug', $slug)
+            ->when($ignore, fn ($query) => $query->where('id', '!=', $ignore->getKey()))
+            ->exists()) {
+            $slug = $base.'-'.$counter++;
+        }
+
+        return $slug;
+    }
+
+    private function resourceSyncData(
+        array $data,
+        string $organizationKey,
+        string $currency,
+        MoneyService $money,
+    ): array {
+        $sync = [];
+        $organization = Organization::query()->findOrFail($organizationKey);
+        $canonicalGroupNames = [];
+        $uuids = $data['resource_uuids'] ?? [];
+        $modes = $data['resource_requirement_modes'] ?? [];
+        $groups = $data['resource_replacement_groups'] ?? [];
+
+        foreach ($uuids as $uuid) {
+            $mode = ResourceRequirementMode::tryFrom((string) ($modes[$uuid] ?? ResourceRequirementMode::Inherit->value));
+            if ($mode !== ResourceRequirementMode::Replacement) {
+                continue;
+            }
+
+            $name = Str::squish((string) ($groups[$uuid] ?? ''));
+            if ($name !== '') {
+                $canonicalGroupNames[Str::lower($name)] ??= $name;
+            }
+        }
+
+        foreach ($uuids as $uuid) {
+            $resource = Resource::whereUuid((string) $uuid)
+                ->whereHas('organizations', fn ($query) => $query->where('organizations.id', $organizationKey))
+                ->firstOrFail();
+            $defaultRequired = $resource->defaultRequiredForOrganization($organization);
+            $mode = ResourceRequirementMode::tryFrom((string) ($modes[$uuid] ?? ResourceRequirementMode::Inherit->value))
+                ?? ResourceRequirementMode::Inherit;
+            $effectiveRequired = match ($mode) {
+                ResourceRequirementMode::Required => true,
+                ResourceRequirementMode::Replacement => true,
+                ResourceRequirementMode::Optional => false,
+                ResourceRequirementMode::Inherit => $defaultRequired,
+            };
+            $replacementGroup = null;
+            if ($mode === ResourceRequirementMode::Replacement) {
+                $submittedName = Str::squish((string) ($groups[$uuid] ?? ''));
+                $replacementGroup = $canonicalGroupNames[Str::lower($submittedName)] ?? null;
+            }
+
+            $equipment = $resource->type === 'equipment';
+            $quantity = $resource->usesQuantityInventory() && $mode !== ResourceRequirementMode::Replacement
+                ? (int) ($data['resource_quantities'][$uuid] ?? 1)
+                : 1;
+            $pricingMode = $equipment
+                ? (EquipmentPricingMode::tryFrom((string) ($data['resource_equipment_pricing_modes'][$uuid] ?? 'free'))
+                    ?? EquipmentPricingMode::Free)
+                : EquipmentPricingMode::Free;
+            $unitPrice = $pricingMode === EquipmentPricingMode::PerUnit
+                ? $money->parse($data['resource_equipment_unit_prices'][$uuid], $currency)
+                : null;
+            $fixedPrice = $pricingMode === EquipmentPricingMode::Fixed
+                ? $money->parse($data['resource_equipment_fixed_prices'][$uuid], $currency)
+                : null;
+            $bundles = null;
+            if ($pricingMode === EquipmentPricingMode::Bundles) {
+                $bundles = array_map(fn (array $bundle): array => [
+                    'quantity' => (int) $bundle['quantity'],
+                    'amount_minor' => $money->parse($bundle['amount'], $currency),
+                ], array_values($data['resource_equipment_bundles'][$uuid] ?? []));
+                usort($bundles, fn (array $left, array $right): int => $left['quantity'] <=> $right['quantity']);
+            }
+
+            $sync[$resource->getKey()] = [
+                'requirement_mode' => $mode->value,
+                'is_required' => $effectiveRequired,
+                'replacement_group' => $replacementGroup,
+                'quantity_required' => $quantity,
+                'equipment_pricing_mode' => $pricingMode->value,
+                'equipment_unit_price_minor' => $unitPrice,
+                'equipment_fixed_price_minor' => $fixedPrice,
+                'equipment_bundle_prices' => $bundles === null
+                    ? null
+                    : json_encode($bundles, JSON_THROW_ON_ERROR),
+            ];
+        }
+
+        return $sync;
+    }
+
+    private function equipmentPricingInputs(
+        AppointmentType $type,
+        MoneyService $money,
+        string $currency,
+    ): array {
+        $inputs = [];
+        $pricing = app(EquipmentPricingService::class);
+
+        foreach ($type->resources->where('type', 'equipment') as $resource) {
+            $inputs[$resource->uuid] = [
+                'quantity' => max(1, (int) ($resource->pivot?->quantity_required ?? 1)),
+                'mode' => (string) ($resource->pivot?->equipment_pricing_mode ?? EquipmentPricingMode::Free->value),
+                'unit_price' => $resource->pivot?->equipment_unit_price_minor === null
+                    ? ''
+                    : $money->decimal((int) $resource->pivot->equipment_unit_price_minor, $currency),
+                'fixed_price' => $resource->pivot?->equipment_fixed_price_minor === null
+                    ? ''
+                    : $money->decimal((int) $resource->pivot->equipment_fixed_price_minor, $currency),
+                'bundles' => array_map(fn (array $bundle): array => [
+                    'quantity' => $bundle['quantity'],
+                    'amount' => $money->decimal($bundle['amount_minor'], $currency),
+                ], $pricing->bundles($resource->pivot?->equipment_bundle_prices)),
+            ];
+        }
+
+        return $inputs;
+    }
+
+    private function ensureSameOrganization(AppointmentType $appointmentType, OrganizationContext $context): void
+    {
+        abort_unless(hash_equals($appointmentType->organization_id, $context->organization()->getKey()), 404);
+    }
+}
