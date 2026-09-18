@@ -327,3 +327,7 @@ Questionnaire choices now have an explicit numeric order with case-insensitive a
 ## M9-R4: answer-driven resource requirements
 
 Choice questions can conditionally require a named group of otherwise optional appointment resources. The trigger answer may require one available candidate or every configured member. Availability is evaluated from the selected-time hold; an unfulfillable question stays in its normal questionnaire position but is hidden and authoritatively answered with its configured default. See `docs/CHANGES-M9-R4.md` and `docs/UPGRADE-M9-R3-TO-M9-R4.md`.
+
+## M10 API and administrative purge
+
+M10 adds two-key API access and backend key management, tenant/role/paid-plan enforcement, scheduling endpoints, and five-level organization purge commands. See [upgrade instructions](UPGRADE-M10.md), [API reference](docs/M10-API.md), and [purge reference](docs/M10-PURGE.md). Runtime regression tests are included but were not executable in the build environment.

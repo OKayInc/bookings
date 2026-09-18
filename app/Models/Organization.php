@@ -34,7 +34,7 @@ class Organization extends Model
         'tax_price_mode',
     ];
 
-    protected $hidden = ['id'];
+    protected $hidden = ['api_key_hash', 'id'];
 
     protected $appends = ['uuid', 'logo_url'];
 

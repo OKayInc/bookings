@@ -53,6 +53,7 @@
                                 <li><a class="dropdown-item" href="{{ route('payment-settings.edit') }}">Payments</a></li>
                                 <li><a class="dropdown-item" href="{{ route('coupons.index') }}">Gift cards &amp; coupons</a></li>
                             @endif
+                            <li><a class="dropdown-item" href="{{ route('api-keys.index') }}">API keys</a></li>
                             <li><a class="dropdown-item" href="{{ route('organizations.index') }}">Organizations</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{{ route('admin.health') }}">System health</a></li>

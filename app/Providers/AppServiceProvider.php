@@ -23,7 +23,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->singleton(OrganizationContext::class, fn () => new OrganizationContext());
+        $this->app->scoped(OrganizationContext::class, fn () => new OrganizationContext());
     }
 
     public function boot(): void

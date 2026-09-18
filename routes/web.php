@@ -214,6 +214,8 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('/organizations/{organization}/switch', [OrganizationController::class, 'switch'])->name('organizations.switch');
 
     Route::middleware('organization')->group(function (): void {
+        Route::get('/api-keys', [\App\Http\Controllers\ApiKeyController::class, 'index'])->name('api-keys.index');
+        Route::post('/api-keys', [\App\Http\Controllers\ApiKeyController::class, 'update'])->middleware('throttle:10,1')->name('api-keys.update');
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
         Route::get('/admin/health', HealthController::class)->name('admin.health');
         Route::get('/email-templates', [\App\Http\Controllers\AttendeeEmailTemplateController::class, 'edit'])->name('email-templates.edit');
