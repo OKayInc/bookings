@@ -30,3 +30,11 @@ php artisan test --filter='M9R6ResourceDepositTest|M9R7PersonDepositTest'
 ```
 
 PHP/Composer are unavailable in the editing environment, so the Laravel test suite and PHP lint could not be executed here. The new browser script passed Node syntax checking. Review the regression test results on your configured MariaDB testing environment before deploying to production.
+
+## Appointment type override (additional update)
+
+Appointment Types → Edit → **Refundable resource deposit**, immediately below Pricing: enable **Override global deposit** and enter the total per booking, including zero. It is also available when creating a type, including types with free base pricing.
+
+Precedence: individual booking override → appointment type override → automatic staff waiver/resource deposit rules. Type overrides replace the entire deposit, not each unit/resource. Unchecking restores automatic rules for new bookings. Existing bookings retain their snapshots and existing booking-level override behavior.
+
+The new migration is `2026_09_18_000079_add_appointment_type_deposit_override.php`. Run the migration and cache-clear commands above. Added tests in `AppointmentTypeConfigurationTest` and `M9R6ResourceDepositTest`; PHP remains unavailable here, so these tests require execution on your testing server. The new JavaScript passed syntax and toggle behavior checks in Node.

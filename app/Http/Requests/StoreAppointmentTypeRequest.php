@@ -86,6 +86,8 @@ class StoreAppointmentTypeRequest extends FormRequest
             && in_array($this->input('attendee_pricing_mode'), [AttendeePricingMode::Absolute->value, AttendeePricingMode::Accumulative->value], true);
 
         return [
+            'override_global_deposit' => ['nullable', 'boolean'],
+            'deposit_override' => ['exclude_unless:override_global_deposit,1', 'required', new MoneyAmount($currency, true)],
             'name' => ['required', 'string', 'max:180'],
             'slug' => ['nullable', 'alpha_dash:ascii', 'max:180'],
             'description' => ['nullable', 'string', 'max:10000'],
@@ -325,6 +327,15 @@ class StoreAppointmentTypeRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            if ($this->boolean('override_global_deposit') && ! $validator->errors()->has('deposit_override')) {
+                $amount = app(MoneyService::class)->parse((string) $this->input('deposit_override'), app(OrganizationContext::class)->organization()->currency);
+                if ($amount > 99999999999) {
+                    $validator->errors()->add('deposit_override', 'The deposit amount is too large.');
+                }
+                if ($amount > 0 && $this->boolean('private_event_enabled')) {
+                    $validator->errors()->add('deposit_override', 'Private free events must remain free.');
+                }
+            }
             $this->validateSeason($validator);
             $this->validateAttendeePricing($validator);
             $this->validateTicketing($validator);

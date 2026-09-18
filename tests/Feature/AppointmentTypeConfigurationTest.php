@@ -299,6 +299,36 @@ class AppointmentTypeConfigurationTest extends TestCase
         $this->assertSame(1, $type->capacity);
     }
 
+    public function test_owner_can_set_zero_increase_and_remove_type_deposit_override(): void
+    {
+        [$user, $organization] = $this->ownerContext();
+        $data = [
+            'name' => 'Deposit rental', 'slug' => 'deposit-rental', 'visibility' => 'public',
+            'attendance_mode' => 'single', 'duration_mode' => 'fixed',
+            'duration_unit' => 'minute', 'duration_value' => 60, 'buffer_before_minutes' => 0,
+            'buffer_after_minutes' => 0, 'pricing_mode' => 'free', 'is_active' => '1',
+        ];
+        // The single-attendance form omits capacity; only the stored model needs it.
+        $type = AppointmentType::create($data + ['organization_id' => $organization->getKey(), 'capacity' => 1]);
+        $this->actingAs($user)->withSession(['active_organization_uuid' => $organization->uuid]);
+        $this->get(route('appointment-types.edit', $type))->assertOk()->assertSee('Override global deposit');
+        $url = route('appointment-types.update', $type);
+        foreach (['0' => 0, '45.00' => 4500] as $input => $expected) {
+            $this->put($url, $data + ['override_global_deposit' => '1', 'deposit_override' => (string) $input])
+                ->assertSessionHasNoErrors();
+            $this->assertSame($expected, $type->fresh()->deposit_override_minor);
+            $this->assertSame(1, $type->fresh()->capacity);
+        }
+        $this->put($url, $data + ['override_global_deposit' => '1', 'deposit_override' => '-1'])
+            ->assertSessionHasErrors('deposit_override');
+        $this->assertSame(4500, $type->fresh()->deposit_override_minor);
+        $this->put($url, $data + ['override_global_deposit' => '1'])
+            ->assertSessionHasErrors('deposit_override');
+        $this->put($url, $data + ['override_global_deposit' => '0', 'deposit_override' => 'ignored'])
+            ->assertSessionHasNoErrors();
+        $this->assertNull($type->fresh()->deposit_override_minor);
+    }
+
     private function ownerContext(): array
     {
         $user = User::factory()->create();

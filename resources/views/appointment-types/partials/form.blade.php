@@ -549,6 +549,19 @@
     </div>
 </div>
 
+<div class="section-card" id="resource-deposit-section">
+    <h2>Refundable resource deposit</h2>
+    <input type="hidden" name="override_global_deposit" value="0">
+    <label><input id="type-deposit-override-toggle" type="checkbox" name="override_global_deposit" value="1" @checked(old('override_global_deposit', $appointmentType?->deposit_override_minor !== null))> Override global deposit</label>
+    <div class="field" id="type-deposit-override-fields">
+        <label for="type-deposit-override-amount">Total deposit per booking ({{ $organization->currency }})</label>
+        <input id="type-deposit-override-amount" name="deposit_override" inputmode="decimal" value="{{ old('deposit_override', $appointmentType?->deposit_override_minor !== null ? app(\App\Domain\Money\MoneyService::class)->decimal($appointmentType->deposit_override_minor, $organization->currency) : '') }}">
+        <p class="muted">Enter zero to waive the deposit. This replaces all resource deposits, including the automatic waiver when staff are involved. A per-booking override takes precedence.</p>
+    </div>
+    <p class="muted">Leave unchecked to use automatic resource deposits. Changes apply to new bookings only.</p>
+    @error('deposit_override')<p class="text-danger">{{ $message }}</p>@enderror
+</div>
+
 <div class="section-card" id="payment-collection-section" style="{{ old('pricing_mode', $appointmentType?->pricing_mode?->value ?? 'free') === 'free' ? 'display:none' : '' }}">
     <h2>Payment collection and refunds</h2>
     <p class="muted">Stripe and PayPal credentials are configured per organization under <a href="{{ route('payment-settings.edit') }}">Organization → Payments</a>. These terms are copied into each booking and later edits do not change existing clients.</p>
@@ -1279,3 +1292,20 @@
     });
 })();
 </script>
+
+@push('scripts')
+<script>
+(() => {
+    const toggle = document.getElementById('type-deposit-override-toggle');
+    const fields = document.getElementById('type-deposit-override-fields');
+    const amount = document.getElementById('type-deposit-override-amount');
+    const sync = () => {
+        fields.hidden = !toggle.checked;
+        amount.disabled = !toggle.checked;
+        amount.required = toggle.checked;
+    };
+    toggle.addEventListener('change', sync);
+    sync();
+})();
+</script>
+@endpush

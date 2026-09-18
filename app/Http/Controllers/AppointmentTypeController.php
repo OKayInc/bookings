@@ -456,6 +456,9 @@ class AppointmentTypeController extends Controller
             'season_recurrence' => $request->boolean('seasonal_availability_enabled') ? $data['season_recurrence'] : null,
             'buffer_before_minutes' => (int) $data['buffer_before_minutes'],
             'buffer_after_minutes' => (int) $data['buffer_after_minutes'],
+            'deposit_override_minor' => $request->boolean('override_global_deposit')
+                ? $money->parse($data['deposit_override'], $currency)
+                : null,
             'pricing_mode' => $data['pricing_mode'],
             'fixed_price_minor' => $isFixedPrice ? $money->parse($data['fixed_price'], $currency) : null,
             'attendee_price_minor' => $isPerAttendee && $attendeeMode === AttendeePricingMode::Flat

@@ -25,6 +25,18 @@ class ResourceDepositService
         array $answers,
         ?array $selectedResourceQuantities = null,
     ): array {
+        // Explicit type-wide overrides replace the entire automatic deposit,
+        // including the staff waiver. Per-booking overrides remain independent.
+        if ($type->deposit_override_minor !== null) {
+            $amount = (int) $type->deposit_override_minor;
+            if ($amount < 0) {
+                throw new InvalidArgumentException('The refundable resource deposit cannot be negative.');
+            }
+            return $amount === 0 ? [] : [new ResourceDepositCharge(
+                null, 'Appointment type deposit override', 1, $amount, $amount, 'type_override',
+            )];
+        }
+
         $type->loadMissing([
             'resources',
             'questions.resourceRequirementRule.triggerOption',

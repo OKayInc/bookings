@@ -357,6 +357,29 @@ class M9R6ResourceDepositTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_type_override_replaces_the_whole_deposit_and_staff_waiver(): void
+    {
+        $organization = Organization::factory()->create(['currency' => 'CAD']);
+        $type = $this->appointmentType($organization);
+        $resource = $this->equipment($organization, 'Kit', 5, 2000);
+        $type->resources()->attach($resource->getKey(), ['requirement_mode' => 'required', 'is_required' => true, 'quantity_required' => 3]);
+        $service = app(ResourceDepositService::class);
+        $this->assertSame(6000, $service->total($type->fresh()));
+        $type->update(['deposit_override_minor' => 1500]);
+        $this->assertSame(1500, $service->total($type->fresh()));
+        $staff = Resource::create(['organization_id' => $organization->getKey(), 'name' => 'Operator', 'type' => 'person']);
+        $type->resources()->attach($staff->getKey(), ['requirement_mode' => 'required', 'is_required' => true]);
+        $this->assertSame(1500, $service->total($type->fresh()));
+        $quote = app(QuestionnairePricingService::class)->quote($type->fresh(), 60, []);
+        $this->assertSame(11500, $quote->totalMinor);
+        $this->assertSame('type_override', $service->charges($type->fresh(), [])[0]->configurationSource);
+        $type->update(['deposit_override_minor' => 0]);
+        $this->assertSame(0, $type->fresh()->deposit_override_minor);
+        $this->assertSame(0, $service->total($type->fresh()));
+        $type->update(['deposit_override_minor' => null]);
+        $this->assertSame(0, $service->total($type->fresh()));
+    }
+
     private function organizationContext(): array
     {
         $user = User::factory()->create();
