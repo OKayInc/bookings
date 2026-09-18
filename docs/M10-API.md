@@ -41,3 +41,7 @@ curl --get 'https://appointment.to/api/v1/appointment-types/TYPE_UUID/availabili
 ```
 
 Missing/invalid keys return 401; membership, email, role or plan failures return 403; absent/foreign records return 404; invalid inputs return 422. API exceptions render as JSON without requiring an Accept header. Requests, including failed authentication, are limited to 60 per minute per caller/IP by Laravel's route limiter; excess requests return 429. Key changes through the backend are limited to 10 per minute. Configure reverse proxies to redact both API-key headers from logs.
+
+## M10-R2 outgoing notifications
+
+Outgoing webhooks are now available under **Organization → Webhooks** for paid organizations. This complements the pull-based API above. See [the outgoing webhook reference](M10-R2-OUTGOING-WEBHOOKS.md) for setup, events, signatures and retry behavior.

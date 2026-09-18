@@ -13,3 +13,5 @@
 - **M11 Product plans:** free/paid capabilities, configurable free-plan caps, advertising and owner-granted forever-free unlimited accounts.
 
 M9 makes payment a tenant-owned workflow: every organization supplies its own encrypted merchant credentials and every booking keeps immutable collection/refund terms. M9-R1 adds globally shared physical equipment stock with organization-currency pricing on each appointment-type assignment; M9-R6 adds refundable resource deposits with immutable booking snapshots and provider-bound refunds; M9-R8 adds tenant-owned WebP galleries and CDN URL generation; M9-R9 adds tenant-owned tax calculation and immutable tax snapshots; M9-R10 adds visual availability diagnostics for operators. See `docs/PAYMENTS.md`, `docs/EQUIPMENT-INVENTORY.md`, and `docs/CHANGES-M9-R10.md`.
+
+- **M10-R2 Outgoing webhooks — implemented; runtime verification pending:** organization endpoint management, event subscriptions, encrypted signing secrets, signed delivery outbox, scheduled retries, attempt history, test/manual retry controls and tenant purge integration. See `M10-R2-OUTGOING-WEBHOOKS.md`.

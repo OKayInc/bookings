@@ -19,6 +19,9 @@ class BladeCompilationTest extends TestCase
     public function test_numeric_constraint_editor_and_checkout_views_compile(): void
     {
         foreach ([
+            'webhooks/index.blade.php',
+            'webhooks/delivery.blade.php',
+            'webhooks/guide.blade.php',
             'dashboard.blade.php',
             'dashboard/upcoming-bookings.blade.php',
             'questionnaire/partials/numeric-constraints.blade.php',

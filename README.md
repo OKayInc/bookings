@@ -331,3 +331,7 @@ Choice questions can conditionally require a named group of otherwise optional a
 ## M10 API and administrative purge
 
 M10 adds two-key API access and backend key management, tenant/role/paid-plan enforcement, scheduling endpoints, and five-level organization purge commands. See [upgrade instructions](UPGRADE-M10.md), [API reference](docs/M10-API.md), and [purge reference](docs/M10-PURGE.md). Runtime regression tests are included but were not executable in the build environment.
+
+## M10-R2 outgoing webhooks
+
+Owners and administrators can configure signed outgoing events under **Organization → Webhooks**, with event subscriptions, test deliveries, retries and delivery history. Uses the existing scheduler and paid-plan rules. See [upgrade instructions](UPGRADE-M10-R2.md) and [outgoing webhook reference](docs/M10-R2-OUTGOING-WEBHOOKS.md).

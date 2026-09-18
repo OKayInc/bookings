@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withCommands([
         TimezoneHealthCommand::class,
+        \App\Console\Commands\DispatchWebhooksCommand::class,
         \App\Console\Commands\PurgeOrganizationCommand::class,
         ExpireBookingHoldsCommand::class,
         ExpirePendingBookingsCommand::class,

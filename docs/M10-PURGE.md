@@ -43,3 +43,7 @@ php artisan up
 ```
 
 The current application stores notification history as reminder deliveries and has no organization audit-log table. Global user sessions, global password-reset records and server/application logs are not tenant purge targets.
+
+## M10-R2 extension
+
+All levels also delete outgoing webhook delivery and attempt history. The `configuration` level preserves webhook endpoints and encrypted signing secrets; other levels remove endpoints. Purge does not emit outgoing events. Stop active webhook dispatcher/scheduler processes before executing a purge.

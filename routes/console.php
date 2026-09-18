@@ -19,3 +19,5 @@ Schedule::command('appointments:disclose-event-locations')->everyTenMinutes()->w
 Schedule::command('appointments:sync-calendars')->everyFiveMinutes()->withoutOverlapping();
 
 Schedule::command('gallery:normalize-images')->weeklyOn(1, '02:30')->withoutOverlapping();
+
+Schedule::command('webhooks:dispatch')->everyMinute()->withoutOverlapping(5);

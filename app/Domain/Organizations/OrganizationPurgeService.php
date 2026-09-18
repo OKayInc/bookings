@@ -38,6 +38,8 @@ class OrganizationPurgeService
         DB::transaction(function () use ($org, $rank): void {
             Organization::whereKey($org->getKey())->lockForUpdate()->firstOrFail();
             $id = $org->getKey();
+            DB::table('webhook_deliveries')->where('organization_id', $id)->delete();
+            if ($rank < 4) { DB::table('webhook_endpoints')->where('organization_id', $id)->delete(); }
             $types = DB::table('appointment_types')->where('organization_id', $id)->pluck('id');
             $bookings = DB::table('bookings')->where('organization_id', $id)->pluck('id');
             $submissions = DB::table('booking_contract_submissions')->where('organization_id', $id)->pluck('id');

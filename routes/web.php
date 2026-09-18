@@ -215,6 +215,16 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('/organizations/{organization}/switch', [OrganizationController::class, 'switch'])->name('organizations.switch');
 
     Route::middleware('organization')->group(function (): void {
+        Route::get('/webhooks/documentation', [\App\Http\Controllers\OutgoingWebhookController::class, 'guide'])->name('webhooks.guide');
+        Route::get('/webhooks', [\App\Http\Controllers\OutgoingWebhookController::class, 'index'])->name('webhooks.index');
+        Route::post('/webhooks', [\App\Http\Controllers\OutgoingWebhookController::class, 'store'])->middleware('throttle:10,1')->name('webhooks.store');
+        Route::put('/webhooks/{webhook}', [\App\Http\Controllers\OutgoingWebhookController::class, 'update'])->whereUuid('webhook')->middleware('throttle:10,1')->name('webhooks.update');
+        Route::delete('/webhooks/{webhook}', [\App\Http\Controllers\OutgoingWebhookController::class, 'destroy'])->whereUuid('webhook')->name('webhooks.destroy');
+        foreach (['toggle', 'rotate', 'test'] as $action) {
+            Route::post('/webhooks/{webhook}/'.$action, [\App\Http\Controllers\OutgoingWebhookController::class, $action])->whereUuid('webhook')->middleware('throttle:10,1')->name('webhooks.'.$action);
+        }
+        Route::get('/webhook-deliveries/{delivery}', [\App\Http\Controllers\OutgoingWebhookController::class, 'show'])->whereUuid('delivery')->name('webhooks.deliveries.show');
+        Route::post('/webhook-deliveries/{delivery}/retry', [\App\Http\Controllers\OutgoingWebhookController::class, 'retry'])->whereUuid('delivery')->middleware('throttle:10,1')->name('webhooks.deliveries.retry');
         Route::get('/api-keys', [\App\Http\Controllers\ApiKeyController::class, 'index'])->name('api-keys.index');
         Route::post('/api-keys', [\App\Http\Controllers\ApiKeyController::class, 'update'])->middleware('throttle:10,1')->name('api-keys.update');
         Route::get('/dashboard', DashboardController::class)->name('dashboard');

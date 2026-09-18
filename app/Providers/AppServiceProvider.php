@@ -28,6 +28,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        foreach ([\App\Models\Booking::class, \App\Models\PaymentTransaction::class, \App\Models\PaymentRefund::class, \App\Models\Ticket::class] as $model) {
+            $model::observe(\App\Observers\OutgoingWebhookObserver::class);
+        }
+
         VerifyEmail::createUrlUsing(function (object $notifiable): string {
             return URL::temporarySignedRoute(
                 'verification.verify',

@@ -49,6 +49,7 @@
                             @if($activeOrganization && auth()->user()->can('update', $activeOrganization))
                                 <li><a class="dropdown-item" href="{{ route('organization-members.index') }}">Members</a></li>
                                 <li><a class="dropdown-item" href="{{ route('settings.edit') }}">Settings</a></li>
+                                <li><a class="dropdown-item" href="{{ route('webhooks.index') }}">Webhooks</a></li>
                                 <li><a class="dropdown-item" href="{{ route('email-templates.edit') }}">Email templates</a></li>
                                 <li><a class="dropdown-item" href="{{ route('payment-settings.edit') }}">Payments</a></li>
                                 <li><a class="dropdown-item" href="{{ route('coupons.index') }}">Gift cards &amp; coupons</a></li>
