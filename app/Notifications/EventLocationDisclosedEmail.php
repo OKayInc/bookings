@@ -21,7 +21,7 @@ class EventLocationDisclosedEmail extends Notification
             ->subject('Event location · '.$this->booking->appointmentType->name)
             ->greeting('Hello '.$this->booking->first_name.',')
             ->line('The location for your accepted event booking is now available.')
-            ->line('Location: '.$this->booking->appointment->event_location)
+            ->line('Location: '.app(\App\Domain\Tickets\EventLocationDisclosureService::class)->attendeeLabel($this->booking))
             ->line('Show starts: '.$this->booking->appointment->show_starts_at_utc->setTimezone($this->booking->booking_timezone)->format('D, M j Y · g:i A').' ('.$this->booking->booking_timezone.')')
             ->line('Booking reference: '.$this->booking->reference);
     }

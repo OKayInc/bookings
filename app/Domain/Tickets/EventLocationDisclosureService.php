@@ -14,22 +14,40 @@ class EventLocationDisclosureService
 {
     public function publicLabel(AppointmentType $type): string
     {
-        if (! $type->ticketing_enabled || blank($type->event_location)) {
+        $address = $type->event_location;
+        if ($type->is_online) {
+            $address = $type->meeting_provider === \App\Enums\ConferenceProvider::Custom
+                ? ($type->event_location ?: app(\App\Domain\Conferences\ConferenceProviderCatalog::class)->settings($type->organization)?->custom_meeting_url)
+                : $type->appointments()->where('event_occurrence_id', $type->currentEventOccurrence()?->getKey())
+                    ->where('meeting_status', 'ready')->first()?->meeting_join_url;
+        }
+        if (! $type->ticketing_enabled || (! $type->is_online && blank($address))) {
             return 'In person or arranged by the organization';
         }
 
         return match ($type->location_disclosure_mode ?? LocationDisclosureMode::Public) {
-            LocationDisclosureMode::Public => $type->event_location,
+            LocationDisclosureMode::Public => $address ?: 'Online · meeting link will be available with your booking',
             LocationDisclosureMode::AfterAcceptance => 'Mystery location · disclosed if your admission request is accepted',
             LocationDisclosureMode::HoursBeforeEvent => 'Mystery location · disclosed to accepted attendees '.$type->location_disclosure_hours.' hours before the event starts',
         };
+    }
+
+    public function address(Booking $booking): ?string
+    {
+        $booking->loadMissing('appointment');
+        $appointment = $booking->appointment;
+        if ($appointment->meeting_provider !== null) {
+            return $appointment->meeting_join_url
+                ?: ($appointment->meeting_provider === \App\Enums\ConferenceProvider::Custom ? $appointment->event_location : null);
+        }
+        return $appointment->event_location;
     }
 
     public function mayDisclose(Booking $booking): bool
     {
         $booking->loadMissing('appointment');
         $appointment = $booking->appointment;
-        if (blank($appointment?->event_location)) {
+        if (blank($this->address($booking))) {
             return false;
         }
 
@@ -53,10 +71,13 @@ class EventLocationDisclosureService
     public function attendeeLabel(Booking $booking): string
     {
         if ($this->mayDisclose($booking)) {
-            return (string) $booking->appointment->event_location;
+            return (string) $this->address($booking);
         }
 
         $appointment = $booking->appointment;
+        if ($appointment->meeting_provider && blank($this->address($booking))) {
+            return 'Online · the meeting link is being prepared';
+        }
         if ($appointment->location_disclosure_mode === LocationDisclosureMode::HoursBeforeEvent) {
             return 'Mystery location · available to accepted attendees '.$appointment->location_disclosure_hours.' hours before the show starts';
         }

@@ -172,6 +172,47 @@ class M9R11PrivateTicketedEventTest extends TestCase
             ->assertSessionHasErrors(['private_event_enabled', 'event_location']);
     }
 
+    public function test_online_private_configuration_uses_the_custom_link_instead_of_physical_address(): void
+    {
+        [$owner, $organization] = $this->ownerContext();
+        $organization->conferenceSettings()->create(['custom_meeting_url' => 'https://meet.example.test/concert']);
+        $this->actingAs($owner)->withSession(['active_organization_uuid' => $organization->uuid])
+            ->post(route('appointment-types.store'), $this->configuration([
+                'private_event_enabled' => '1', 'is_online' => '1', 'meeting_provider' => 'custom',
+                'event_location' => 'This physical address must not be used',
+                'location_disclosure_mode' => 'after_acceptance',
+            ]))->assertSessionHasNoErrors();
+        $type = AppointmentType::firstOrFail();
+        $this->assertSame('https://meet.example.test/concert', $type->event_location);
+        $this->assertSame($type->event_location, $type->currentEventOccurrence()->venue);
+        $this->assertStringNotContainsString('https://', app(EventLocationDisclosureService::class)->publicLabel($type));
+        $type->update(['location_disclosure_mode' => 'public']);
+        $this->assertSame('https://meet.example.test/concert', app(EventLocationDisclosureService::class)->publicLabel($type));
+    }
+
+    public function test_online_meeting_url_stays_hidden_until_acceptance_and_disclosure_time(): void
+    {
+        Notification::fake();
+        CarbonImmutable::setTestNow('2026-09-16 12:00 UTC');
+        [, $organization] = $this->ownerContext();
+        $type = $this->privateEvent($organization, [
+            'is_online' => true, 'meeting_provider' => 'jitsi', 'event_location' => null,
+            'location_disclosure_mode' => 'hours_before_event', 'location_disclosure_hours' => 24,
+        ]);
+        $this->availability($organization);
+        [$booking, $token] = $this->book($type, CarbonImmutable::parse('2026-09-21 09:00', 'America/Toronto')->utc());
+        $url = $booking->appointment->meeting_join_url;
+        $this->assertNotEmpty($url);
+        $this->assertSame($url, $booking->appointment->event_location);
+        $manage = route('public.bookings.manage', [$booking, $token]);
+        $this->get($manage)->assertOk()->assertDontSee($url)->assertDontSee('Join meeting');
+        app(EventAdmissionApprovalService::class)->respond(EventAdmissionApproval::firstOrFail(), EventAdmissionApprovalStatus::Accepted);
+        $this->get($manage)->assertOk()->assertDontSee($url)->assertDontSee('Join meeting');
+        CarbonImmutable::setTestNow($booking->appointment->show_starts_at_utc->subHours(24));
+        $this->get($manage)->assertOk()->assertSee($url)->assertSee('Join meeting');
+        $this->assertSame($url, app(EventLocationDisclosureService::class)->attendeeLabel($booking->fresh('appointment')));
+    }
+
     private function ownerContext(): array
     {
         $owner = User::factory()->create();

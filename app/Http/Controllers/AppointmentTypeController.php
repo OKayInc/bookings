@@ -15,6 +15,7 @@ use App\Domain\Questionnaires\PercentageService;
 use App\Domain\Resources\EquipmentPricingService;
 use App\Enums\AppointmentVisibility;
 use App\Enums\AttendanceMode;
+use App\Enums\ConferenceProvider;
 use App\Enums\AttendeePricingMode;
 use App\Enums\BookingNoticeUnit;
 use App\Enums\DurationMode;
@@ -420,9 +421,10 @@ class AppointmentTypeController extends Controller
             'attendance_mode' => $data['attendance_mode'],
             'ticketing_enabled' => $ticketingEnabled,
             'private_event_enabled' => $privateEventEnabled,
-            'event_location' => $ticketingEnabled && filled($data['event_location'] ?? null)
-                ? trim((string) $data['event_location'])
-                : null,
+            'event_location' => ! $ticketingEnabled ? null : ($request->boolean('is_online')
+                ? (($data['meeting_provider'] ?? null) === ConferenceProvider::Custom->value
+                    ? app(ConferenceProviderCatalog::class)->settings(app(OrganizationContext::class)->organization())?->custom_meeting_url : null)
+                : (filled($data['event_location'] ?? null) ? trim((string) $data['event_location']) : null)),
             'location_disclosure_mode' => $locationDisclosureMode->value,
             'location_disclosure_hours' => $locationDisclosureMode === LocationDisclosureMode::HoursBeforeEvent
                 ? (int) $data['location_disclosure_hours']

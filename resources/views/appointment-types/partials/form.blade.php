@@ -122,6 +122,29 @@
             <div class="muted">Jitsi is always available. Owners and administrators configure organization-specific credentials under Organization &gt; Settings.</div>
         </div>
     </div>
+    <div id="event-location-settings">
+        <div class="field" id="physical-event-location-field">
+            <label for="event_location">Event location</label>
+            <textarea id="event_location" name="event_location" maxlength="5000" placeholder="Venue name and complete address">{{ old('event_location', $appointmentType?->event_location) }}</textarea>
+        </div>
+
+        <p id="online-event-location-help" class="muted">The meeting link from your selected provider is the event address. The location disclosure setting also controls when attendees can see that link.</p>
+            <div class="field">
+                <label for="location_disclosure_mode">Location disclosure</label>
+                <select id="location_disclosure_mode" name="location_disclosure_mode">
+                    @foreach(\App\Enums\LocationDisclosureMode::cases() as $mode)
+                        <option value="{{ $mode->value }}" @selected(old('location_disclosure_mode', $appointmentType?->location_disclosure_mode?->value ?? 'public') === $mode->value)>{{ $mode->label() }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div id="location-disclosure-hours-field" class="field">
+                <label for="location_disclosure_hours">Disclose location before the show starts</label>
+                <div class="input-group">
+                    <input id="location_disclosure_hours" class="form-control" type="number" min="1" max="8760" name="location_disclosure_hours" value="{{ old('location_disclosure_hours', $appointmentType?->location_disclosure_hours ?? 24) }}">
+                    <span class="input-group-text">hours</span>
+                </div>
+            </div>
+    </div>
 </div>
 
 <div class="section-card">
@@ -175,7 +198,7 @@
     </div>
 </div>
 
-<div class="section-card">
+<div class="section-card" id="start-time-interval-section" style="{{ (bool) old('ticketing_enabled', $appointmentType?->ticketing_enabled ?? false) ? 'display:none' : '' }}">
     <h2>Start-time interval</h2>
     <div class="field">
         <label for="start_interval_minutes">Offer appointment starts every</label>
@@ -232,10 +255,6 @@
         </div>
         <p class="muted">Show start and show end must both fall inside the doors-open-to-booking-end range. Show end may be omitted when it is not advertised.</p>
 
-        <div class="field">
-            <label for="event_location">Event location</label>
-            <textarea id="event_location" name="event_location" maxlength="5000" placeholder="Venue name and complete address">{{ old('event_location', $appointmentType?->event_location) }}</textarea>
-        </div>
 
         <div class="card compact">
             <input type="hidden" name="private_event_enabled" value="0">
@@ -245,21 +264,7 @@
             </label>
             <p class="muted">Every active owner, administrator, and manager receives an approval email with the attendee's questionnaire answers. The first decision is final.</p>
 
-            <div class="field">
-                <label for="location_disclosure_mode">Location disclosure</label>
-                <select id="location_disclosure_mode" name="location_disclosure_mode">
-                    @foreach(\App\Enums\LocationDisclosureMode::cases() as $mode)
-                        <option value="{{ $mode->value }}" @selected(old('location_disclosure_mode', $appointmentType?->location_disclosure_mode?->value ?? 'public') === $mode->value)>{{ $mode->label() }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div id="location-disclosure-hours-field" class="field">
-                <label for="location_disclosure_hours">Disclose location before the show starts</label>
-                <div class="input-group">
-                    <input id="location_disclosure_hours" class="form-control" type="number" min="1" max="8760" name="location_disclosure_hours" value="{{ old('location_disclosure_hours', $appointmentType?->location_disclosure_hours ?? 24) }}">
-                    <span class="input-group-text">hours</span>
-                </div>
-            </div>
+
         </div>
 
         <div class="field">
@@ -803,7 +808,7 @@
     <div class="muted">A deadline of 0 allows cancellation until the appointment starts. The snapshotted client refund percentage is applied automatically to captured payments.</div>
 </div>
 
-<div class="section-card">
+<div class="section-card" id="rescheduling-policy-section" style="{{ (bool) old('ticketing_enabled', $appointmentType?->ticketing_enabled ?? false) ? 'display:none' : '' }}">
     <h2>Rescheduling policy</h2>
     <input type="hidden" name="rescheduling_allowed" value="0">
     <label class="inline-check"><input type="checkbox" name="rescheduling_allowed" value="1" @checked((bool) old('rescheduling_allowed', $appointmentType?->rescheduling_allowed ?? true))> Allow clients to reschedule</label>
@@ -962,6 +967,9 @@
         const groupAttendance = attendanceMode.value === 'group';
         const onlineAppointment = online.checked;
         const ticketed = document.getElementById('ticketing_enabled').checked;
+        ['start-time-interval-section', 'rescheduling-policy-section'].forEach(id => {
+            document.getElementById(id).style.display = ticketed ? 'none' : 'block';
+        });
         const seasonalAppointment = seasonalAvailability.checked && !ticketed;
         setSectionState(document.getElementById('booking-notice-section'), !ticketed);
         setSectionState(document.getElementById('booking-season-section'), !ticketed);
@@ -1086,7 +1094,7 @@
 
     function sectionState(section, active) {
         section.style.display = active ? 'block' : 'none';
-        section.querySelectorAll('input, select, button').forEach(control => { control.disabled = !active; });
+        section.querySelectorAll('input, select, textarea, button').forEach(control => { control.disabled = !active; });
     }
 
     function prepare(row) {
@@ -1119,6 +1127,9 @@
     function sync() {
         const active = enabled.checked;
         sectionState(fields, active);
+        sectionState(document.getElementById('event-location-settings'), active);
+        sectionState(document.getElementById('physical-event-location-field'), active && !document.getElementById('is_online').checked);
+        document.getElementById('online-event-location-help').hidden = !document.getElementById('is_online').checked;
         document.getElementById('event_date').required = active;
         document.getElementById('event_time').required = active;
         optionState(singleAttendance, !active);
@@ -1174,7 +1185,7 @@
         prepare(row);
         sync();
     });
-    [enabled, scheme, optional, attendance, duration, pricing, privateEvent, disclosureMode].forEach(control => control.addEventListener('change', sync));
+    [enabled, scheme, optional, attendance, duration, pricing, privateEvent, disclosureMode, document.getElementById('is_online')].forEach(control => control.addEventListener('change', sync));
     sync();
 })();
 </script>

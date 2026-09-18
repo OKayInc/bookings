@@ -414,6 +414,38 @@ class TicketingTest extends TestCase
             ]))->assertSessionHasErrors('event_time');
     }
 
+    public function test_free_hold_hides_price_and_coupon_unless_questions_or_applicable_fees_can_charge(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-24 12:00 UTC');
+        [, $organization] = $this->ownerContext();
+        $this->availability($organization);
+        $type = $this->ticketType($organization);
+        $lease = app(PublicBookingHoldService::class)->acquire($type,
+            CarbonImmutable::parse('2026-08-31 09:00', 'America/Toronto')->utc(), 180, 'America/Toronto', 1);
+        $url = route('public.booking-holds.edit', $lease->token);
+        $quoteUrl = route('public.booking-holds.quote', $lease->token);
+        $this->get($url)->assertOk()->assertViewHas('showPricing', false);
+        $this->postJson($quoteUrl, [])->assertOk()->assertJsonPath('show_pricing', false);
+        $question = $type->questions()->create([
+            'type' => 'number', 'label' => 'Extras', 'is_required' => false, 'is_active' => true,
+            'pricing_adjustment_type' => 'fixed', 'pricing_amount_minor' => 500,
+            'pricing_application_mode' => 'per_unit',
+        ]);
+        $this->get($url)->assertOk()->assertViewHas('showPricing', true);
+        $this->postJson($quoteUrl, ['answers' => [$question->uuid => '2']])
+            ->assertOk()->assertJsonPath('show_pricing', true)->assertJsonPath('total_minor', 1000);
+        $question->update(['is_active' => false]);
+        $rule = $type->shortNoticeFeeRules()->create([
+            'threshold_value' => 1, 'threshold_unit' => 'hour', 'adjustment_type' => 'fixed',
+            'fixed_amount_minor' => 250, 'is_active' => true, 'position' => 1,
+        ]);
+        $this->get($url)->assertOk()->assertViewHas('showPricing', false);
+        $this->postJson($quoteUrl, [])->assertOk()->assertJsonPath('show_pricing', false);
+        $rule->update(['threshold_value' => 10, 'threshold_unit' => 'day']);
+        $this->get($url)->assertOk()->assertViewHas('showPricing', true);
+        $this->postJson($quoteUrl, [])->assertOk()->assertJsonPath('show_pricing', true)->assertJsonPath('total_minor', 250);
+    }
+
     private function configuration(array $overrides = []): array
     {
         return array_replace([

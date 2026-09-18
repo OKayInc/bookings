@@ -247,7 +247,19 @@ class PublicBookingController extends Controller
 
         $hold->load(['organization', 'resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.questions.visibilityConditions.expectedOptions', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
 
+        $initialQuote = app(\App\Domain\Questionnaires\QuestionnairePricingService::class)->quote(
+            $hold->appointmentType, (int) $hold->duration_value,
+            $conditionalResources->unavailableDefaultAnswers($hold),
+            CarbonImmutable::instance($hold->starts_at_utc)->utc(),
+            attendeeCount: (int) $hold->attendee_count, ticketSeats: $hold->ticket_seats ?? [],
+            equipmentResourceQuantities: $hold->resources->mapWithKeys(fn ($resource) => [
+                $resource->getKey() => (int) ($resource->pivot->quantity_reserved ?? 1),
+            ])->all(),
+        );
+
         return view('public.bookings.details', [
+            'showPricing' => app(\App\Domain\Bookings\BookingPriceVisibilityService::class)
+                ->shouldShow($hold->appointmentType, $initialQuote->totalMinor),
             'organization' => $hold->organization,
             'type' => $hold->appointmentType,
             'hold' => $hold,
@@ -292,6 +304,8 @@ class PublicBookingController extends Controller
                 ])->all(),
                 forcedAnswers: $conditionalResources->unavailableDefaultAnswers($hold),
             );
+            $showPricing = app(\App\Domain\Bookings\BookingPriceVisibilityService::class)
+                ->shouldShow($hold->appointmentType, $quote->totalMinor);
             if (trim((string) $request->input('coupon_code')) !== '') {
                 $quote = $coupons->apply(
                     (string) $request->input('coupon_code'),
@@ -304,6 +318,7 @@ class PublicBookingController extends Controller
             return response()->json(['message' => $exception->getMessage()], 422);
         }
         return response()->json([
+            'show_pricing' => $showPricing,
             'base_price_minor' => $quote->basePriceMinor,
             'subtotal_minor' => $taxQuote->subtotalMinor,
             'subtotal_display' => $money->format($taxQuote->subtotalMinor, $hold->organization->currency),

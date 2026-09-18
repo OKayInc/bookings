@@ -26,7 +26,7 @@
     </div>
 </div>
 
-<?php if ($booking->appointment->ticketing_enabled && $booking->appointment->event_location): ?>
+<?php if ($booking->appointment->ticketing_enabled && ($booking->appointment->event_location || $booking->appointment->meeting_provider)): ?>
 <div class="card">
     <h2>Event location</h2>
     <p><?= nl2br(e(app(\App\Domain\Tickets\EventLocationDisclosureService::class)->attendeeLabel($booking))) ?></p>
@@ -129,9 +129,11 @@ $mayPay = $activeBooking && $paymentAmount > 0
 <?php if ($booking->appointment->meeting_provider && !in_array($booking->status->value, ['cancelled', 'declined'], true)): ?>
 <div class="card">
     <h2>Online meeting · <?= e($booking->appointment->meeting_provider->label()) ?></h2>
-    <?php if ($booking->appointment->meeting_status === 'ready' && $booking->appointment->meeting_join_url): ?>
+    <?php if ($booking->appointment->meeting_status === 'ready' && $booking->appointment->meeting_join_url && (! $booking->appointment->ticketing_enabled || app(\App\Domain\Tickets\EventLocationDisclosureService::class)->mayDisclose($booking))): ?>
         <p><a class="btn btn-primary" target="_blank" rel="noopener noreferrer" href="<?= e($booking->appointment->meeting_join_url) ?>">Join meeting</a></p>
         <p class="muted">Keep this private meeting link with your booking details.</p>
+    <?php elseif ($booking->appointment->ticketing_enabled && !app(\App\Domain\Tickets\EventLocationDisclosureService::class)->mayDisclose($booking)): ?>
+        <p><?= e(app(\App\Domain\Tickets\EventLocationDisclosureService::class)->attendeeLabel($booking)) ?></p>
     <?php elseif ($booking->appointment->meeting_status === 'error'): ?>
         <p>The organization is preparing the meeting link. Please check this page again later or contact them if the appointment is approaching.</p>
     <?php else: ?>

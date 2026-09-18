@@ -37,6 +37,9 @@ class ConferenceMeetingService
             return;
         }
         if ($appointment->meeting_status === 'ready' && filled($appointment->meeting_join_url)) {
+            if ($appointment->ticketing_enabled && $appointment->event_location !== $appointment->meeting_join_url) {
+                $appointment->forceFill(['event_location' => $appointment->meeting_join_url])->save();
+            }
             return;
         }
         if (! $this->catalog->isConfigured($appointment->organization, $provider)) {
@@ -59,6 +62,7 @@ class ConferenceMeetingService
         }
 
         $appointment->forceFill([
+            ...($appointment->ticketing_enabled ? ['event_location' => $joinUrl] : []),
             'meeting_external_id' => isset($result['external_id']) ? (string) $result['external_id'] : null,
             'meeting_join_url' => $joinUrl,
             'meeting_host_url' => $this->safeHttpUrl($result['host_url'] ?? null),

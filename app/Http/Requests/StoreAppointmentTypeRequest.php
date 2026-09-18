@@ -61,6 +61,9 @@ class StoreAppointmentTypeRequest extends FormRequest
                 'client_refund_percentage' => '0', 'staff_refund_percentage' => '100',
             ]);
         }
+        if ($this->boolean('is_online')) {
+            $this->merge(['event_location' => null]);
+        }
         $sanitized = [];
 
         foreach (['description', 'cancellation_policy_text', 'rescheduling_policy_text'] as $field) {
@@ -339,7 +342,13 @@ class StoreAppointmentTypeRequest extends FormRequest
                         || $type->bookingHolds()->where('status', 'active')->where('expires_at_utc', '>', now('UTC'))->exists();
                     $venue = is_string($this->input('event_location')) && filled($this->input('event_location'))
                         ? trim($this->input('event_location')) : null;
-                    if ($event && $reserved && (! $event->starts_at_utc->equalTo($start) || $event->venue !== $venue)) {
+                    if ($this->boolean('is_online')) {
+                        $venue = $this->input('meeting_provider') === ConferenceProvider::Custom->value
+                            ? app(ConferenceProviderCatalog::class)->settings($type->organization)?->custom_meeting_url : null;
+                    }
+                    if ($event && $reserved && (! $event->starts_at_utc->equalTo($start) || $event->venue !== $venue
+                        || (bool) $type->is_online !== $this->boolean('is_online')
+                        || ($this->boolean('is_online') && $type->meeting_provider?->value !== $this->input('meeting_provider')))) {
                         $validator->errors()->add('event_date', 'The event date, time and venue cannot change while it has future bookings or active holds.');
                     }
                 }
@@ -860,7 +869,7 @@ class StoreAppointmentTypeRequest extends FormRequest
         if ($disclosureMode !== null && $disclosureMode !== LocationDisclosureMode::Public && ! $privateEvent) {
             $validator->errors()->add('location_disclosure_mode', 'A mystery location requires private admission approval.');
         }
-        if ($disclosureMode !== LocationDisclosureMode::Public && blank($this->input('event_location'))) {
+        if ($disclosureMode !== LocationDisclosureMode::Public && ! $this->boolean('is_online') && blank($this->input('event_location'))) {
             $validator->errors()->add('event_location', 'Enter the private event location that will be disclosed to accepted attendees.');
         }
         if ($privateEvent) {

@@ -80,9 +80,9 @@
 
     @include('public.bookings.partials.questionnaire')
 
-    <div class="section-card">
+    <div class="section-card" id="booking-coupon-section" @if(!($showPricing ?? true)) hidden @endif>
         <h2>Gift card or coupon</h2>
-        <div class="field"><label for="coupon_code">Code <span class="muted">optional</span></label><input id="coupon_code" name="coupon_code" value="{{ old('coupon_code') }}" maxlength="80" autocomplete="off" placeholder="ABCD-EFGH-IJKL"></div>
+        <div class="field"><label for="coupon_code">Code <span class="muted">optional</span></label><input id="coupon_code" name="coupon_code" value="{{ old('coupon_code') }}" maxlength="80" autocomplete="off" placeholder="ABCD-EFGH-IJKL" @disabled(!($showPricing ?? true))></div>
         <p class="muted">The discount is verified again when the booking is submitted. Fixed-value cards retain any unused balance.</p>
     </div>
 
@@ -120,7 +120,7 @@
 <script src="{{ asset('js/question-visibility.js') }}?v=m9-r2"></script>
 <script>
 (function(){
- const form=document.querySelector('form.form-stack'); const total=document.getElementById('questionnaire-total'); const lines=document.getElementById('questionnaire-price-lines'); const taxIdentifier=document.getElementById('questionnaire-tax-id'); const questionElements=Array.from(document.querySelectorAll('.questionnaire-question')); let timer;
+ const form=document.querySelector('form.form-stack'); const total=document.getElementById('questionnaire-total'); const lines=document.getElementById('questionnaire-price-lines'); const taxIdentifier=document.getElementById('questionnaire-tax-id'); const questionElements=Array.from(document.querySelectorAll('.questionnaire-question')); let timer; let quoteVersion=0;
  if(!form||!total||!lines)return;
  const questions=new Map(questionElements.map(element=>[element.dataset.questionUuid,element]));
  questionElements.forEach(element=>{element._visibilityConditions=JSON.parse(element.dataset.visibilityConditions||'[]');element._resourceUnavailable=element.dataset.resourceUnavailable==='1';element.querySelectorAll('input,select,textarea').forEach(control=>{control.dataset.visibilityRequired=control.required?'1':'0';});});
@@ -144,13 +144,18 @@
  function clearControl(control){if(isResourceDefault(control))return;if(control.type==='checkbox'||control.type==='radio')control.checked=false;else if(control.type==='file')control.value='';else{control.value='';globalThis.tinymce?.get(control.id)?.setContent('');}}
  function refreshVisibility(){questionElements.forEach(element=>{const conditionVisible=expressionMatches(element._visibilityConditions);const display=conditionVisible&&!element._resourceUnavailable;element.dataset.conditionVisible=conditionVisible?'1':'0';if(!display)element.querySelectorAll('input,select,textarea').forEach(clearControl);element.hidden=!display;element.setAttribute('aria-hidden',display?'false':'true');element.querySelectorAll('input,select,textarea').forEach(control=>{const useDefault=isResourceDefault(control)&&conditionVisible&&element._resourceUnavailable;control.disabled=useDefault?false:!display;control.required=display&&control.dataset.visibilityRequired==='1';});});}
  async function updateQuote(){
+   const currentQuote=++quoteVersion;
    const source=new FormData(form), body=new FormData(); body.append('_token',source.get('_token'));
    for(const [key,value] of source.entries()) if((key.startsWith('answers[')||key==='coupon_code') && !(value instanceof File)) body.append(key,value);
    try {
      const response=await fetch(@json(route('public.booking-holds.quote',$holdToken)),{method:'POST',headers:{'Accept':'application/json'},body});
      const data=await response.json();
+     if(currentQuote!==quoteVersion)return;
      if(response.status===410){window.location.reload();return;}
      if(!response.ok)throw new Error(data.message||'Unable to calculate price.');
+     document.getElementById('questionnaire-price-card').hidden = !data.show_pricing;
+     document.getElementById('booking-coupon-section').hidden = !data.show_pricing;
+     document.getElementById('coupon_code').disabled = !data.show_pricing;
      total.textContent=data.total_display;
      let breakdown=data.lines.map(l=>`<div class="price-line"><span>${escapeHtml(l.label)}${l.quantity !== '1.0000' && l.quantity !== '1' ? ' × '+escapeHtml(l.quantity) : ''}</span><strong>${escapeHtml(l.amount_display)}</strong></div>`).join('');
      if(data.collects_taxes){
@@ -160,7 +165,7 @@
      }
      lines.innerHTML=breakdown;
      if(taxIdentifier){taxIdentifier.hidden=!data.collects_taxes||!data.tax_identifier;taxIdentifier.textContent=data.tax_identifier?'Tax ID: '+data.tax_identifier:'';}
-   }catch(e){total.textContent=e.message;}
+   }catch(e){if(currentQuote===quoteVersion)total.textContent=e.message;}
  }
  function escapeHtml(v){const d=document.createElement('div');d.textContent=String(v);return d.innerHTML;}
  form.addEventListener('change',e=>{if(e.target.name?.startsWith('answers[')||e.target.name==='coupon_code'){refreshVisibility();refreshNumericConstraints();clearTimeout(timer);timer=setTimeout(updateQuote,100);}}); form.addEventListener('input',e=>{if((e.target.type==='number'&&e.target.name?.startsWith('answers['))||e.target.name==='coupon_code'){refreshNumericConstraints();clearTimeout(timer);timer=setTimeout(updateQuote,350);}}); refreshVisibility(); refreshNumericConstraints(); updateQuote();

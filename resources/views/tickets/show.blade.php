@@ -37,7 +37,7 @@
         @endif
     </div>
 
-    @if($ticket->appointment->event_location)
+    @if($ticket->appointment->event_location || $ticket->appointment->meeting_provider)
     <div><h3>Location</h3><p>{!! nl2br(e(app(\App\Domain\Tickets\EventLocationDisclosureService::class)->attendeeLabel($booking))) !!}</p></div>
     @endif
 
