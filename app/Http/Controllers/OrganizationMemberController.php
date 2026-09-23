@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Plans\PlanLimitService;
 use App\Enums\MembershipRole;
+use App\Enums\MembershipStatus;
 use App\Models\OrganizationMemberInvitation;
+use App\Models\OrganizationMembership;
 use App\Models\Person;
 use App\Notifications\OrganizationMemberInvitationEmail;
 use App\Support\Organizations\OrganizationContext;
@@ -44,7 +47,7 @@ class OrganizationMemberController extends Controller
         ]);
     }
 
-    public function store(Request $request, OrganizationContext $context): RedirectResponse
+    public function store(Request $request, OrganizationContext $context, PlanLimitService $planLimits): RedirectResponse
     {
         $organization = $context->organization();
         $this->authorize('update', $organization);
@@ -75,12 +78,17 @@ class OrganizationMemberController extends Controller
         }
 
         $token = Str::random(64);
-        $invitation = DB::transaction(function () use ($organization, $request, $data, $email, $normalized, $token): OrganizationMemberInvitation {
+        $invitation = DB::transaction(function () use ($organization, $request, $data, $email, $normalized, $token, $planLimits): OrganizationMemberInvitation {
+            \App\Models\Organization::query()->whereKey($organization->getKey())->lockForUpdate()->firstOrFail();
             $invitation = OrganizationMemberInvitation::query()
                 ->where('organization_id', $organization->getKey())
                 ->where('email_normalized', $normalized)
                 ->lockForUpdate()
                 ->first();
+
+            if ($invitation === null || ! $invitation->isPending()) {
+                $planLimits->assertCanInviteMember($organization);
+            }
 
             $values = [
                 'organization_id' => $organization->getKey(),
@@ -124,5 +132,44 @@ class OrganizationMemberController extends Controller
         }
 
         return back()->with('success', 'Invitation revoked.');
+    }
+
+    public function updateStatus(
+        Request $request,
+        OrganizationMembership $membership,
+        OrganizationContext $context,
+        PlanLimitService $planLimits,
+    ): RedirectResponse {
+        $organization = $context->organization();
+        $this->authorize('update', $organization);
+        abort_unless(hash_equals((string) $membership->organization_id, (string) $organization->getKey()), 404);
+        $data = $request->validate(['status' => ['required', Rule::in([
+            MembershipStatus::Active->value,
+            MembershipStatus::Suspended->value,
+        ])]]);
+        $target = MembershipStatus::from($data['status']);
+
+        DB::transaction(function () use ($organization, $membership, $target, $planLimits): void {
+            \App\Models\Organization::query()->whereKey($organization->getKey())->lockForUpdate()->firstOrFail();
+            $locked = OrganizationMembership::query()->whereKey($membership->getKey())->lockForUpdate()->firstOrFail();
+            if ($locked->status === $target) {
+                return;
+            }
+            if ($target === MembershipStatus::Active) {
+                $planLimits->assertCanAcceptMember($organization);
+            } elseif ($locked->role === MembershipRole::Owner) {
+                $otherOwners = $organization->memberships()
+                    ->whereKeyNot($locked->getKey())
+                    ->where('role', MembershipRole::Owner->value)
+                    ->where('status', MembershipStatus::Active->value)
+                    ->exists();
+                if (! $otherOwners) {
+                    throw ValidationException::withMessages(['member' => 'The last active owner cannot be suspended.']);
+                }
+            }
+            $locked->update(['status' => $target->value]);
+        }, 3);
+
+        return back()->with('success', $target === MembershipStatus::Active ? 'Member reactivated.' : 'Member suspended. Historical records were preserved.');
     }
 }

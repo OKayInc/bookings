@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Money\MoneyService;
+use App\Domain\Plans\PlanLimitService;
 use App\Domain\Questionnaires\NumericQuestionConstraintService;
 use App\Domain\Questionnaires\PercentageService;
 use App\Domain\Questionnaires\PhoneValidationService;
@@ -61,12 +62,14 @@ class AppointmentQuestionController extends Controller
         QuestionVisibilityService $visibility,
         NumericQuestionConstraintService $numericConstraints,
         ConditionalResourceRequirementService $conditionalResources,
+        PlanLimitService $planLimits,
     ): RedirectResponse {
         $this->guard($appointmentType, $context);
         $data = $request->validated();
-
         try {
-            DB::transaction(function () use ($appointmentType, $data, $request, $context, $money, $percent, $reusableQuestions, $visibility, $numericConstraints, $conditionalResources): void {
+            DB::transaction(function () use ($appointmentType, $data, $request, $context, $money, $percent, $reusableQuestions, $visibility, $numericConstraints, $conditionalResources, $planLimits): void {
+                \App\Models\Organization::query()->whereKey($context->organization()->getKey())->lockForUpdate()->firstOrFail();
+                $planLimits->assertCanAddQuestion($context->organization());
                 AppointmentType::query()->whereKey($appointmentType->getKey())->lockForUpdate()->firstOrFail();
                 $question = $appointmentType->questions()->create(
                     $this->questionData($data, $request, $context, $money, $percent, $appointmentType),
@@ -91,6 +94,7 @@ class AppointmentQuestionController extends Controller
         ReusableQuestion $reusableQuestion,
         OrganizationContext $context,
         ReusableQuestionService $reusableQuestions,
+        PlanLimitService $planLimits,
     ): RedirectResponse {
         $this->guard($appointmentType, $context);
         abort_unless(
@@ -99,7 +103,17 @@ class AppointmentQuestionController extends Controller
             404,
         );
 
-        $question = $reusableQuestions->attach($appointmentType, $reusableQuestion);
+        $question = DB::transaction(function () use ($appointmentType, $reusableQuestion, $context, $reusableQuestions, $planLimits): ?AppointmentQuestion {
+            \App\Models\Organization::query()->whereKey($context->organization()->getKey())->lockForUpdate()->firstOrFail();
+            $alreadyAttached = $appointmentType->questions()
+                ->where('reusable_question_id', $reusableQuestion->getKey())
+                ->exists();
+            if (! $alreadyAttached) {
+                $planLimits->assertCanAddQuestion($context->organization());
+            }
+
+            return $reusableQuestions->attach($appointmentType, $reusableQuestion);
+        }, 3);
 
         return redirect()
             ->route('appointment-types.questionnaire.index', $appointmentType)
@@ -142,12 +156,16 @@ class AppointmentQuestionController extends Controller
         QuestionVisibilityService $visibility,
         NumericQuestionConstraintService $numericConstraints,
         ConditionalResourceRequirementService $conditionalResources,
+        PlanLimitService $planLimits,
     ): RedirectResponse {
         $this->guardQuestion($appointmentType, $question, $context);
         $data = $request->validated();
-
         try {
-            DB::transaction(function () use ($question, $data, $request, $context, $money, $percent, $appointmentType, $reusableQuestions, $visibility, $numericConstraints, $conditionalResources): void {
+            DB::transaction(function () use ($question, $data, $request, $context, $money, $percent, $appointmentType, $reusableQuestions, $visibility, $numericConstraints, $conditionalResources, $planLimits): void {
+                \App\Models\Organization::query()->whereKey($context->organization()->getKey())->lockForUpdate()->firstOrFail();
+                if (! $question->is_active && $question->answers()->exists() && $request->boolean('is_active')) {
+                    $planLimits->assertCanAddQuestion($context->organization());
+                }
                 AppointmentType::query()->whereKey($appointmentType->getKey())->lockForUpdate()->firstOrFail();
                 if (! $request->boolean('resource_requirement_enabled')) {
                     $question->resourceRequirementRule()->delete();

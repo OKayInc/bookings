@@ -1,7 +1,7 @@
 <?php
 namespace App\Domain\Webhooks;
 
-use App\Enums\OrganizationPlanTier;
+use App\Domain\Plans\PlanEntitlementService;
 use App\Models\Organization;
 use App\Models\WebhookDelivery;
 use App\Models\WebhookEndpoint;
@@ -15,7 +15,7 @@ class WebhookPublisher
 
     public function publish(Organization $organization, string $event, array $data, ?WebhookEndpoint $only = null): void
     {
-        if ($organization->plan_tier !== OrganizationPlanTier::Paid) { return; }
+        if (! app(PlanEntitlementService::class)->hasBusinessFeatures($organization)) { return; }
         if (! in_array($event, [...self::EVENTS, 'webhook.test'], true)) { throw new \InvalidArgumentException('Unsupported webhook event.'); }
         $eventId = (string) Str::uuid7();
         $payload = json_encode(['id' => $eventId, 'type' => $event, 'api_version' => '2026-09-18',

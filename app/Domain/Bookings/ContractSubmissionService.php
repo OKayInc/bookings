@@ -2,6 +2,7 @@
 
 namespace App\Domain\Bookings;
 
+use App\Domain\Plans\PlanStorageService;
 use App\Enums\ContractReviewStatus;
 use App\Models\Booking;
 use App\Models\BookingContractFile;
@@ -15,6 +16,10 @@ use RuntimeException;
 
 class ContractSubmissionService
 {
+    public function __construct(private readonly PlanStorageService $planStorage)
+    {
+    }
+
     /** @param list<UploadedFile> $files */
     public function submit(Booking $booking, array $files): BookingContractSubmission
     {
@@ -25,6 +30,11 @@ class ContractSubmissionService
         if ($files === []) {
             throw new RuntimeException('At least one signed contract file is required.');
         }
+
+        $this->planStorage->assertCanStore(
+            $booking->organization,
+            array_sum(array_map(fn (UploadedFile $file): int => max(0, (int) $file->getSize()), $files)),
+        );
 
         $disk = (string) config('contracts.disk', 'local');
         $directory = sprintf(

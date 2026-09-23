@@ -11,6 +11,7 @@ use App\Domain\Galleries\GalleryLimitService;
 use App\Domain\Bookings\ShortNoticeFeeRuleService;
 use App\Domain\Conferences\ConferenceProviderCatalog;
 use App\Domain\Money\MoneyService;
+use App\Domain\Plans\PlanLimitService;
 use App\Domain\Questionnaires\PercentageService;
 use App\Domain\Resources\EquipmentPricingService;
 use App\Enums\AppointmentVisibility;
@@ -82,13 +83,18 @@ class AppointmentTypeController extends Controller
         AppointmentTypeLogoService $logos,
         MoneyService $money,
         ShortNoticeFeeRuleService $shortNoticeFees,
+        PlanLimitService $planLimits,
     ): RedirectResponse {
         $organization = $context->organization();
         $this->authorize('manageScheduling', $organization);
         $data = $request->validated();
         $slug = $this->uniqueSlug($organization->getKey(), $data['slug'] ?? $data['name']);
 
-        $appointmentType = \Illuminate\Support\Facades\DB::transaction(function () use ($organization, $data, $slug, $request, $money) {
+        $appointmentType = \Illuminate\Support\Facades\DB::transaction(function () use ($organization, $data, $slug, $request, $money, $planLimits) {
+            Organization::query()->whereKey($organization->getKey())->lockForUpdate()->firstOrFail();
+            if ($request->boolean('is_active', true)) {
+                $planLimits->assertCanActivateAppointmentType($organization);
+            }
             $appointmentType = $organization->appointmentTypes()->create(array_merge(
                 [
                     'name' => $data['name'],
@@ -205,6 +211,7 @@ class AppointmentTypeController extends Controller
         AppointmentTypeLogoService $logos,
         MoneyService $money,
         ShortNoticeFeeRuleService $shortNoticeFees,
+        PlanLimitService $planLimits,
     ): RedirectResponse {
         $this->ensureSameOrganization($appointmentType, $context);
         $this->authorize('manage', $appointmentType);
@@ -218,7 +225,11 @@ class AppointmentTypeController extends Controller
             $password = Hash::make($data['access_password']);
         }
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($appointmentType, $data, $password, $context, $request, $money) {
+        \Illuminate\Support\Facades\DB::transaction(function () use ($appointmentType, $data, $password, $context, $request, $money, $planLimits) {
+            Organization::query()->whereKey($context->organization()->getKey())->lockForUpdate()->firstOrFail();
+            if (! $appointmentType->is_active && $request->boolean('is_active')) {
+                $planLimits->assertCanActivateAppointmentType($context->organization());
+            }
             $appointmentType->update(array_merge(
                 [
                     'name' => $data['name'],

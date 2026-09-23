@@ -24,7 +24,7 @@
         <p class="small text-secondary mb-0">
             <strong>Effective:</strong> August 27, 2026
             <span class="mx-2" aria-hidden="true">&middot;</span>
-            <strong>Last updated:</strong> September 14, 2026
+            <strong>Last updated:</strong> September 19, 2026
         </p>
     </header>
 
@@ -159,7 +159,7 @@
             <li>with the person's direction or consent.</li>
         </ul>
         <p>
-            Appointment.to does not sell personal information. We do not share it for cross-context behavioural advertising, and we do not provide Google or Microsoft API data to advertising platforms or data brokers.
+            Appointment.to does not sell personal information. Except for the public-page advertising technology disclosed in sections 11 and 18, subject to applicable choices and consent, we do not share personal information for cross-context behavioural advertising. We never provide Google or Microsoft API data to advertising platforms or data brokers.
         </p>
     </section>
 
@@ -222,7 +222,7 @@
     <section id="cookies" aria-labelledby="cookies-title">
         <h2 class="h3" id="cookies-title">11. Cookies and similar technologies</h2>
         <p>
-            The Service may use essential cookies and local storage for sessions, authentication, security, preferences, booking flows, and load balancing. We may use limited analytics technologies to understand performance and improve the Service. Browser controls can block cookies, but essential features may then fail. Where law requires it, non-essential technologies are used only after the applicable choice or consent.
+            The Service may use essential cookies and local storage for sessions, authentication, security, preferences, booking flows, and load balancing. We may use limited analytics technologies to understand performance and improve the Service. Eligible public directory and public appointment pages belonging to Free-plan Organizations may also load Google advertising technology, which may process IP address, device/browser information, page URL, ad interactions, and cookies or similar identifiers. Advertising is not loaded in the backend, password-protected, unlisted, invitation-only, questionnaire, contract, payment, upload, booking-management, or confirmation flows. Browser controls can block cookies, but essential features may then fail. Where law requires it, non-essential technologies are used only after the applicable choice or consent.
         </p>
     </section>
 
@@ -291,7 +291,7 @@
     <section id="targeted-advertising" aria-labelledby="targeted-advertising-title">
         <h2 class="h3" id="targeted-advertising-title">18. Do Not Track and targeted advertising</h2>
         <p>
-            Because there is no universally accepted browser Do Not Track standard, the Service may not respond to every such signal. Where legally required and technically supported, we honour recognized opt-out preference signals. Appointment.to does not sell personal information or share it for cross-context behavioural advertising.
+            Because there is no universally accepted browser Do Not Track standard, the Service may not respond to every such signal. Where legally required and technically supported, we honour recognized opt-out preference signals. Appointment.to does not sell personal information. Google may serve contextual or, where permitted and consented to, personalized advertising on the eligible Free-plan public pages described in section 11. We do not send questionnaire answers, booking contact information, payment details, uploaded files, or Google/Microsoft integration data to Google Ads for ad selection. Google's handling of advertising data is also governed by its own privacy notices and controls.
         </p>
     </section>
 

@@ -1,11 +1,16 @@
 <?php
 namespace App\Domain\Questionnaires;
+use App\Domain\Plans\PlanStorageService;
 use App\Models\Booking;
 use App\Models\Resource;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 class QuestionnairePersistenceService {
+ public function __construct(private readonly PlanStorageService $planStorage) {}
  public function persist(Booking $booking, QuestionnaireSubmission $submission): void {
+   $addedBytes=0;
+   foreach($submission->answers as $row) foreach($row['files'] as $file) $addedBytes+=max(0,(int)$file->getSize());
+   $this->planStorage->assertCanStore($booking->organization,$addedBytes);
    $disk=(string)config('questionnaire.file_disk','local');
    foreach ($submission->answers as $row) {
      $q=$row['question'];

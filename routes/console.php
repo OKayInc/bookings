@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('app:about-m1', function (): void {
-    $this->info('Appointment Software M9-R11: private free ticketed events and mystery-location disclosure.');
+    $this->info('Appointment.to M11: Free, Business, add-ons, billing, ads and Complimentary Unlimited.');
 })->purpose('Describe the current appointment software milestone');
 
 Schedule::command('appointments:expire-holds')->everyMinute()->withoutOverlapping();
@@ -21,3 +21,5 @@ Schedule::command('appointments:sync-calendars')->everyFiveMinutes()->withoutOve
 Schedule::command('gallery:normalize-images')->weeklyOn(1, '02:30')->withoutOverlapping();
 
 Schedule::command('webhooks:dispatch')->everyMinute()->withoutOverlapping(5);
+
+Schedule::command('plans:apply-addon-changes')->hourly()->withoutOverlapping();

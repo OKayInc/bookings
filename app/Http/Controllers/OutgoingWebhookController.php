@@ -3,7 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Domain\Webhooks\WebhookDestination;
 use App\Domain\Webhooks\WebhookPublisher;
-use App\Enums\OrganizationPlanTier;
+use App\Domain\Plans\PlanEntitlementService;
 use App\Models\Organization;
 use App\Models\WebhookDelivery;
 use App\Models\WebhookEndpoint;
@@ -23,7 +23,7 @@ class OutgoingWebhookController extends Controller
     }
     private function paid(Organization $org): void
     {
-        abort_unless($org->plan_tier === OrganizationPlanTier::Paid, 403, 'Outgoing webhooks require a paid organization plan.');
+        abort_unless(app(PlanEntitlementService::class)->hasBusinessFeatures($org), 403, 'Outgoing webhooks require Business or Complimentary Unlimited.');
     }
     private function endpoint(Organization $org, WebhookEndpoint $endpoint): void
     {
@@ -32,6 +32,7 @@ class OutgoingWebhookController extends Controller
     private function page(Organization $org, ?string $newSecret = null)
     {
         return response()->view('webhooks.index', ['organization' => $org, 'newSecret' => $newSecret,
+            'businessFeatures' => app(PlanEntitlementService::class)->hasBusinessFeatures($org),
             'eventTypes' => WebhookPublisher::EVENTS,
             'endpoints' => WebhookEndpoint::where('organization_id', $org->getKey())->orderBy('created_at')->get(),
             'deliveries' => WebhookDelivery::where('organization_id', $org->getKey())->with('endpoint')->latest()->paginate(25),

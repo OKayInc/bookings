@@ -2,6 +2,7 @@
 
 namespace App\Domain\Questionnaires;
 
+use App\Domain\Plans\PlanUsageService;
 use App\Models\Organization;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -9,6 +10,10 @@ use RuntimeException;
 
 class DrivingDistanceService
 {
+    public function __construct(private readonly PlanUsageService $planUsage)
+    {
+    }
+
     public function between(string $originAddress, string $destinationAddress, ?Organization $organization = null): int
     {
         $originAddress = trim($originAddress);
@@ -36,7 +41,10 @@ class DrivingDistanceService
         return Cache::remember(
             $cacheKey,
             now()->addSeconds((int) config('questionnaire.google.routes_cache_seconds', 900)),
-            function () use ($key, $originAddress, $destinationAddress): int {
+            function () use ($key, $originAddress, $destinationAddress, $organization): int {
+                if ($organization !== null) {
+                    $this->planUsage->consumeDistanceLookup($organization);
+                }
                 $response = Http::timeout((int) config('questionnaire.google.routes_timeout_seconds', 8))
                     ->acceptJson()
                     ->asJson()

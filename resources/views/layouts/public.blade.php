@@ -1,4 +1,17 @@
 <!doctype html>
+@php
+    $publicPlanEntitlement = isset($organization)
+        ? app(\App\Domain\Plans\PlanEntitlementService::class)->for($organization)
+        : null;
+    $showPlanAdvertising = (bool) ($allowPlanAdvertising ?? false)
+        && $publicPlanEntitlement?->level === \App\Enums\PlanLevel::Free
+        && config('plans.adsense.enabled')
+        && filled(config('plans.adsense.client'))
+        && filled(config('plans.adsense.slot'));
+    $showPlatformBranding = !isset($organization)
+        || !$organization->hide_platform_branding
+        || !($publicPlanEntitlement?->hasBusinessFeatures() ?? false);
+@endphp
 <html lang="en">
 <head>
     <meta charset="utf-8">
@@ -10,6 +23,9 @@
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
     <script src="{{ asset('js/page-loader.js') }}?v=m9-r6" defer></script>
     <script src="{{ asset('js/gallery.js') }}?v=m9-r8" defer></script>
+    @if($showPlanAdvertising)
+        <script async crossorigin="anonymous" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ config('plans.adsense.client') }}"></script>
+    @endif
     @stack('head')
 </head>
 <body class="bg-body-tertiary d-flex flex-column min-vh-100">
@@ -39,12 +55,16 @@
             </div>
         @endif
         @yield('content')
+        @if($showPlanAdvertising)
+            @include('partials.plan-advertisement')
+        @endif
     </div>
 </main>
 
 <footer class="border-top bg-white py-3 mt-auto">
     <div class="container-xl d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 small text-secondary">
-        <span>&copy; {{ now()->year }} {{ config('app.name') }}</span>
+        <span>&copy; {{ now()->year }} {{ isset($organization) ? $organization->name : config('app.name') }}</span>
+        @if($showPlatformBranding)<a href="{{ route('home') }}">Powered by Appointment.to</a>@endif
         <nav class="d-flex gap-3" aria-label="Legal">
             <a href="{{ route('legal.terms') }}">Terms &amp; Conditions</a>
             <a href="{{ route('legal.privacy') }}">Privacy Policy</a>

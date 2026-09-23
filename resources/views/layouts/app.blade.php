@@ -43,7 +43,7 @@
                     </li>
 
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle @if(request()->routeIs('resources.*', 'organizations.*', 'organization-members.*', 'settings.*', 'payment-settings.*', 'payment-rules.*', 'coupons.*', 'admin.*')) active @endif" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Organization</a>
+                        <a class="nav-link dropdown-toggle @if(request()->routeIs('resources.*', 'organizations.*', 'organization-members.*', 'settings.*', 'payment-settings.*', 'payment-rules.*', 'coupons.*', 'plans.*', 'platform.plans.*', 'admin.*')) active @endif" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Organization</a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="{{ route('resources.index') }}">Resources</a></li>
                             @if($activeOrganization && auth()->user()->can('update', $activeOrganization))
@@ -53,11 +53,15 @@
                                 <li><a class="dropdown-item" href="{{ route('email-templates.edit') }}">Email templates</a></li>
                                 <li><a class="dropdown-item" href="{{ route('payment-settings.edit') }}">Payments</a></li>
                                 <li><a class="dropdown-item" href="{{ route('coupons.index') }}">Gift cards &amp; coupons</a></li>
+                                <li><a class="dropdown-item" href="{{ route('plans.index') }}">Plan &amp; billing <span class="badge text-bg-secondary">{{ $activePlanEntitlement?->level->label() }}</span></a></li>
                             @endif
                             <li><a class="dropdown-item" href="{{ route('api-keys.index') }}">API keys</a></li>
                             <li><a class="dropdown-item" href="{{ route('organizations.index') }}">Organizations</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{{ route('admin.health') }}">System health</a></li>
+                            @can('manage-platform')
+                                <li><a class="dropdown-item" href="{{ route('platform.plans.index') }}">Platform plans</a></li>
+                            @endcan
                         </ul>
                     </li>
                 </ul>

@@ -8,6 +8,7 @@ use App\Console\Commands\TimezoneHealthCommand;
 use App\Console\Commands\SendAppointmentRemindersCommand;
 use App\Console\Commands\SyncStaffConfirmationsCommand;
 use App\Console\Commands\NormalizeGalleryImagesCommand;
+use App\Console\Commands\ApplyPlanAddonChangesCommand;
 use App\Http\Middleware\EnsureActiveOrganization;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -31,16 +32,25 @@ return Application::configure(basePath: dirname(__DIR__))
         SendAppointmentRemindersCommand::class,
         SyncStaffConfirmationsCommand::class,
         NormalizeGalleryImagesCommand::class,
+        ApplyPlanAddonChangesCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->validateCsrfTokens(except: [
             'payments/webhooks/*',
+            'plans/stripe/webhook',
         ]);
         $middleware->alias([
             'organization' => EnsureActiveOrganization::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(function (\App\Domain\Plans\PlanLimitException $exception, \Illuminate\Http\Request $request) {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['message' => $exception->getMessage()], 422);
+            }
+
+            return redirect()->back()->withInput()->withErrors(['plan' => $exception->getMessage()]);
+        });
         $exceptions->render(function (\Illuminate\Http\Exceptions\PostTooLargeException $exception, \Illuminate\Http\Request $request) {
             $message = 'The upload exceeds the server request limit. Upload fewer or smaller files, or ask the administrator to increase PHP post_max_size and upload_max_filesize.';
             if ($request->expectsJson() || $request->is('api/*')) {

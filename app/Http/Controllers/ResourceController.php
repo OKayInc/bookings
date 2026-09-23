@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Domain\Availability\HolidayRegionCatalog;
 use App\Domain\Money\MoneyService;
+use App\Domain\Plans\PlanLimitService;
 use App\Enums\ConditionalResourceFulfillmentMode;
 use App\Enums\MembershipRole;
 use App\Enums\MembershipStatus;
@@ -54,7 +55,12 @@ class ResourceController extends Controller
         ));
     }
 
-    public function store(StoreResourceRequest $request, OrganizationContext $context, MoneyService $money): RedirectResponse
+    public function store(
+        StoreResourceRequest $request,
+        OrganizationContext $context,
+        MoneyService $money,
+        PlanLimitService $planLimits,
+    ): RedirectResponse
     {
         $organization = $context->organization();
         $this->authorize('manageScheduling', $organization);
@@ -68,8 +74,11 @@ class ResourceController extends Controller
         $depositMinor = ($data['default_deposit'] ?? '') === ''
             ? null
             : $money->parse((string) $data['default_deposit'], $organization->currency);
-
-        DB::transaction(function () use ($request, $organization, $data, $personKey, $timezone, $enforceHolidays, $holidayRegion, $quantityEnabled, $depositMinor): void {
+        DB::transaction(function () use ($request, $organization, $data, $personKey, $timezone, $enforceHolidays, $holidayRegion, $quantityEnabled, $depositMinor, $planLimits, $isPerson): void {
+            Organization::query()->whereKey($organization->getKey())->lockForUpdate()->firstOrFail();
+            if ($request->boolean('is_active', true)) {
+                $planLimits->assertCanActivateResource($organization, $isPerson);
+            }
             $resource = Resource::create([
                 'organization_id' => $organization->getKey(),
                 'person_id' => $personKey,
@@ -154,7 +163,13 @@ class ResourceController extends Controller
         return view('resources.edit', $this->formData($organization, $resource));
     }
 
-    public function update(StoreResourceRequest $request, Resource $resource, OrganizationContext $context, MoneyService $money): RedirectResponse
+    public function update(
+        StoreResourceRequest $request,
+        Resource $resource,
+        OrganizationContext $context,
+        MoneyService $money,
+        PlanLimitService $planLimits,
+    ): RedirectResponse
     {
         $organization = $context->organization();
         $this->ensureOwned($resource, $organization);
@@ -170,6 +185,17 @@ class ResourceController extends Controller
         $depositMinor = ($data['default_deposit'] ?? '') === ''
             ? null
             : $money->parse((string) $data['default_deposit'], $organization->currency);
+        $willBeActive = $request->boolean('is_active');
+        $availableOrganizations = $resource->organizations()->get();
+        if (! $resource->is_active && $willBeActive) {
+            foreach ($availableOrganizations as $availableOrganization) {
+                $planLimits->assertCanActivateResource($availableOrganization, $isPerson);
+            }
+        } elseif ($resource->is_active && $willBeActive && $resource->type !== 'person' && $isPerson) {
+            foreach ($availableOrganizations as $availableOrganization) {
+                $planLimits->assertCanActivatePersonResource($availableOrganization);
+            }
+        }
         if ($defaultRequired && $this->conditionalRuleUsesInheritedRequirement($resource, $organization)) {
             return back()->withErrors([
                 'default_requirement' => 'This resource must remain optional while an appointment question promotes it conditionally. Change those appointment assignments to explicitly optional before changing the organization default.',
@@ -377,6 +403,16 @@ class ResourceController extends Controller
         $allowed = $this->ownedOrganizations($owner)->keyBy('uuid');
         $requested = collect((array) $request->input('shared_organization_uuids', []))
             ->filter(fn ($uuid) => is_string($uuid) && $allowed->has($uuid));
+
+        if ($resource->is_active) {
+            $currentOrganizationIds = $resource->organizations()->pluck('organizations.id');
+            foreach ($requested as $uuid) {
+                $organization = $allowed->get($uuid);
+                if (! $currentOrganizationIds->contains(fn ($id): bool => hash_equals((string) $id, (string) $organization->getKey()))) {
+                    app(PlanLimitService::class)->assertCanActivateResource($organization, $isPerson);
+                }
+            }
+        }
 
         $sync = [$owner->getKey() => $ownerSettings];
         foreach ($requested as $uuid) {

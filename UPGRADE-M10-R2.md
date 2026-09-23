@@ -13,7 +13,7 @@ This full source release builds on the latest M10 gallery/deposit changes and ma
 
    One migration adds `webhook_endpoints`, `webhook_deliveries` and `webhook_attempts`, using binary UUID primary keys and tenant foreign keys. Deployment creates no endpoint and sends no test or production webhook automatically.
 4. Keep your existing `php artisan schedule:run` cron every minute. R2 registers `webhooks:dispatch` with that scheduler. No continuous queue worker is needed.
-5. In a paid organization, sign in as owner/administrator and open **Organization → Webhooks**. Follow its setup guide, create an endpoint, copy its signing secret and click **Send test** after configuring the receiver.
+5. In a Business or Complimentary Unlimited organization, sign in as owner/administrator and open **Organization → Webhooks**. Follow its setup guide, create an endpoint, copy its signing secret and click **Send test** after configuring the receiver.
 6. Open delivery history after the next scheduled run. The full reference and PHP verification example are in `docs/M10-R2-OUTGOING-WEBHOOKS.md`.
 
 ## Verification

@@ -18,6 +18,7 @@ use App\Domain\Tickets\TicketEventService;
 use App\Domain\Tickets\TicketInventoryService;
 use App\Domain\Payments\PaymentRuleService;
 use App\Domain\Payments\BookingPaymentSnapshotService;
+use App\Domain\Plans\PlanUsageService;
 use App\Domain\Coupons\CouponApplication;
 use App\Domain\Coupons\CouponRedemptionService;
 use App\Domain\Resources\ConditionalResourceRequirementService;
@@ -61,6 +62,7 @@ class BookingCreationService
         private readonly ConditionalResourceRequirementService $conditionalResourceRequirements,
         private readonly OrganizationTaxService $taxes,
         private readonly EventAdmissionApprovalService $eventApprovals,
+        private readonly PlanUsageService $planUsage,
     ) {
     }
 
@@ -105,6 +107,7 @@ class BookingCreationService
             $this->conditionalResourceRequirements->applySubmissionToHold($hold, $questionnaire);
             $type = $hold->appointmentType;
             $organization = $type->organization;
+            $this->planUsage->reserveBooking($organization);
             if (! $type->permitsEventStart(CarbonImmutable::instance($hold->starts_at_utc)->utc())) {
                 throw new RuntimeException('This event date is no longer available. Please choose the configured event.');
             }

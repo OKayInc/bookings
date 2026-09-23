@@ -1,13 +1,13 @@
 @php
     $galleryCount = $galleryPhotos->count();
     $galleryRemaining = max(0, $galleryLimit - $galleryCount);
-    $tierLabel = $organization->plan_tier->label();
+    $tierLabel = app(\App\Domain\Plans\PlanEntitlementService::class)->for($organization)->level->label();
 @endphp
 <div class="section-card gallery-manager" id="gallery-photos">
     <div class="page-heading actions" style="justify-content:space-between">
         <div>
             <h2>{{ $galleryOwnerLabel }} gallery</h2>
-            <p class="muted mb-0">{{ $galleryCount }} of {{ $galleryLimit }} photos used on the {{ $tierLabel }} tier. Uploads are resized when necessary and saved as WebP.</p>
+            <p class="muted mb-0">{{ $galleryCount }} of {{ $galleryLimit === PHP_INT_MAX ? 'unlimited' : $galleryLimit }} photos used on the {{ $tierLabel }} tier. Uploads are resized when necessary and saved as WebP.</p>
         </div>
         <span class="badge text-bg-secondary">{{ $galleryRemaining }} remaining</span>
     </div>

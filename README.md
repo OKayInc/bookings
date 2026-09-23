@@ -1,6 +1,15 @@
-# Appointment Software — M9-R11
+# Appointment.to — M11
 
-M9-R11 adds coordinator-reviewed admission for free ticketed events plus mystery locations disclosed after acceptance or a configured number of hours before show time. See `docs/CHANGES-M9-R11.md`, `docs/UPGRADE-M9-R10-TO-M9-R11.md`, and `docs/VERIFICATION-M9-R11.md`.
+M11 adds Free, Business, capacity add-ons, Stripe platform subscriptions, owner-granted Complimentary Unlimited, configurable caps, eligible Free-page Google Ads, branding controls, monthly usage accounting, and plan audit history. See `docs/M11-PLANS.md` and `UPGRADE-M11.md`.
+
+## M11 plans
+
+- Free limits are deployment-configurable and include 3 resources with at most 1 person resource, 3 active appointment types, 2 members, 50 monthly bookings, 2 calendars, 250 MB, 25 monthly distance cache misses, and 5 organization-wide questions by default.
+- Business is configured at US$9/month or US$90/year with a 14-day trial, higher included limits, paid capacity add-ons, API/webhooks, no ads, and removable branding.
+- Add-ons cost $1/month per member, type, resource, calendar, 25-booking block, or 250-distance block; storage is $5/GB/month. Annual subscriptions bill the same monthly equivalent as a 12-month annual add-on Price.
+- Add-on reductions take effect at period end, require usage to fit, and never delete data.
+- Complimentary Unlimited can be controlled through an environment UUID allowlist, an owner-only grant UI, or hashed promotion codes.
+- API and outgoing webhooks require effective Business or Complimentary Unlimited access.
 
 ## M9-R11 private ticketed events
 
@@ -330,8 +339,8 @@ Choice questions can conditionally require a named group of otherwise optional a
 
 ## M10 API and administrative purge
 
-M10 adds two-key API access and backend key management, tenant/role/paid-plan enforcement, scheduling endpoints, and five-level organization purge commands. See [upgrade instructions](UPGRADE-M10.md), [API reference](docs/M10-API.md), and [purge reference](docs/M10-PURGE.md). Runtime regression tests are included but were not executable in the build environment.
+M10 adds two-key API access and backend key management, tenant/role/Business-plan enforcement, scheduling endpoints, and five-level organization purge commands. See [upgrade instructions](UPGRADE-M10.md), [API reference](docs/M10-API.md), and [purge reference](docs/M10-PURGE.md).
 
 ## M10-R2 outgoing webhooks
 
-Owners and administrators can configure signed outgoing events under **Organization → Webhooks**, with event subscriptions, test deliveries, retries and delivery history. Uses the existing scheduler and paid-plan rules. See [upgrade instructions](UPGRADE-M10-R2.md) and [outgoing webhook reference](docs/M10-R2-OUTGOING-WEBHOOKS.md).
+Owners and administrators can configure signed outgoing events under **Organization → Webhooks**, with event subscriptions, test deliveries, retries and delivery history. Uses the existing scheduler and M11 Business/Complimentary entitlement rules. See [upgrade instructions](UPGRADE-M10-R2.md) and [outgoing webhook reference](docs/M10-R2-OUTGOING-WEBHOOKS.md).

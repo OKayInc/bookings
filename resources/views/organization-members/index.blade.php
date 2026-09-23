@@ -51,6 +51,9 @@
                                 <td class="text-end">
                                     @if($membership->status === \App\Enums\MembershipStatus::Active)
                                         <a class="btn btn-outline-primary btn-sm" href="{{ route('resources.create', ['person' => $membership->person->uuid]) }}">Create person resource</a>
+                                        <form class="d-inline" method="post" action="{{ route('organization-members.status.update', $membership) }}" onsubmit="return confirm('Suspend this member? Their historical records remain available.');">@csrf @method('PATCH')<input type="hidden" name="status" value="suspended"><button class="btn btn-outline-danger btn-sm">Suspend</button></form>
+                                    @else
+                                        <form class="d-inline" method="post" action="{{ route('organization-members.status.update', $membership) }}">@csrf @method('PATCH')<input type="hidden" name="status" value="active"><button class="btn btn-outline-success btn-sm">Reactivate</button></form>
                                     @endif
                                 </td>
                             </tr>

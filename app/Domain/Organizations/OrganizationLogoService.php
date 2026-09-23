@@ -2,6 +2,7 @@
 
 namespace App\Domain\Organizations;
 
+use App\Domain\Plans\PlanStorageService;
 use App\Models\Organization;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -10,9 +11,18 @@ use RuntimeException;
 
 class OrganizationLogoService
 {
+    public function __construct(private readonly PlanStorageService $planStorage)
+    {
+    }
+
     public function replace(Organization $organization, UploadedFile $file): string
     {
         $disk = (string) config('organizations.logo_disk', 'public');
+        $this->planStorage->assertCanStore(
+            $organization,
+            max(0, (int) $file->getSize()),
+            $this->planStorage->storedSize($disk, $organization->logo_path),
+        );
         $directory = sprintf('%s/%s', trim((string) config('organizations.logo_directory', 'organizations/logos'), '/'), $organization->uuid);
         $extension = strtolower($file->getClientOriginalExtension());
         $name = Str::uuid7()->toString().($extension !== '' ? '.'.$extension : '');

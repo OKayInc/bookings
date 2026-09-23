@@ -32,7 +32,7 @@ class OutgoingWebhookObserver
         if (! $events) { return; }
         // Fresh organization avoids stale membership/plan snapshots held by a long-running process.
         $organization = \App\Models\Organization::whereKey($model->organization_id)->first();
-        if (! $organization || $organization->plan_tier !== \App\Enums\OrganizationPlanTier::Paid) { return; }
+        if (! $organization || ! app(\App\Domain\Plans\PlanEntitlementService::class)->hasBusinessFeatures($organization)) { return; }
         $data = ['id' => $model->uuid, 'status' => $status];
         if ($model instanceof Booking) {
             $appointment = $model->appointment()->first();

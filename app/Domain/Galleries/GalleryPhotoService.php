@@ -3,7 +3,8 @@
 namespace App\Domain\Galleries;
 
 use App\Enums\GalleryPlacement;
-use App\Enums\OrganizationPlanTier;
+use App\Domain\Plans\PlanEntitlementService;
+use App\Domain\Plans\PlanStorageService;
 use App\Models\AppointmentType;
 use App\Models\GalleryPhoto;
 use App\Models\Organization;
@@ -20,6 +21,7 @@ class GalleryPhotoService
     public function __construct(
         private readonly GalleryImageConverter $converter,
         private readonly GalleryLimitService $limits,
+        private readonly PlanStorageService $planStorage,
     ) {}
 
     /**
@@ -128,6 +130,7 @@ class GalleryPhotoService
             : $this->converter->toWebp($contents);
 
         $photo->loadMissing(['organization', 'appointmentType']);
+        $this->planStorage->assertCanStore($photo->organization, $image['file_size'], (int) $photo->file_size);
         $newPath = $this->pathFor($photo->organization, $photo->appointmentType, $image['sha256']);
 
         if (GalleryPhoto::query()
@@ -241,14 +244,17 @@ class GalleryPhotoService
                     throw ValidationException::withMessages(['photos' => 'Every selected image is already in this gallery.']);
                 }
 
+                $this->planStorage->assertCanStore(
+                    $lockedOrganization,
+                    (int) collect($newImages)->sum('file_size'),
+                );
+
                 $limit = $lockedAppointmentType
                     ? $this->limits->forAppointmentType($lockedAppointmentType->setRelation('organization', $lockedOrganization))
                     : $this->limits->forOrganization($lockedOrganization);
 
                 if ($existingCount + count($newImages) > $limit) {
-                    $tier = $lockedOrganization->plan_tier instanceof OrganizationPlanTier
-                        ? $lockedOrganization->plan_tier->label()
-                        : ucfirst((string) $lockedOrganization->plan_tier);
+                    $tier = app(PlanEntitlementService::class)->for($lockedOrganization)->level->label();
                     throw ValidationException::withMessages([
                         'photos' => "The {$tier} tier allows {$limit} photos in this gallery. It currently has {$existingCount}.",
                     ]);

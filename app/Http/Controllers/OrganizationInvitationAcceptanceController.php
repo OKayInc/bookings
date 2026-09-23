@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Plans\PlanLimitService;
 use App\Enums\MembershipStatus;
 use App\Models\OrganizationMemberInvitation;
 use App\Models\OrganizationMembership;
@@ -43,7 +44,12 @@ class OrganizationInvitationAcceptanceController extends Controller
         ]);
     }
 
-    public function accept(Request $request, string $token, ActiveOrganizationResolver $resolver): RedirectResponse
+    public function accept(
+        Request $request,
+        string $token,
+        ActiveOrganizationResolver $resolver,
+        PlanLimitService $planLimits,
+    ): RedirectResponse
     {
         $invitation = $this->activeInvitation($token);
         $authenticatedUser = $request->user();
@@ -68,7 +74,7 @@ class OrganizationInvitationAcceptanceController extends Controller
             ]);
         }
 
-        [$user, $organization, $created] = DB::transaction(function () use ($token, $authenticatedUser, $data): array {
+        [$user, $organization, $created] = DB::transaction(function () use ($token, $authenticatedUser, $data, $planLimits): array {
             $locked = OrganizationMemberInvitation::query()
                 ->where('token_hash', hash('sha256', $token, true))
                 ->lockForUpdate()
@@ -77,6 +83,7 @@ class OrganizationInvitationAcceptanceController extends Controller
             if (! $locked->isPending()) {
                 abort(410, 'This invitation is no longer available.');
             }
+            $organization = $locked->organization()->lockForUpdate()->firstOrFail();
 
             $created = false;
             $user = $authenticatedUser;
@@ -114,6 +121,8 @@ class OrganizationInvitationAcceptanceController extends Controller
                 ]);
             }
 
+            $planLimits->assertCanAcceptMember($organization);
+
             OrganizationMembership::create([
                 'organization_id' => $locked->organization_id,
                 'person_id' => $user->person_id,
@@ -128,7 +137,7 @@ class OrganizationInvitationAcceptanceController extends Controller
             ]);
             $user->forceFill(['active_organization_id' => $locked->organization_id])->save();
 
-            return [$user, $locked->organization()->firstOrFail(), $created];
+            return [$user, $organization, $created];
         }, 3);
 
         if ($created) {

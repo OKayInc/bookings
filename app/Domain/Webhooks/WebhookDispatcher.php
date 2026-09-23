@@ -1,7 +1,7 @@
 <?php
 namespace App\Domain\Webhooks;
 
-use App\Enums\OrganizationPlanTier;
+use App\Domain\Plans\PlanEntitlementService;
 use App\Models\WebhookAttempt;
 use App\Models\WebhookDelivery;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +21,7 @@ class WebhookDispatcher
             if (! $due && ! $stale) { return null; }
             $endpoint = $delivery->endpoint()->first();
             if (! $endpoint || ! $endpoint->is_active || $endpoint->version !== $delivery->endpoint_version
-                || $endpoint->organization->plan_tier !== OrganizationPlanTier::Paid) {
+                || ! app(PlanEntitlementService::class)->hasBusinessFeatures($endpoint->organization)) {
                 $delivery->update(['status' => 'skipped', 'last_error' => 'Endpoint disabled, changed or plan ineligible.', 'claim_token' => null]);
                 return null;
             }

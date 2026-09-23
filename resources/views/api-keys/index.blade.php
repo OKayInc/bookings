@@ -1,7 +1,7 @@
 @extends('layouts.app')
 @section('content')
 <h1>API keys</h1>
-<p>Use both <code>X-CLIENT-API-KEY</code> and <code>X-ORGANIZATION-API-KEY</code> with requests to <code>/api/v1</code>. API access requires a paid organization and your current organization role applies.</p>
+<p>Use both <code>X-CLIENT-API-KEY</code> and <code>X-ORGANIZATION-API-KEY</code> with requests to <code>/api/v1</code>. API access requires Business or Complimentary Unlimited and your current organization role applies.</p>
 @if($newKey)
 <div class="alert alert-warning"><strong>Copy your new {{ $keyKind }} key now. It is shown only in this response.</strong><p class="text-break mb-0"><code>{{ $newKey }}</code></p></div>
 @endif
@@ -13,7 +13,7 @@
 <p>Status: {{ ($kind === 'client' ? auth()->user()->api_key_hash : $organization->api_key_hash) ? 'Configured' : 'Not configured' }}</p>
 <form method="post" action="{{ route('api-keys.update') }}">@csrf
 <input type="hidden" name="kind" value="{{ $kind }}">
-<button class="btn btn-primary" name="action" value="regenerate" @disabled($organization->plan_tier !== \App\Enums\OrganizationPlanTier::Paid)>Generate / regenerate</button>
+<button class="btn btn-primary" name="action" value="regenerate" @disabled(!app(\App\Domain\Plans\PlanEntitlementService::class)->hasBusinessFeatures($organization))>Generate / regenerate</button>
 <button class="btn btn-outline-danger" name="action" value="revoke">Revoke</button>
 </form></div></div>
 @endif

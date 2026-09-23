@@ -35,11 +35,19 @@ use App\Models\OrganizationContact;
 use App\Models\OrganizationMembership;
 use App\Models\Person;
 use App\Models\OrganizationPaymentSetting;
+use App\Models\OrganizationPlanAddon;
+use App\Models\OrganizationPlanGrant;
+use App\Models\OrganizationPlanSubscription;
 use App\Models\OrganizationTax;
 use App\Models\PaymentRefund;
 use App\Models\PaymentRule;
 use App\Models\PaymentTransaction;
 use App\Models\PaymentWebhookEvent;
+use App\Models\PlanAuditEvent;
+use App\Models\PlanPromotionCode;
+use App\Models\PlanPromotionRedemption;
+use App\Models\PlanUsageMonth;
+use App\Models\PlanWebhookEvent;
 use App\Models\BookingResourceDeposit;
 use App\Models\Coupon;
 use App\Models\CouponOffer;
@@ -62,6 +70,14 @@ class ModelTableNameTest extends TestCase
             [OrganizationContact::class, 'organization_contacts'],
             [OrganizationMembership::class, 'organization_memberships'],
             [OrganizationPaymentSetting::class, 'organization_payment_settings'],
+            [OrganizationPlanSubscription::class, 'organization_plan_subscriptions'],
+            [OrganizationPlanAddon::class, 'organization_plan_addons'],
+            [OrganizationPlanGrant::class, 'organization_plan_grants'],
+            [PlanPromotionCode::class, 'plan_promotion_codes'],
+            [PlanPromotionRedemption::class, 'plan_promotion_redemptions'],
+            [PlanUsageMonth::class, 'plan_usage_months'],
+            [PlanAuditEvent::class, 'plan_audit_events'],
+            [PlanWebhookEvent::class, 'plan_webhook_events'],
             [OrganizationTax::class, 'organization_taxes'],
             [PaymentRule::class, 'payment_rules'],
             [PaymentTransaction::class, 'payment_transactions'],

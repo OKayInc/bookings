@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Api\ApiKeyService;
-use App\Enums\OrganizationPlanTier;
+use App\Domain\Plans\PlanEntitlementService;
 use App\Support\Organizations\OrganizationContext;
 use Illuminate\Http\Request;
 
@@ -28,7 +28,7 @@ class ApiKeyController extends Controller
             $keys->revoke($subject);
             return redirect()->route('api-keys.index')->with('success', 'API key revoked.');
         }
-        abort_unless($organization->plan_tier === OrganizationPlanTier::Paid, 403, 'API access requires a paid organization plan.');
+        abort_unless(app(PlanEntitlementService::class)->hasBusinessFeatures($organization), 403, 'API access requires Business or Complimentary Unlimited.');
         $newKey = $keys->regenerate($subject);
         // Render directly: do not persist plaintext in sessions, logs or URLs.
         return response()->view('api-keys.index', ['organization' => $organization, 'newKey' => $newKey, 'keyKind' => $data['kind']])

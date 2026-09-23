@@ -8,7 +8,7 @@ X-ORGANIZATION-API-KEY: YOUR_ORGANIZATION_KEY
 Accept: application/json
 ```
 
-Keys are 256-bit random values, represented by 64 lowercase hexadecimal characters. Only SHA-256 hashes are stored. Keys are never accepted in URLs or request bodies. The organization key selects the tenant independently of the user's active browser organization. The user must have verified email and active membership in that organization. The organization must have `plan_tier=paid`; changing the plan or membership takes effect on the next request. M11's billing/grant system is not introduced by M10.
+Keys are 256-bit random values, represented by 64 lowercase hexadecimal characters. Only SHA-256 hashes are stored. Keys are never accepted in URLs or request bodies. The organization key selects the tenant independently of the user's active browser organization. The user must have verified email and active membership in that organization. M11 requires an effective Business or Complimentary Unlimited entitlement; subscription, grant, environment, or membership changes take effect on the next request.
 
 Open **Organization → API keys**. Every member can generate/revoke their personal client key. Owners and administrators can generate/revoke the organization key. Managers and employees cannot rotate the organization key. Newly generated keys are displayed in the immediate response only, with `Cache-Control: no-store`; they are not flashed into a session. Regeneration immediately invalidates the previous key. Changing a client key affects that user's integrations across organizations; changing an organization key affects every integration using that organization.
 
@@ -44,4 +44,4 @@ Missing/invalid keys return 401; membership, email, role or plan failures return
 
 ## M10-R2 outgoing notifications
 
-Outgoing webhooks are now available under **Organization → Webhooks** for paid organizations. This complements the pull-based API above. See [the outgoing webhook reference](M10-R2-OUTGOING-WEBHOOKS.md) for setup, events, signatures and retry behavior.
+Outgoing webhooks are now available under **Organization → Webhooks** for Business and Complimentary Unlimited organizations. This complements the pull-based API above. See [the outgoing webhook reference](M10-R2-OUTGOING-WEBHOOKS.md) for setup, events, signatures and retry behavior.

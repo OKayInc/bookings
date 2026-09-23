@@ -2,12 +2,17 @@
 
 namespace App\Domain\Galleries;
 
-use App\Enums\OrganizationPlanTier;
+use App\Domain\Plans\PlanEntitlementService;
+use App\Enums\PlanLevel;
 use App\Models\AppointmentType;
 use App\Models\Organization;
 
 class GalleryLimitService
 {
+    public function __construct(private readonly PlanEntitlementService $entitlements)
+    {
+    }
+
     public function forOrganization(Organization $organization): int
     {
         return $this->limit('organization', $organization);
@@ -20,10 +25,12 @@ class GalleryLimitService
 
     private function limit(string $ownerType, Organization $organization): int
     {
-        $tier = $organization->plan_tier instanceof OrganizationPlanTier
-            ? $organization->plan_tier->value
-            : OrganizationPlanTier::tryFrom((string) $organization->plan_tier)?->value;
+        $level = $this->entitlements->for($organization)->level;
+        if ($level === PlanLevel::Complimentary) {
+            return PHP_INT_MAX;
+        }
+        $tier = $level === PlanLevel::Business ? 'paid' : 'free';
 
-        return max(0, (int) config("gallery.limits.{$ownerType}.".($tier ?? OrganizationPlanTier::Free->value), 0));
+        return max(0, (int) config("gallery.limits.{$ownerType}.{$tier}", 0));
     }
 }

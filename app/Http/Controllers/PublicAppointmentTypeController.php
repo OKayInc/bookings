@@ -40,7 +40,13 @@ class PublicAppointmentTypeController extends Controller
             ->where(fn ($query) => $query->whereNull('expires_on')->orWhereDate('expires_on', '>=', now($organization->timezone)->toDateString()))
             ->exists();
 
-        return view('public.appointment-types.index', compact('organization', 'appointmentTypes', 'summary', 'hasCouponOffers'));
+        return view('public.appointment-types.index', [
+            'organization' => $organization,
+            'appointmentTypes' => $appointmentTypes,
+            'summary' => $summary,
+            'hasCouponOffers' => $hasCouponOffers,
+            'allowPlanAdvertising' => true,
+        ]);
     }
 
     public function show(
@@ -145,16 +151,18 @@ class PublicAppointmentTypeController extends Controller
         $type->loadMissing(['contractTemplate', 'shortNoticeFeeRules', 'galleryPhotos']);
         $timezoneOptions = timezone_identifiers_list();
 
-        return view('public.appointment-types.show', compact(
-            'organization',
-            'type',
-            'summary',
-            'accessMode',
-            'accessToken',
-            'invitation',
-            'examplePrice',
-            'timezoneOptions',
-        ));
+        return view('public.appointment-types.show', [
+            'organization' => $organization,
+            'type' => $type,
+            'summary' => $summary,
+            'accessMode' => $accessMode,
+            'accessToken' => $accessToken,
+            'invitation' => $invitation,
+            'examplePrice' => $examplePrice,
+            'timezoneOptions' => $timezoneOptions,
+            'allowPlanAdvertising' => $accessMode === 'direct'
+                && $type->visibility === AppointmentVisibility::Public,
+        ]);
     }
 
 }

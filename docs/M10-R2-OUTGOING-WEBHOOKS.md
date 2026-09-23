@@ -4,7 +4,7 @@
 
 Sign in as an organization owner or administrator, select the organization, and open **Organization → Webhooks** (`/webhooks`). The **Setup and signature verification guide** link opens `/webhooks/documentation` inside the application.
 
-Outgoing webhooks require a paid organization, consistent with M10 API access. Managers and employees cannot configure endpoints or read delivery payloads. Owners/administrators can still inspect, disable or delete saved endpoints after a downgrade.
+Outgoing webhooks require an effective Business or Complimentary Unlimited organization, consistent with M10 API access. Managers and employees cannot configure endpoints or read delivery payloads. Owners/administrators can still inspect, disable or delete saved endpoints after a downgrade.
 
 1. Create a receiver that accepts JSON POST requests over HTTPS, on port 443. Its DNS hostname must resolve to public IPv4 addresses. Literal IP URLs, private/reserved networks, user/password URL credentials, fragments and alternate ports are rejected. IPv6-only destinations are not supported in this release.
 2. Add a descriptive name and destination URL, select at least one event, and click **Create webhook**. Each organization can have up to ten endpoints.
@@ -163,7 +163,7 @@ Every organization purge level removes outgoing deliveries and attempt history w
 | Symptom | Check |
 | --- | --- |
 | Webhooks menu missing | Deploy the R2 routes/views, clear cached views/routes, and sign in as owner/administrator |
-| Create/test forbidden | Active organization and paid-plan status; managers/employees cannot manage webhooks |
+| Create/test forbidden | Active organization and Business/Complimentary status; managers/employees cannot manage webhooks |
 | Pending indefinitely | Scheduler cron, maintenance mode, due time and whether a previous worker is still active |
 | Signature rejected | Exact secret text, raw bytes, signature timestamp, receiver clock and current secret version |
 | Failed delivery | Endpoint DNS/public IPv4, cURL extension, CA certificates, HTTPS port 443, firewall, ten-second response timeout and recorded HTTP status |

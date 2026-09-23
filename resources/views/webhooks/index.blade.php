@@ -3,8 +3,8 @@
 <h1>Outgoing webhooks</h1>
 <p><a href="{{ route('webhooks.guide') }}">Setup and signature verification guide</a></p>
 <p>Notify your application when bookings, payments, refunds or check-ins change. Deliveries run automatically through the scheduler.</p>
-@if($organization->plan_tier !== \App\Enums\OrganizationPlanTier::Paid)
-<div class="alert alert-info">Outgoing webhooks require a paid organization. You can still review, disable or delete existing endpoints.</div>
+@if(!$businessFeatures)
+<div class="alert alert-info">Outgoing webhooks require Business or Complimentary Unlimited. You can still review, disable or delete existing endpoints.</div>
 @endif
 @if($newSecret)
 <div class="alert alert-warning"><strong>Copy this signing secret now. It is shown only in this response.</strong><p class="text-break mb-0"><code>{{ $newSecret }}</code></p><p>Use the exact text as the HMAC key. Configure it in your receiver before sending a test. Pending deliveries signed with the previous secret were cancelled.</p></div>
@@ -20,17 +20,17 @@
 <label class="form-check"><input class="form-check-input" type="checkbox" name="events[]" value="{{ $event }}" @checked(in_array($event, $endpoint->events, true))><span class="form-check-label">{{ $event }}</span></label>
 @endforeach
 </fieldset>
-<button class="btn btn-primary my-2" @disabled($organization->plan_tier !== \App\Enums\OrganizationPlanTier::Paid)>Save changes</button>
+<button class="btn btn-primary my-2" @disabled(!$businessFeatures)>Save changes</button>
 <small class="d-block text-muted">Saving settings or rotating a secret cancels outstanding deliveries for the previous settings. Requests already in progress may still arrive.</small>
 </form>
 <div class="d-flex flex-wrap gap-2 mt-3">
 @foreach(['toggle' => ($endpoint->is_active ? 'Disable' : 'Enable'), 'test' => 'Send test', 'rotate' => 'Rotate signing secret'] as $action => $label)
-<form method="post" action="{{ route('webhooks.'.$action, $endpoint) }}">@csrf<button class="btn btn-outline-secondary" @disabled(($action !== 'toggle' || !$endpoint->is_active) && $organization->plan_tier !== \App\Enums\OrganizationPlanTier::Paid)>{{ $label }}</button></form>
+<form method="post" action="{{ route('webhooks.'.$action, $endpoint) }}">@csrf<button class="btn btn-outline-secondary" @disabled(($action !== 'toggle' || !$endpoint->is_active) && !$businessFeatures)>{{ $label }}</button></form>
 @endforeach
 <form method="post" action="{{ route('webhooks.destroy', $endpoint) }}" onsubmit="return confirm('Delete this endpoint and its delivery history?')">@csrf @method('DELETE')<button class="btn btn-outline-danger">Delete</button></form>
 </div></div></div>
 @endforeach
-@if($organization->plan_tier === \App\Enums\OrganizationPlanTier::Paid)
+@if($businessFeatures)
 <div class="card mb-4"><div class="card-body"><h2 class="h5">Add webhook</h2>
 <form method="post" action="{{ route('webhooks.store') }}">@csrf
 <label class="form-label" for="new-name">Name</label><input class="form-control mb-2" id="new-name" name="name" value="{{ old('name') }}" required maxlength="120">

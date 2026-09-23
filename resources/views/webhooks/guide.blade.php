@@ -3,7 +3,7 @@
 <h1>Outgoing webhook guide</h1>
 <p><a href="{{ route('webhooks.index') }}">Back to webhooks</a></p>
 <h2 class="h4">Set up a receiver</h2>
-<ol><li>Use a paid organization and sign in as an owner or administrator.</li><li>Create a public HTTPS endpoint on port 443 with a public IPv4 address that accepts JSON POST requests.</li><li>Add its URL under Organization → Webhooks and select the events you need.</li><li>Copy the signing secret when it appears and store it in your receiver's environment settings.</li><li>Choose Send test, wait for the next scheduler run, and open the delivery history.</li></ol>
+<ol><li>Use a Business or Complimentary Unlimited organization and sign in as an owner or administrator.</li><li>Create a public HTTPS endpoint on port 443 with a public IPv4 address that accepts JSON POST requests.</li><li>Add its URL under Organization → Webhooks and select the events you need.</li><li>Copy the signing secret when it appears and store it in your receiver's environment settings.</li><li>Choose Send test, wait for the next scheduler run, and open the delivery history.</li></ol>
 <p>These webhooks are separate from Stripe/PayPal payment callbacks. Do not use an API key as the webhook signing secret.</p>
 <h2 class="h4">Payload and headers</h2>
 <p>JSON includes <code>id</code>, <code>type</code>, <code>api_version</code>, <code>created_at</code>, <code>organization_id</code> and <code>data</code>. IDs are UUID strings; amounts are integer minor currency units. Payloads omit contact details, private meeting links, credentials and questionnaire answers.</p>

@@ -46,6 +46,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Organization::class, OrganizationPolicy::class);
         Gate::policy(Resource::class, ResourcePolicy::class);
         Gate::policy(AppointmentType::class, AppointmentTypePolicy::class);
+        Gate::define('manage-platform', fn (\App\Models\User $user): bool => app(\App\Domain\Plans\PlatformOwnerService::class)->isOwner($user));
 
         View::composer('layouts.app', function ($view): void {
             $organization = app(OrganizationContext::class)->get();
@@ -67,6 +68,9 @@ class AppServiceProvider extends ServiceProvider
             $view->with([
                 'activeOrganization' => $organization,
                 'availableOrganizations' => $availableOrganizations,
+                'activePlanEntitlement' => $organization
+                    ? app(\App\Domain\Plans\PlanEntitlementService::class)->for($organization)
+                    : null,
             ]);
         });
     }

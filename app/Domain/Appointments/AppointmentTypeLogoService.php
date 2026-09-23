@@ -2,6 +2,7 @@
 
 namespace App\Domain\Appointments;
 
+use App\Domain\Plans\PlanStorageService;
 use App\Models\AppointmentType;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -10,9 +11,18 @@ use RuntimeException;
 
 class AppointmentTypeLogoService
 {
+    public function __construct(private readonly PlanStorageService $planStorage)
+    {
+    }
+
     public function replace(AppointmentType $appointmentType, UploadedFile $file): string
     {
         $disk = (string) config('appointment-types.logo_disk', 'public');
+        $this->planStorage->assertCanStore(
+            $appointmentType->organization,
+            max(0, (int) $file->getSize()),
+            $this->planStorage->storedSize($disk, $appointmentType->logo_path),
+        );
         $directory = sprintf(
             '%s/%s/%s',
             trim((string) config('appointment-types.logo_directory', 'appointment-types/logos'), '/'),

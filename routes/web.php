@@ -14,6 +14,9 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\PlanController;
+use App\Http\Controllers\PlanWebhookController;
+use App\Http\Controllers\PlatformPlanController;
 use App\Http\Controllers\GalleryPhotoController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\OrganizationSettingsController;
@@ -49,6 +52,9 @@ Route::view('/a/terms.html', 'legal.terms')->name('legal.terms');
 Route::post('/payments/webhooks/{organization}/{provider}', PaymentWebhookController::class)
     ->middleware('throttle:120,1')
     ->name('payments.webhooks');
+Route::post('/plans/stripe/webhook', PlanWebhookController::class)
+    ->middleware('throttle:240,1')
+    ->name('plans.stripe.webhook');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
@@ -203,6 +209,13 @@ Route::middleware('auth')->group(function (): void {
 });
 
 Route::middleware(['auth', 'verified'])->group(function (): void {
+    Route::middleware('can:manage-platform')->prefix('platform/plans')->name('platform.plans.')->group(function (): void {
+        Route::get('/', [PlatformPlanController::class, 'index'])->name('index');
+        Route::post('/organizations/{organization}/grant', [PlatformPlanController::class, 'grant'])->name('grants.store');
+        Route::delete('/grants/{grant}', [PlatformPlanController::class, 'revoke'])->name('grants.destroy');
+        Route::post('/promotion-codes', [PlatformPlanController::class, 'createPromotion'])->name('promotions.store');
+        Route::delete('/promotion-codes/{promotionCode}', [PlatformPlanController::class, 'disablePromotion'])->name('promotions.destroy');
+    });
     Route::get('/organizations', [OrganizationController::class, 'index'])->name('organizations.index');
     Route::get('/organizations/create', [OrganizationController::class, 'create'])->name('organizations.create');
     Route::post('/organizations', [OrganizationController::class, 'store'])->name('organizations.store');
@@ -215,6 +228,14 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('/organizations/{organization}/switch', [OrganizationController::class, 'switch'])->name('organizations.switch');
 
     Route::middleware('organization')->group(function (): void {
+        Route::get('/plan', [PlanController::class, 'index'])->name('plans.index');
+        Route::post('/plan/checkout', [PlanController::class, 'checkout'])->middleware('throttle:10,1')->name('plans.checkout');
+        Route::get('/plan/checkout-return', [PlanController::class, 'checkoutReturn'])->name('plans.checkout-return');
+        Route::post('/plan/portal', [PlanController::class, 'portal'])->middleware('throttle:10,1')->name('plans.portal');
+        Route::post('/plan/cancel', [PlanController::class, 'cancel'])->middleware('throttle:10,1')->name('plans.cancel');
+        Route::put('/plan/add-ons', [PlanController::class, 'updateAddons'])->name('plans.addons.update');
+        Route::post('/plan/promotion', [PlanController::class, 'redeem'])->middleware('throttle:10,1')->name('plans.promotion.redeem');
+        Route::patch('/plan/branding', [PlanController::class, 'branding'])->name('plans.branding.update');
         Route::get('/webhooks/documentation', [\App\Http\Controllers\OutgoingWebhookController::class, 'guide'])->name('webhooks.guide');
         Route::get('/webhooks', [\App\Http\Controllers\OutgoingWebhookController::class, 'index'])->name('webhooks.index');
         Route::post('/webhooks', [\App\Http\Controllers\OutgoingWebhookController::class, 'store'])->middleware('throttle:10,1')->name('webhooks.store');
@@ -301,6 +322,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::get('/organization-members', [OrganizationMemberController::class, 'index'])->name('organization-members.index');
         Route::post('/organization-member-invitations', [OrganizationMemberController::class, 'store'])->name('organization-members.invitations.store');
         Route::delete('/organization-member-invitations/{invitation}', [OrganizationMemberController::class, 'destroy'])->name('organization-members.invitations.destroy');
+        Route::patch('/organization-members/{membership}/status', [OrganizationMemberController::class, 'updateStatus'])->name('organization-members.status.update');
         Route::get('/appointment-types/{appointmentType}/contract-template', [AppointmentContractTemplateController::class, 'download'])
             ->name('appointment-types.contract-template.download');
         Route::post('/appointment-types/{appointmentType}/invitations', [AppointmentTypeInvitationController::class, 'store'])

@@ -23,6 +23,7 @@ class Organization extends Model
         'holiday_region',
         'currency',
         'plan_tier',
+        'hide_platform_branding',
         'logo_path',
         'facebook_url',
         'instagram_url',
@@ -42,6 +43,7 @@ class Organization extends Model
     {
         return [
             'plan_tier' => OrganizationPlanTier::class,
+            'hide_platform_branding' => 'boolean',
             'collects_taxes' => 'boolean',
             'tax_price_mode' => TaxPriceMode::class,
         ];
@@ -143,6 +145,31 @@ class Organization extends Model
     public function paymentRules(): HasMany
     {
         return $this->hasMany(PaymentRule::class)->orderBy('rule_type')->orderBy('pattern_normalized');
+    }
+
+    public function planSubscription(): HasOne
+    {
+        return $this->hasOne(OrganizationPlanSubscription::class);
+    }
+
+    public function planAddons(): HasMany
+    {
+        return $this->hasMany(OrganizationPlanAddon::class);
+    }
+
+    public function planGrants(): HasMany
+    {
+        return $this->hasMany(OrganizationPlanGrant::class);
+    }
+
+    public function planUsageMonths(): HasMany
+    {
+        return $this->hasMany(PlanUsageMonth::class);
+    }
+
+    public function planAuditEvents(): HasMany
+    {
+        return $this->hasMany(PlanAuditEvent::class);
     }
 
     public function paymentTransactions(): HasMany

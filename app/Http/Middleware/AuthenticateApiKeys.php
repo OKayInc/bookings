@@ -3,7 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Enums\MembershipStatus;
-use App\Enums\OrganizationPlanTier;
+use App\Domain\Plans\PlanEntitlementService;
 use App\Models\Organization;
 use App\Models\User;
 use App\Support\Organizations\OrganizationContext;
@@ -26,7 +26,7 @@ class AuthenticateApiKeys
         $membership = $organization->memberships()->where('person_id', $user->person_id)
             ->where('status', MembershipStatus::Active->value)->first();
         abort_unless($membership, 403, 'Active organization membership is required.');
-        abort_unless($organization->plan_tier === OrganizationPlanTier::Paid, 403, 'API access requires a paid organization plan.');
+        abort_unless(app(PlanEntitlementService::class)->hasBusinessFeatures($organization), 403, 'API access requires Business or Complimentary Unlimited.');
         // Never derive API tenancy from the browser session or active organization.
         Auth::setUser($user);
         $request->setUserResolver(fn () => $user);

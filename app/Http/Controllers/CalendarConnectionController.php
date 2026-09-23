@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Domain\Calendars\CalendarManager;
 use App\Domain\Calendars\CalendarSyncService;
+use App\Domain\Plans\PlanLimitService;
 use App\Enums\CalendarConnectionStatus;
 use App\Enums\CalendarProvider;
 use App\Models\CalendarConnection;
@@ -41,12 +42,28 @@ class CalendarConnectionController extends Controller
         ]);
     }
 
-    public function connect(Resource $resource, string $provider, OrganizationContext $context, CalendarManager $manager, Request $request): RedirectResponse
+    public function connect(
+        Resource $resource,
+        string $provider,
+        OrganizationContext $context,
+        CalendarManager $manager,
+        Request $request,
+        PlanLimitService $planLimits,
+    ): RedirectResponse
     {
         $this->ensureSameOrganization($resource, $context);
         $this->authorize('calendar', $resource);
         $providerEnum = CalendarProvider::tryFrom($provider);
         abort_if($providerEnum === null, 404);
+        $existingActive = CalendarConnection::query()
+            ->where('organization_id', $context->organization()->getKey())
+            ->where('resource_id', $resource->getKey())
+            ->where('provider', $providerEnum->value)
+            ->where('status', CalendarConnectionStatus::Active->value)
+            ->exists();
+        if (! $existingActive) {
+            $planLimits->assertCanConnectCalendar($context->organization());
+        }
 
         $state = Str::random(80);
         $ttlMinutes = max(5, (int) config('calendars.oauth_state_ttl_minutes', 15));
@@ -75,7 +92,12 @@ class CalendarConnectionController extends Controller
         return redirect()->away($manager->provider($providerEnum)->authorizationUrl($state));
     }
 
-    public function callback(string $provider, Request $request, CalendarManager $manager): RedirectResponse
+    public function callback(
+        string $provider,
+        Request $request,
+        CalendarManager $manager,
+        PlanLimitService $planLimits,
+    ): RedirectResponse
     {
         $providerEnum = CalendarProvider::tryFrom($provider);
         abort_if($providerEnum === null, 404);
@@ -118,24 +140,36 @@ class CalendarConnectionController extends Controller
 
         try {
             $tokens = $manager->provider($providerEnum)->exchangeAuthorizationCode((string) $request->query('code'));
-            $existing = CalendarConnection::query()
-                ->where('organization_id', $oauth->organization->getKey())
-                ->where('resource_id', $oauth->resource->getKey())
-                ->where('provider', $providerEnum->value)
-                ->first();
+            $connection = DB::transaction(function () use ($oauth, $providerEnum, $tokens, $planLimits): CalendarConnection {
+                // Serialize the final OAuth activation per organization; the
+                // earlier redirect-time check is only an early UX guard.
+                \App\Models\Organization::query()
+                    ->whereKey($oauth->organization->getKey())
+                    ->lockForUpdate()
+                    ->firstOrFail();
+                $existing = CalendarConnection::query()
+                    ->where('organization_id', $oauth->organization->getKey())
+                    ->where('resource_id', $oauth->resource->getKey())
+                    ->where('provider', $providerEnum->value)
+                    ->lockForUpdate()
+                    ->first();
+                if ($existing === null || $existing->status !== CalendarConnectionStatus::Active) {
+                    $planLimits->assertCanConnectCalendar($oauth->organization);
+                }
 
-            $connection = CalendarConnection::query()->updateOrCreate(
-                ['organization_id' => $oauth->organization->getKey(), 'resource_id' => $oauth->resource->getKey(), 'provider' => $providerEnum->value],
-                [
-                    'organization_id' => $oauth->organization->getKey(),
-                    'access_token' => $tokens['access_token'],
-                    'refresh_token' => $tokens['refresh_token'] ?? $existing?->refresh_token,
-                    'token_expires_at_utc' => isset($tokens['expires_in']) ? now('UTC')->addSeconds((int) $tokens['expires_in']) : null,
-                    'scopes' => $tokens['scope'] ?? implode(' ', (array) config('calendars.'.$providerEnum->value.'.scopes', [])),
-                    'status' => CalendarConnectionStatus::Active->value,
-                    'last_error' => null,
-                ],
-            );
+                return CalendarConnection::query()->updateOrCreate(
+                    ['organization_id' => $oauth->organization->getKey(), 'resource_id' => $oauth->resource->getKey(), 'provider' => $providerEnum->value],
+                    [
+                        'organization_id' => $oauth->organization->getKey(),
+                        'access_token' => $tokens['access_token'],
+                        'refresh_token' => $tokens['refresh_token'] ?? $existing?->refresh_token,
+                        'token_expires_at_utc' => isset($tokens['expires_in']) ? now('UTC')->addSeconds((int) $tokens['expires_in']) : null,
+                        'scopes' => $tokens['scope'] ?? implode(' ', (array) config('calendars.'.$providerEnum->value.'.scopes', [])),
+                        'status' => CalendarConnectionStatus::Active->value,
+                        'last_error' => null,
+                    ],
+                );
+            }, 3);
             $manager->refreshCalendars($connection);
         } catch (Throwable $e) {
             report($e);

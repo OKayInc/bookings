@@ -6,6 +6,7 @@ use App\Domain\Galleries\GalleryLimitService;
 use App\Domain\Money\PaymentCurrencyCatalog;
 use App\Domain\Organizations\OrganizationDeletionService;
 use App\Domain\Organizations\OrganizationLogoService;
+use App\Domain\Plans\PlanLimitService;
 use App\Domain\Taxes\TaxRate;
 use App\Enums\MembershipRole;
 use App\Enums\MembershipStatus;
@@ -40,11 +41,24 @@ class OrganizationController extends Controller
         ]);
     }
 
-    public function store(StoreOrganizationRequest $request, OrganizationLogoService $logos, ActiveOrganizationResolver $resolver): RedirectResponse
+    public function store(
+        StoreOrganizationRequest $request,
+        OrganizationLogoService $logos,
+        ActiveOrganizationResolver $resolver,
+        PlanLimitService $planLimits,
+    ): RedirectResponse
     {
         $data = $request->validated();
 
-        $organization = DB::transaction(function () use ($request, $data): Organization {
+        $organization = DB::transaction(function () use ($request, $data, $planLimits): Organization {
+            // Lock the account's person row so concurrent create requests cannot
+            // both observe capacity and exceed the owned-organization allowance.
+            \App\Models\Person::query()
+                ->whereKey($request->user()->person_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $planLimits->assertCanCreateFreeOrganization($request->user());
+
             $baseSlug = Str::slug($data['name']) ?: 'organization';
             $slug = $baseSlug;
             $counter = 2;

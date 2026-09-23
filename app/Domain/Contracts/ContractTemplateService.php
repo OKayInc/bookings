@@ -2,6 +2,7 @@
 
 namespace App\Domain\Contracts;
 
+use App\Domain\Plans\PlanStorageService;
 use App\Models\AppointmentContractTemplate;
 use App\Models\AppointmentType;
 use App\Models\Person;
@@ -13,8 +14,15 @@ use RuntimeException;
 
 class ContractTemplateService
 {
+    public function __construct(private readonly PlanStorageService $planStorage)
+    {
+    }
+
     public function replace(AppointmentType $appointmentType, UploadedFile $file, ?Person $uploadedBy = null): AppointmentContractTemplate
     {
+        // Historical templates remain downloadable by their bookings, so a
+        // replacement consumes additional storage instead of replacing bytes.
+        $this->planStorage->assertCanStore($appointmentType->organization, max(0, (int) $file->getSize()));
         $disk = (string) config('contracts.disk', 'local');
         $directory = sprintf(
             '%s/%s/%s',
