@@ -83,6 +83,7 @@ $taxPriceMode = old('tax_price_mode', $organization?->tax_price_mode?->value ?? 
 <div class="field"><label for="x_url">X</label><input id="x_url" type="url" name="x_url" value="{{ old('x_url', $organization?->x_url) }}" maxlength="500" placeholder="https://x.com/your-account"></div>
 <div class="field"><label for="linkedin_url">LinkedIn</label><input id="linkedin_url" type="url" name="linkedin_url" value="{{ old('linkedin_url', $organization?->linkedin_url) }}" maxlength="500" placeholder="https://www.linkedin.com/company/your-company"></div>
 <div class="field"><label for="tiktok_url">TikTok</label><input id="tiktok_url" type="url" name="tiktok_url" value="{{ old('tiktok_url', $organization?->tiktok_url) }}" maxlength="500" placeholder="https://www.tiktok.com/@your-account"></div>
+<div class="field"><label for="youtube_url">YouTube channel</label><input id="youtube_url" type="url" name="youtube_url" value="{{ old('youtube_url', $organization?->youtube_url) }}" maxlength="500" placeholder="https://www.youtube.com/@your-channel"><div class="muted">Enter a YouTube channel URL, such as a channel handle or /channel/ URL. Video, Shorts, playlist and youtu.be links are not accepted.</div></div>
 </fieldset>
 <template id="organization-tax-row-template">
 <div class="card compact organization-tax-row">
