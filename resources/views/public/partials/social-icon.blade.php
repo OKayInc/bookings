@@ -14,4 +14,7 @@
     @case('tiktok')
         <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" focusable="false"><path d="M14 3h3.8c.3 2 1.5 3.3 3.2 3.7v3.8a9 9 0 0 1-3.2-1V16a6 6 0 1 1-6-6h.8v3.8a3 3 0 1 0 1.4 2.5V3Z"/></svg>
         @break
+    @case('youtube')
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" focusable="false"><path d="M23 7.1a3 3 0 0 0-2.1-2.1C19 4.5 12 4.5 12 4.5S5 4.5 3.1 5A3 3 0 0 0 1 7.1C.5 9 .5 12 .5 12s0 3 .5 4.9A3 3 0 0 0 3.1 19c1.9.5 8.9.5 8.9.5s7 0 8.9-.5a3 3 0 0 0 2.1-2.1c.5-1.9.5-4.9.5-4.9s0-3-.5-4.9ZM9.7 15.4V8.6l6 3.4-6 3.4Z"/></svg>
+        @break
 @endswitch

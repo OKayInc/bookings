@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Domain\Money\PaymentCurrencyCatalog;
 use App\Enums\TaxPriceMode;
 use App\Rules\IanaTimezone;
+use App\Rules\YouTubeChannelUrl;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -21,7 +22,7 @@ class StoreOrganizationRequest extends FormRequest
             $this->merge(['currency' => strtoupper(trim((string) $this->input('currency')))]);
         }
 
-        foreach (['facebook_url', 'instagram_url', 'x_url', 'linkedin_url', 'tiktok_url'] as $field) {
+        foreach (['facebook_url', 'instagram_url', 'x_url', 'linkedin_url', 'tiktok_url', 'youtube_url'] as $field) {
             $value = $this->input($field);
             $value = is_string($value) ? trim($value) : $value;
             $this->merge([$field => $value === '' ? null : $value]);
@@ -68,6 +69,7 @@ class StoreOrganizationRequest extends FormRequest
             'x_url' => ['bail', 'nullable', 'string', 'url:http,https', 'max:500'],
             'linkedin_url' => ['bail', 'nullable', 'string', 'url:http,https', 'max:500'],
             'tiktok_url' => ['bail', 'nullable', 'string', 'url:http,https', 'max:500'],
+            'youtube_url' => ['bail', 'nullable', 'string', 'url:http,https', 'max:500', new YouTubeChannelUrl()],
             'collects_taxes' => ['nullable', 'boolean'],
             'tax_identifier' => $collectsTaxes
                 ? ['required', 'string', 'max:255']

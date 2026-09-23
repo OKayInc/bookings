@@ -5,6 +5,7 @@
         'x' => ['label' => 'X', 'url' => $organization->x_url],
         'linkedin' => ['label' => 'LinkedIn', 'url' => $organization->linkedin_url],
         'tiktok' => ['label' => 'TikTok', 'url' => $organization->tiktok_url],
+        'youtube' => ['label' => 'YouTube', 'url' => $organization->youtube_url],
     ];
     $hasSocialLinks = collect($socialLinks)->contains(
         fn (array $social): bool => filled($social['url'])

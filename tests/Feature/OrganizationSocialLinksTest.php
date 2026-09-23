@@ -26,7 +26,8 @@ class OrganizationSocialLinksTest extends TestCase
             ->assertSee('name="instagram_url"', false)
             ->assertSee('name="x_url"', false)
             ->assertSee('name="linkedin_url"', false)
-            ->assertSee('name="tiktok_url"', false);
+            ->assertSee('name="tiktok_url"', false)
+            ->assertSee('name="youtube_url"', false);
 
         $socials = [
             'facebook_url' => 'https://www.facebook.com/example',
@@ -34,6 +35,7 @@ class OrganizationSocialLinksTest extends TestCase
             'x_url' => 'https://x.com/example',
             'linkedin_url' => 'https://www.linkedin.com/company/example',
             'tiktok_url' => 'https://www.tiktok.com/@example',
+            'youtube_url' => 'https://www.youtube.com/@example',
         ];
 
         $this->actingAs($user)
@@ -90,6 +92,7 @@ class OrganizationSocialLinksTest extends TestCase
             'x_url' => null,
             'linkedin_url' => 'https://www.linkedin.com/company/example',
             'tiktok_url' => null,
+            'youtube_url' => 'https://www.youtube.com/channel/UC1234567890Example',
         ]);
 
         $this->get(route('public.appointment-types.index', $organization->slug))
@@ -98,10 +101,55 @@ class OrganizationSocialLinksTest extends TestCase
             ->assertSee('aria-label="Facebook"', false)
             ->assertSee('href="https://www.linkedin.com/company/example"', false)
             ->assertSee('aria-label="LinkedIn"', false)
+            ->assertSee('href="https://www.youtube.com/channel/UC1234567890Example"', false)
+            ->assertSee('aria-label="YouTube"', false)
             ->assertSee('<svg aria-hidden="true" width="16" height="16"', false)
             ->assertDontSee('aria-label="Instagram"', false)
             ->assertDontSee('aria-label="X"', false)
             ->assertDontSee('aria-label="TikTok"', false);
+    }
+
+
+    public function test_youtube_url_must_point_to_a_channel(): void
+    {
+        [$user, $organization] = $this->ownedOrganization();
+
+        foreach ([
+            'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+            'https://www.youtube.com/shorts/dQw4w9WgXcQ',
+            'https://www.youtube.com/playlist?list=PL123',
+            'https://youtu.be/dQw4w9WgXcQ',
+            'https://example.com/@not-youtube',
+        ] as $invalidUrl) {
+            $this->actingAs($user)
+                ->withSession(['active_organization_uuid' => $organization->uuid])
+                ->put(route('organizations.update', $organization), [
+                    'name' => $organization->name,
+                    'timezone' => $organization->timezone,
+                    'currency' => $organization->currency,
+                    'youtube_url' => $invalidUrl,
+                ])
+                ->assertSessionHasErrors('youtube_url');
+        }
+
+        foreach ([
+            'https://www.youtube.com/@example',
+            'https://youtube.com/channel/UC1234567890Example',
+            'https://www.youtube.com/c/example',
+            'https://www.youtube.com/user/example',
+        ] as $validUrl) {
+            $this->actingAs($user)
+                ->withSession(['active_organization_uuid' => $organization->uuid])
+                ->put(route('organizations.update', $organization), [
+                    'name' => $organization->name,
+                    'timezone' => $organization->timezone,
+                    'currency' => $organization->currency,
+                    'youtube_url' => $validUrl,
+                ])
+                ->assertRedirect(route('organizations.index'));
+
+            $this->assertSame($validUrl, $organization->fresh()->youtube_url);
+        }
     }
 
     private function ownedOrganization(array $attributes = []): array
