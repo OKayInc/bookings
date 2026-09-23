@@ -30,6 +30,7 @@ class Organization extends Model
         'x_url',
         'linkedin_url',
         'tiktok_url',
+        'youtube_url',
         'collects_taxes',
         'tax_identifier',
         'tax_price_mode',
