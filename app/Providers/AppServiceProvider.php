@@ -28,6 +28,23 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        foreach ([
+            \App\Models\Organization::class,
+            \App\Models\AppointmentType::class,
+            \App\Models\Resource::class,
+            \App\Models\OrganizationTax::class,
+            \App\Models\ReusableQuestion::class,
+            \App\Models\ReusableQuestionOption::class,
+            \App\Models\AppointmentQuestion::class,
+            \App\Models\QuestionOption::class,
+            \App\Models\AppointmentQuestionVisibilityCondition::class,
+            \App\Models\AppointmentQuestionNumericConstraint::class,
+            \App\Models\AppointmentQuestionResourceRule::class,
+            \App\Models\ShortNoticeFeeRule::class,
+        ] as $model) {
+            $model::observe(\App\Observers\ConfigurationObserver::class);
+        }
+
         foreach ([\App\Models\Booking::class, \App\Models\PaymentTransaction::class, \App\Models\PaymentRefund::class, \App\Models\Ticket::class] as $model) {
             $model::observe(\App\Observers\OutgoingWebhookObserver::class);
         }

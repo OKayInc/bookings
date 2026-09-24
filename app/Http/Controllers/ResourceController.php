@@ -137,6 +137,7 @@ class ResourceController extends Controller
             'holiday_region' => $holidayRegion,
             'updated_at' => now(),
         ]);
+        app(\App\Domain\Configuration\ConfigurationCache::class)->invalidateAfterCommit($organization->getKey());
 
         $resource->appointmentTypes()
             ->where('appointment_types.organization_id', $organization->getKey())
@@ -227,6 +228,7 @@ class ResourceController extends Controller
                 'holiday_region' => $holidayRegion,
                 'updated_at' => now(),
             ]);
+            app(\App\Domain\Configuration\ConfigurationCache::class)->invalidateAfterCommit($organization->getKey());
             $this->syncSharedOrganizations(
                 $request,
                 $resource,
@@ -396,6 +398,7 @@ class ResourceController extends Controller
 
         if (! $this->userOwnsOrganization($owner)) {
             $resource->organizations()->updateExistingPivot($owner->getKey(), array_merge($ownerSettings, ['updated_at' => now()]));
+            app(\App\Domain\Configuration\ConfigurationCache::class)->invalidateAfterCommit($owner->getKey());
 
             return;
         }
@@ -425,7 +428,11 @@ class ResourceController extends Controller
             ];
         }
 
+        $previous = $resource->organizations()->pluck('organizations.id')->all();
         $resource->organizations()->sync($sync);
+        foreach (array_unique(array_merge($previous, array_keys($sync))) as $organizationId) {
+            app(\App\Domain\Configuration\ConfigurationCache::class)->invalidateAfterCommit($organizationId);
+        }
     }
 
     private function personKey(array $data, Organization $organization): mixed

@@ -2,6 +2,7 @@
 
 namespace App\Domain\Resources;
 
+use App\Domain\Configuration\ConfigurationCache;
 use App\Domain\Availability\AvailabilityService;
 use App\Domain\Money\MoneyService;
 use App\Domain\Questionnaires\QuestionnaireSubmission;
@@ -131,6 +132,7 @@ class ConditionalResourceRequirementService
                     : $this->money->parse((string) $raw, $currency),
             ]];
         })->all());
+        app(ConfigurationCache::class)->invalidateAfterCommit($type->organization_id);
         $question->unsetRelation('resourceRequirementRule');
     }
 

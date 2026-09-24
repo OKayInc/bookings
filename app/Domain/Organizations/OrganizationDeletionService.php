@@ -29,8 +29,9 @@ class OrganizationDeletionService
     public function delete(Organization $organization): void
     {
         $files = [];
+        $sharingOrganizationIds = [];
 
-        DB::transaction(function () use ($organization, &$files): void {
+        DB::transaction(function () use ($organization, &$files, &$sharingOrganizationIds): void {
             /** @var Organization $locked */
             $locked = Organization::query()
                 ->whereKey($organization->getKey())
@@ -57,6 +58,11 @@ class OrganizationDeletionService
                 ->pluck('id')
                 ->all();
 
+            $sharingOrganizationIds = DB::table('organization_resources')
+                ->whereIn('resource_id', $ownedResourceIds)
+                ->where('organization_id', '!=', $locked->getKey())
+                ->pluck('organization_id')->unique()->all();
+
             $this->unshareResources($locked, $ownedResourceIds);
 
             // Delete booking history first. It owns answers, uploaded files,
@@ -73,6 +79,10 @@ class OrganizationDeletionService
             // user's active organization is cleared by its null-on-delete key.
             $locked->delete();
         }, 3);
+
+        foreach ($sharingOrganizationIds as $id) {
+            app(\App\Domain\Configuration\ConfigurationCache::class)->invalidateAfterCommit($id);
+        }
 
         foreach ($files as $file) {
             try {

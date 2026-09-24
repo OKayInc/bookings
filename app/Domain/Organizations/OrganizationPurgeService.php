@@ -110,6 +110,7 @@ class OrganizationPurgeService
             }
             if ($rank < 1) { DB::table('organization_memberships')->where('organization_id', $id)->delete(); }
         });
+        app(\App\Domain\Configuration\ConfigurationCache::class)->invalidateAfterCommit($org->getKey());
     }
 
     private function queueFiles(string $id, iterable $files): void

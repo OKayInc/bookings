@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Appointments\AppointmentTypeDeletionService;
+use App\Domain\Configuration\ConfigurationCache;
 use App\Domain\Appointments\AppointmentTypeLogoService;
 use App\Domain\Appointments\AppointmentTypeSummaryService;
 use App\Domain\Appointments\AttendeePricingService;
@@ -121,6 +122,7 @@ class AppointmentTypeController extends Controller
             $organization->currency,
             $money,
         ));
+        app(ConfigurationCache::class)->invalidateAfterCommit($organization->getKey());
         $shortNoticeFees->sync($appointmentType, $data['short_notice_fees'] ?? [], $organization->currency);
 
         if ($request->hasFile('logo_file')) {
@@ -253,6 +255,7 @@ class AppointmentTypeController extends Controller
             $context->organization()->currency,
             $money,
         ));
+        app(ConfigurationCache::class)->invalidateAfterCommit($context->organization()->getKey());
         $shortNoticeFees->sync(
             $appointmentType,
             $data['short_notice_fees'] ?? [],
