@@ -19,6 +19,7 @@ use Illuminate\View\View;
 class PublicAppointmentTypeController extends Controller
 {
     public function index(
+        Request $request,
         string $organizationSlug,
         AppointmentTypeSummaryService $summary,
         AppointmentTypeSeasonService $seasons,
@@ -34,13 +35,16 @@ class PublicAppointmentTypeController extends Controller
             ->get()
             ->filter(fn (AppointmentType $type): bool => $seasons->isOpenAt($type, CarbonImmutable::now('UTC')))
             ->values();
+        $requestedType = $request->query('type');
+        $selectedTypeSlug = $appointmentTypes->firstWhere('slug', is_string($requestedType) ? $requestedType : null)?->slug
+            ?? $appointmentTypes->first()?->slug;
         $hasCouponOffers = $organization->couponOffers()
             ->where('is_public', true)
             ->where('is_active', true)
             ->where(fn ($query) => $query->whereNull('expires_on')->orWhereDate('expires_on', '>=', now($organization->timezone)->toDateString()))
             ->exists();
 
-        return view('public.appointment-types.index', compact('organization', 'appointmentTypes', 'summary', 'hasCouponOffers'));
+        return view('public.appointment-types.index', compact('organization', 'appointmentTypes', 'selectedTypeSlug', 'summary', 'hasCouponOffers'));
     }
 
     public function show(

@@ -335,6 +335,114 @@ table.table {
     margin: 0;
 }
 
+.appointment-selector {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 155px), 1fr));
+    gap: .75rem;
+    margin-bottom: 1rem;
+}
+
+.appointment-selector-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .6rem;
+    min-width: 0;
+    min-height: 110px;
+    padding: .85rem;
+    border: 2px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius-lg);
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    text-align: center;
+    font-weight: 600;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+.appointment-selector-item:hover,
+.appointment-selector-item:focus-visible {
+    border-color: var(--bs-primary);
+    color: var(--bs-body-color);
+}
+
+.appointment-selector-item[aria-current="true"] {
+    border-color: var(--bs-primary);
+    background: var(--bs-primary-bg-subtle);
+    box-shadow: 0 0 0 1px var(--bs-primary);
+}
+
+.appointment-selector-item img {
+    width: 100%;
+    height: 52px;
+    object-fit: contain;
+}
+
+.appointment-selector-icon {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+    font-size: 1.5rem;
+}
+
+.appointment-detail[hidden] {
+    display: none;
+}
+
+.appointment-detail-intro {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+}
+
+.appointment-detail-intro > div {
+    min-width: 0;
+}
+
+.appointment-detail-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 2rem;
+    margin-top: 1.5rem;
+}
+
+.appointment-detail-action {
+    display: flex;
+    justify-content: flex-end;
+}
+
+@media (max-width: 575.98px) {
+    .appointment-selector {
+        display: flex;
+        overflow-x: auto;
+        overscroll-behavior-inline: contain;
+        scroll-snap-type: x proximity;
+        padding: 2px 2px .75rem;
+    }
+
+    .appointment-selector-item {
+        flex: 0 0 118px;
+        scroll-snap-align: start;
+    }
+
+    .appointment-detail-intro {
+        flex-direction: column;
+    }
+
+    .appointment-detail-summary {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .appointment-detail-action .btn {
+        width: 100%;
+    }
+}
+
 .appointment-hero {
     display: flex;
     align-items: center;
