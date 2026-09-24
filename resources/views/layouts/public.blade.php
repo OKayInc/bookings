@@ -39,7 +39,7 @@
     <meta name="twitter:title" content="{{ $seoTitle }}">
     @if($seoDescription)<meta name="twitter:description" content="{{ $seoDescription }}">@endif
     @if($seoImage)<meta name="twitter:image" content="{{ $seoImage }}">@endif
-    @if($seoJsonLd)<script type="application/ld+json">@json($seoJsonLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)</script>@endif
+    @if($seoJsonLd)<script type="application/ld+json">@json($seoJsonLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)</script>@endif
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
