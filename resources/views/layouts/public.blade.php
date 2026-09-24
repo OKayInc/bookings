@@ -15,7 +15,9 @@
     $seoTitle = $seo['title'] ?? trim($__env->yieldContent('title', config('app.name')));
     $seoDescription = $seo['description'] ?? null;
     $seoCanonical = $seo['canonical'] ?? null;
-    $seoImage = $seo['image'] ?? null;
+    $defaultPublicImage = app(\App\Support\Seo\PublicSeo::class)->defaultImageUrl();
+    $seoImage = $seo['image'] ?? $defaultPublicImage;
+    $seoIcon = $seo['icon'] ?? $seoImage;
     $seoType = $seo['type'] ?? 'website';
     $seoIndexable = (bool) ($seo['indexable'] ?? false);
     $seoJsonLd = $seo['jsonLd'] ?? null;
@@ -34,11 +36,14 @@
     <meta property="og:title" content="{{ $seoTitle }}">
     @if($seoDescription)<meta property="og:description" content="{{ $seoDescription }}">@endif
     @if($seoCanonical)<meta property="og:url" content="{{ $seoCanonical }}">@endif
-    @if($seoImage)<meta property="og:image" content="{{ $seoImage }}">@endif
-    <meta name="twitter:card" content="{{ $seoImage ? 'summary_large_image' : 'summary' }}">
+    <meta property="og:image" content="{{ $seoImage }}">
+    <meta property="og:image:alt" content="{{ $seoTitle }}">
+    <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ $seoTitle }}">
     @if($seoDescription)<meta name="twitter:description" content="{{ $seoDescription }}">@endif
-    @if($seoImage)<meta name="twitter:image" content="{{ $seoImage }}">@endif
+    <meta name="twitter:image" content="{{ $seoImage }}">
+    <link rel="icon" href="{{ $seoIcon }}">
+    <link rel="apple-touch-icon" href="{{ $seoIcon }}">
     @if($seoJsonLd)<script type="application/ld+json">@json($seoJsonLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)</script>@endif
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">

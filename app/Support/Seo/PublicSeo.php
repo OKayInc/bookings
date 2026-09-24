@@ -11,6 +11,13 @@ use Illuminate\Support\Str;
 
 class PublicSeo
 {
+    public function defaultImageUrl(): string
+    {
+        $baseUrl = rtrim((string) config('filesystems.public_asset_url', config('app.url')), '/');
+
+        return $baseUrl.'/images/appointment-to-logo.png';
+    }
+
     public function home(): array
     {
         $url = route('home');
@@ -23,6 +30,8 @@ class PublicSeo
             'description' => $description,
             'canonical' => $url,
             'type' => 'website',
+            'image' => $this->defaultImageUrl(),
+            'icon' => $this->defaultImageUrl(),
             'jsonLd' => [
                 '@context' => 'https://schema.org',
                 '@graph' => [
@@ -64,6 +73,8 @@ class PublicSeo
             'description' => $description,
             'canonical' => $url,
             'type' => 'website',
+            'image' => $this->defaultImageUrl(),
+            'icon' => $this->defaultImageUrl(),
             'jsonLd' => [
                 '@context' => 'https://schema.org',
                 '@type' => 'WebPage',
@@ -104,6 +115,8 @@ class PublicSeo
             ->values()
             ->all();
 
+        $image = $organization->logo_url ?? $this->defaultImageUrl();
+
         $schema = [
             '@context' => 'https://schema.org',
             '@type' => 'Organization',
@@ -126,7 +139,8 @@ class PublicSeo
             'description' => $description,
             'canonical' => $url,
             'type' => 'website',
-            'image' => $organization->galleryPhotos->first()?->url ?? $organization->logo_url,
+            'image' => $image,
+            'icon' => $image,
             'jsonLd' => $schema,
         ];
     }
@@ -153,7 +167,8 @@ class PublicSeo
 
         $image = $type->galleryPhotos->first()?->url
             ?? $type->logo_url
-            ?? $organization->logo_url;
+            ?? $organization->logo_url
+            ?? $this->defaultImageUrl();
 
         $canPublishEventSchema = $type->ticketing_enabled
             && $type->currentEventOccurrence() !== null
@@ -168,6 +183,7 @@ class PublicSeo
             'canonical' => $url,
             'type' => $canPublishEventSchema ? 'event' : 'website',
             'image' => $image,
+            'icon' => $image,
             'jsonLd' => $indexable
                 ? ($canPublishEventSchema
                     ? $this->eventSchema($organization, $type, $url, $description, $image)
