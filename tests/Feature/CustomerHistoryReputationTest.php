@@ -64,6 +64,43 @@ class CustomerHistoryReputationTest extends TestCase
         ]);
     }
 
+    public function test_correcting_a_no_show_re_evaluates_and_removes_an_automatic_blacklist(): void
+    {
+        [$user, $organization, $type, $contact] = $this->context();
+        $organization->customerReputationSetting()->create([
+            'post_appointment_review_enabled' => true,
+            'review_roles' => ['owner'],
+            'blacklist_mode' => 'automatic',
+            'blacklist_no_show_threshold' => 1,
+            'blacklist_window_days' => 180,
+            'whitelist_mode' => 'disabled',
+            'whitelist_success_threshold' => 5,
+            'whitelist_min_revenue_minor' => 0,
+            'whitelist_window_days' => 365,
+            'whitelist_max_no_shows' => 0,
+            'minimum_reviewed_appointments' => 1,
+        ]);
+
+        $booking = $this->booking($organization, $type, $contact, 'CORRECT00001', now('UTC')->subDay());
+        $service = app(CustomerReputationService::class);
+        $service->recordOutcome($booking, 'no_show', $user->person);
+
+        $entry = CustomerAccessEntry::query()
+            ->where('organization_contact_id', $contact->getKey())
+            ->where('policy_key', 'blacklist_no_shows')
+            ->firstOrFail();
+        $this->assertSame('active', $entry->status);
+
+        $service->recordOutcome($booking, 'successful', $user->person);
+
+        $this->assertSame('resolved', $entry->fresh()->status);
+        $this->assertDatabaseHas('customer_access_events', [
+            'customer_access_entry_id' => $entry->getKey(),
+            'event_type' => 'policy_revoked',
+            'source' => 'policy',
+        ]);
+    }
+
     public function test_customer_history_page_shows_revenue_coupon_column_and_outcome_controls(): void
     {
         [$user, $organization, $type, $contact] = $this->context();
