@@ -11,13 +11,35 @@
     $showPlatformBranding = !isset($organization)
         || !$organization->hide_platform_branding
         || !($publicPlanEntitlement?->hasBusinessFeatures() ?? false);
+    $seo = $seo ?? [];
+    $seoTitle = $seo['title'] ?? trim($__env->yieldContent('title', config('app.name')));
+    $seoDescription = $seo['description'] ?? null;
+    $seoCanonical = $seo['canonical'] ?? null;
+    $seoImage = $seo['image'] ?? null;
+    $seoType = $seo['type'] ?? 'website';
+    $seoIndexable = (bool) ($seo['indexable'] ?? false);
+    $seoJsonLd = $seo['jsonLd'] ?? null;
 @endphp
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', config('app.name'))</title>
+    <title>{{ $seoTitle }}</title>
+    <meta name="robots" content="{{ $seoIndexable ? 'index,follow,max-image-preview:large' : 'noindex,nofollow,noarchive' }}">
+    @if($seoDescription)<meta name="description" content="{{ $seoDescription }}">@endif
+    @if($seoCanonical)<link rel="canonical" href="{{ $seoCanonical }}">@endif
+    <meta property="og:site_name" content="Appointment.to">
+    <meta property="og:type" content="{{ $seoType }}">
+    <meta property="og:title" content="{{ $seoTitle }}">
+    @if($seoDescription)<meta property="og:description" content="{{ $seoDescription }}">@endif
+    @if($seoCanonical)<meta property="og:url" content="{{ $seoCanonical }}">@endif
+    @if($seoImage)<meta property="og:image" content="{{ $seoImage }}">@endif
+    <meta name="twitter:card" content="{{ $seoImage ? 'summary_large_image' : 'summary' }}">
+    <meta name="twitter:title" content="{{ $seoTitle }}">
+    @if($seoDescription)<meta name="twitter:description" content="{{ $seoDescription }}">@endif
+    @if($seoImage)<meta name="twitter:image" content="{{ $seoImage }}">@endif
+    @if($seoJsonLd)<script type="application/ld+json">@json($seoJsonLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)</script>@endif
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">

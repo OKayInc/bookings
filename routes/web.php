@@ -26,6 +26,7 @@ use App\Http\Controllers\OrganizationHolidayController;
 use App\Http\Controllers\PaymentSettingsController;
 use App\Http\Controllers\PaymentRuleController;
 use App\Http\Controllers\PublicPaymentController;
+use App\Http\Controllers\PublicSeoController;
 use App\Http\Controllers\PaymentWebhookController;
 use App\Http\Controllers\BookingRefundController;
 use App\Http\Controllers\CouponController;
@@ -46,6 +47,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'home')->name('home');
 Route::view('/pricing', 'pricing')->name('pricing');
+Route::get('/robots.txt', [PublicSeoController::class, 'robots'])->name('seo.robots');
+Route::get('/sitemap.xml', [PublicSeoController::class, 'sitemap'])->name('seo.sitemap');
 
 Route::view('/a/privacy.html', 'legal.privacy')->name('legal.privacy');
 Route::view('/a/terms.html', 'legal.terms')->name('legal.terms');

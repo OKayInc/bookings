@@ -1,5 +1,6 @@
 @extends('layouts.public')
 @section('title', $type->name)
+@php($seo = ['title' => $type->name, 'indexable' => false])
 @section('content')
 <div class="card narrow-card">
     @if(($type->logo_url ?? $type->organization->logo_url))<img class="public-logo" src="{{ ($type->logo_url ?? $type->organization->logo_url) }}" alt="{{ $type->name }} logo">@endif
