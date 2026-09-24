@@ -30,11 +30,12 @@
                     </li>
 
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle @if(request()->routeIs('appointment-types.*', 'availability.*', 'bookings.*', 'tickets.*', 'staff-confirmations.*', 'calendar-connections.*')) active @endif" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Scheduling</a>
+                        <a class="nav-link dropdown-toggle @if(request()->routeIs('appointment-types.*', 'availability.*', 'bookings.*', 'customers.*', 'tickets.*', 'staff-confirmations.*', 'calendar-connections.*')) active @endif" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Scheduling</a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="{{ route('appointment-types.index') }}">Appointment Types</a></li>
                             <li><a class="dropdown-item" href="{{ route('availability.index') }}">Availability</a></li>
                             <li><a class="dropdown-item" href="{{ route('bookings.index') }}">Bookings</a></li>
+                            <li><a class="dropdown-item" href="{{ route('customers.index') }}">Customers</a></li>
                             @if($activeOrganization && auth()->user()->can('checkInTickets', $activeOrganization))
                                 <li><a class="dropdown-item" href="{{ route('tickets.index') }}">Ticket check-in</a></li>
                             @endif
