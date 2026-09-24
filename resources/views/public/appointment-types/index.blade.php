@@ -1,5 +1,7 @@
 @extends('layouts.public')
-@php($seo = app(\App\Support\Seo\PublicSeo::class)->organization($organization, $appointmentTypes))
+@php
+    $seo = app(\App\Support\Seo\PublicSeo::class)->organization($organization, $appointmentTypes);
+@endphp
 @section('content')
 <div class="card"><h1>{{ $organization->name }}</h1><p class="muted">Available public appointment types</p>@include('public.partials.organization-social-links')</div>
 @include('gallery.public-grid', ['photos' => $organization->galleryPhotos, 'placement' => 'above', 'ownerName' => $organization->name])
