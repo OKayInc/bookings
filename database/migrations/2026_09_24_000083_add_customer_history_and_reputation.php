@@ -12,12 +12,18 @@ return new class extends Migration {
             $table->dateTime('outcome_review_requested_at_utc', 6)->nullable()->after('cancelled_at_utc');
         });
 
-        foreach (DB::table('organization_contacts')->whereNotNull('phone')->select(['id', 'phone'])->cursor() as $contact) {
-            $digits = preg_replace('/\\D+/', '', (string) $contact->phone);
-            DB::table('organization_contacts')
-                ->where('id', $contact->id)
-                ->update(['phone_normalized' => $digits !== '' ? $digits : null]);
-        }
+        DB::table('organization_contacts')
+            ->whereNotNull('phone')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->chunk(500, function ($contacts): void {
+                foreach ($contacts as $contact) {
+                    $digits = preg_replace('/\\D+/', '', (string) $contact->phone);
+                    DB::table('organization_contacts')
+                        ->where('id', $contact->id)
+                        ->update(['phone_normalized' => $digits !== '' ? $digits : null]);
+                }
+            });
 
         Schema::create('booking_outcomes', function (Blueprint $table): void {
             $table->binary('id', 16, true)->primary();
