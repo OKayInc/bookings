@@ -12,6 +12,9 @@ use App\Http\Controllers\AvailabilityPreviewController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingOutcomeReviewController;
+use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CustomerReputationSettingsController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\PlanController;
@@ -158,6 +161,13 @@ Route::post('/event-admission/{approval}/{token}', [EventAdmissionApprovalContro
 Route::get('/event-admission/{approval}/{token}/answer-files/{file}', [EventAdmissionApprovalController::class, 'answerFile'])
     ->name('public.event-admission-approvals.answer-file');
 
+Route::get('/booking-outcome/{booking}', [BookingOutcomeReviewController::class, 'show'])
+    ->middleware(['signed', 'throttle:30,1'])
+    ->name('public.booking-outcome-review.show');
+Route::post('/booking-outcome/{booking}', [BookingOutcomeReviewController::class, 'store'])
+    ->middleware(['signed', 'throttle:20,1'])
+    ->name('public.booking-outcome-review.store');
+
 Route::get('/organization-invitation/{token}', [OrganizationInvitationAcceptanceController::class, 'show'])
     ->middleware('throttle:30,1')
     ->name('organization-invitations.show');
@@ -276,6 +286,15 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::get('/calendar-connections/resources/{resource}/{provider}/connect', [CalendarConnectionController::class, 'connect'])->name('calendar-connections.connect');
         Route::post('/calendar-connections/{connection}/refresh', [CalendarConnectionController::class, 'refresh'])->name('calendar-connections.refresh');
         Route::delete('/calendar-connections/{connection}', [CalendarConnectionController::class, 'destroy'])->name('calendar-connections.destroy');
+
+        Route::get('/customers', [CustomerController::class, 'index'])->name('customers.index');
+        Route::get('/customers/settings', [CustomerReputationSettingsController::class, 'edit'])->name('customers.settings.edit');
+        Route::put('/customers/settings', [CustomerReputationSettingsController::class, 'update'])->name('customers.settings.update');
+        Route::get('/customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');
+        Route::post('/customers/{customer}/bookings/{booking}/outcome', [CustomerController::class, 'outcome'])->name('customers.bookings.outcome');
+        Route::post('/customers/{customer}/access', [CustomerController::class, 'access'])->name('customers.access.store');
+        Route::post('/customers/{customer}/access/{entry}/approve', [CustomerController::class, 'approveAccess'])->name('customers.access.approve');
+        Route::post('/customers/{customer}/access/{entry}/resolve', [CustomerController::class, 'resolveAccess'])->name('customers.access.resolve');
 
         Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
         Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('bookings.show');

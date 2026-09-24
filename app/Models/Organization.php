@@ -203,6 +203,16 @@ class Organization extends Model
         return $this->hasMany(OrganizationContact::class);
     }
 
+    public function customerReputationSetting(): HasOne
+    {
+        return $this->hasOne(CustomerReputationSetting::class);
+    }
+
+    public function customerAccessEntries(): HasMany
+    {
+        return $this->hasMany(CustomerAccessEntry::class);
+    }
+
     public function taxes(): HasMany
     {
         return $this->hasMany(OrganizationTax::class)->orderBy('position')->orderBy('name');

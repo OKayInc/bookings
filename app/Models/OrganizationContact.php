@@ -48,6 +48,10 @@ class OrganizationContact extends Model
 
             if ($contact->phone !== null) {
                 $contact->phone = trim((string) $contact->phone);
+                $digits = preg_replace('/\\D+/', '', $contact->phone);
+                $contact->phone_normalized = $digits !== '' ? $digits : null;
+            } else {
+                $contact->phone_normalized = null;
             }
         });
     }
@@ -65,5 +69,15 @@ class OrganizationContact extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class);
+    }
+
+    public function accessEntries(): HasMany
+    {
+        return $this->hasMany(CustomerAccessEntry::class);
+    }
+
+    public function accessEvents(): HasMany
+    {
+        return $this->hasMany(CustomerAccessEvent::class);
     }
 }

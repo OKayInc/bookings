@@ -33,7 +33,7 @@ class Booking extends Model
         'manage_token_hash', 'expires_at_utc',
         'requires_resource_confirmation', 'cancellation_allowed', 'cancellation_notice_value', 'cancellation_notice_unit', 'cancellation_policy_text',
         'requires_event_approval', 'location_notification_sent_at_utc',
-        'cancelled_at_utc', 'cancellation_reason', 'cancellation_origin', 'rescheduling_allowed', 'rescheduling_notice_value',
+        'cancelled_at_utc', 'outcome_review_requested_at_utc', 'cancellation_reason', 'cancellation_origin', 'rescheduling_allowed', 'rescheduling_notice_value',
         'rescheduling_notice_unit', 'rescheduling_max_count', 'reschedule_count', 'rescheduling_policy_text',
     ];
 
@@ -78,6 +78,7 @@ class Booking extends Model
             'cancellation_notice_value' => 'integer',
             'cancellation_notice_unit' => \App\Enums\BookingNoticeUnit::class,
             'cancelled_at_utc' => 'immutable_datetime',
+            'outcome_review_requested_at_utc' => 'immutable_datetime',
             'rescheduling_allowed' => 'boolean',
             'rescheduling_notice_value' => 'integer',
             'rescheduling_notice_unit' => \App\Enums\BookingNoticeUnit::class,
@@ -219,6 +220,11 @@ class Booking extends Model
     public function couponRedemption(): HasOne
     {
         return $this->hasOne(CouponRedemption::class);
+    }
+
+    public function outcome(): HasOne
+    {
+        return $this->hasOne(BookingOutcome::class);
     }
 
     public function netPaidMinor(): int
