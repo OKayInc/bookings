@@ -22,18 +22,45 @@ use Illuminate\View\View;
 
 class ResourceController extends Controller
 {
-    public function index(OrganizationContext $context, HolidayRegionCatalog $holidayRegions): View
-    {
+    public function index(
+        OrganizationContext $context,
+        HolidayRegionCatalog $holidayRegions,
+        Request $request,
+    ): View {
         $organization = $context->organization();
-        $resources = $organization->resources()
+        $search = trim((string) $request->query('search', ''));
+        $requestedType = (string) $request->query('type', '');
+        $allowedTypes = ['person', 'room', 'equipment', 'vehicle', 'other'];
+        $type = in_array($requestedType, $allowedTypes, true) ? $requestedType : null;
+
+        $resourcesQuery = $organization->resources()
             ->with(['person', 'organization'])
-            ->withCount(['appointments', 'bookingHolds', 'confirmations'])
-            ->orderBy('name')
+            ->withCount(['appointments', 'bookingHolds', 'confirmations']);
+
+        if ($search !== '') {
+            $resourcesQuery->where('resources.name', 'like', '%'.$search.'%');
+        }
+
+        if ($type !== null) {
+            $resourcesQuery->where('resources.type', $type);
+        }
+
+        $resources = $resourcesQuery
+            ->orderBy('resources.name')
             ->get();
 
         return view('resources.index', [
             'organization' => $organization,
             'resources' => $resources,
+            'search' => $search,
+            'type' => $type,
+            'resourceTypes' => [
+                'person' => 'Person',
+                'room' => 'Room',
+                'equipment' => 'Equipment',
+                'vehicle' => 'Vehicle',
+                'other' => 'Other',
+            ],
             'holidayRegions' => $holidayRegions->options(),
             'resourceHolidaySuggestions' => $resources->mapWithKeys(fn (Resource $resource): array => [
                 $resource->uuid => $holidayRegions->detect($resource->timezone ?: $organization->timezone)
