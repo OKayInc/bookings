@@ -30,45 +30,48 @@
 </head>
 <body class="bg-body-tertiary d-flex flex-column min-vh-100">
 @include('layouts.partials.page-loader')
-<nav class="navbar navbar-dark bg-dark shadow-sm" aria-label="Public navigation">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm" aria-label="Public navigation">
     <div class="container-xl">
         @isset($organization)
             <a class="navbar-brand fw-semibold text-truncate d-flex align-items-center gap-2" href="{{ route('public.appointment-types.index', $organization->slug) }}">@if($organization->logo_url)<img src="{{ $organization->logo_url }}" alt="{{ $organization->name }} logo" style="height:32px;width:auto;max-width:120px;object-fit:contain">@endif<span>{{ $organization->name }}</span></a>
         @else
             <a class="navbar-brand fw-semibold" href="{{ route('home') }}">{{ config('app.name') }}</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#marketingNav" aria-controls="marketingNav" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
+            <div class="collapse navbar-collapse" id="marketingNav">
+                <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+                    <li class="nav-item"><a class="nav-link" href="{{ route('home') }}#how-it-works">How it works</a></li>
+                    <li class="nav-item"><a class="nav-link @if(request()->routeIs('pricing')) active @endif" href="{{ route('pricing') }}">Pricing</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ route('login') }}">Log in</a></li>
+                    <li class="nav-item ms-lg-1"><a class="btn btn-light btn-sm px-3" href="{{ route('register') }}">Start free</a></li>
+                </ul>
+            </div>
         @endisset
     </div>
 </nav>
 
 <main class="py-4 py-lg-5">
     <div class="container-xl public-container">
-        @if(session('success'))
-            <div class="alert alert-success" role="alert">{{ session('success') }}</div>
-        @endif
-        @if(session('error'))
-            <div class="alert alert-danger" role="alert">{{ session('error') }}</div>
-        @endif
+        @if(session('success'))<div class="alert alert-success" role="alert">{{ session('success') }}</div>@endif
+        @if(session('error'))<div class="alert alert-danger" role="alert">{{ session('error') }}</div>@endif
         @if($errors->any())
-            <div class="alert alert-danger" role="alert">
-                <strong>Please correct the following:</strong>
-                <ul class="mb-0 mt-2">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
-            </div>
+            <div class="alert alert-danger" role="alert"><strong>Please correct the following:</strong><ul class="mb-0 mt-2">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
         @endif
         @yield('content')
-        @if($showPlanAdvertising)
-            @include('partials.plan-advertisement')
-        @endif
+        @if($showPlanAdvertising)@include('partials.plan-advertisement')@endif
     </div>
 </main>
 
-<footer class="border-top bg-white py-3 mt-auto">
-    <div class="container-xl d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 small text-secondary">
-        <span>&copy; {{ now()->year }} {{ isset($organization) ? $organization->name : config('app.name') }}</span>
-        @if($showPlatformBranding)<a href="{{ route('home') }}">Powered by Appointment.to</a>@endif
-        <nav class="d-flex gap-3" aria-label="Legal">
-            <a href="{{ route('legal.terms') }}">Terms &amp; Conditions</a>
-            <a href="{{ route('legal.privacy') }}">Privacy Policy</a>
-        </nav>
+<footer class="border-top bg-white py-4 mt-auto">
+    <div class="container-xl">
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 small text-secondary">
+            <div><strong class="text-body">{{ isset($organization) ? $organization->name : config('app.name') }}</strong><div>&copy; {{ now()->year }} {{ isset($organization) ? $organization->name : 'OKay Inc.' }}</div></div>
+            <nav class="d-flex flex-wrap gap-3" aria-label="Footer">
+                @unless(isset($organization))<a href="{{ route('pricing') }}">Pricing</a><a href="{{ route('register') }}">Start free</a><a href="{{ route('login') }}">Log in</a>@endunless
+                @if($showPlatformBranding && isset($organization))<a href="{{ route('home') }}">Powered by Appointment.to</a>@endif
+                <a href="{{ route('legal.terms') }}">Terms &amp; Conditions</a>
+                <a href="{{ route('legal.privacy') }}">Privacy Policy</a>
+            </nav>
+        </div>
     </div>
 </footer>
 
