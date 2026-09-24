@@ -66,4 +66,14 @@ class OrganizationContact extends Model
     {
         return $this->hasMany(Booking::class);
     }
+
+    public function accessEntries(): HasMany
+    {
+        return $this->hasMany(CustomerAccessEntry::class);
+    }
+
+    public function accessEvents(): HasMany
+    {
+        return $this->hasMany(CustomerAccessEvent::class);
+    }
 }
