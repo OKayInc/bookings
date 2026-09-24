@@ -1,5 +1,7 @@
 @extends('layouts.public')
-@php($seo = app(\App\Support\Seo\PublicSeo::class)->appointment($organization, $type, $accessMode))
+@php
+    $seo = app(\App\Support\Seo\PublicSeo::class)->appointment($organization, $type, $accessMode);
+@endphp
 @section('content')
 @include('gallery.public-grid', ['photos' => $type->galleryPhotos, 'placement' => 'above', 'ownerName' => $type->name])
 <div class="card appointment-hero">
