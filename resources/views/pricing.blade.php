@@ -1,6 +1,8 @@
 @extends('layouts.public')
 
-@php($seo = app(\App\Support\Seo\PublicSeo::class)->pricing())
+@php
+    $seo = app(\App\Support\Seo\PublicSeo::class)->pricing();
+@endphp
 
 @section('content')
 @php
