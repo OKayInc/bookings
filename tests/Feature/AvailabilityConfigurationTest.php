@@ -97,6 +97,31 @@ class AvailabilityConfigurationTest extends TestCase
         $response->assertDontSee('>Remove</button>', false);
     }
 
+    public function test_exception_type_start_and_end_fields_share_one_row(): void
+    {
+        [$user, $organization] = $this->ownerContext();
+
+        app(AvailabilityScheduleService::class)->save(
+            $organization,
+            AvailabilityScope::Organization,
+            $organization,
+            'America/Toronto',
+            true,
+            [],
+        );
+
+        $response = $this->actingAs($user)
+            ->withSession(['active_organization_uuid' => $organization->uuid])
+            ->get(route('availability.organization.edit'));
+
+        $response->assertOk();
+        $response->assertSee('availability-exception-fields', false);
+        $response->assertSee('availability-exception-grid', false);
+        $response->assertSee('id="mode"', false);
+        $response->assertSee('id="starts_at_local"', false);
+        $response->assertSee('id="ends_at_local"', false);
+    }
+
     public function test_overlapping_weekly_rules_are_rejected(): void
     {
         [$user, $organization] = $this->ownerContext();
