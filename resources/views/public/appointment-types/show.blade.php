@@ -1,5 +1,5 @@
 @extends('layouts.public')
-@section('title', $type->name)
+@php($seo = app(\App\Support\Seo\PublicSeo::class)->appointment($organization, $type, $accessMode))
 @section('content')
 @include('gallery.public-grid', ['photos' => $type->galleryPhotos, 'placement' => 'above', 'ownerName' => $type->name])
 <div class="card appointment-hero">
@@ -15,9 +15,9 @@
 </div>
 
 <div class="grid">
-    <div class="card"><h3>{{ $type->ticketing_enabled ? 'Resource booking range' : 'Duration' }}</h3><p>{{ $summary->duration($type) }}</p>@if($type->ticketing_enabled)<p class="muted">Starts when doors open and ends when resources become available again.</p>@endif</div>
+    <div class="card"><h2 class="h3">{{ $type->ticketing_enabled ? 'Resource booking range' : 'Duration' }}</h2><p>{{ $summary->duration($type) }}</p>@if($type->ticketing_enabled)<p class="muted">Starts when doors open and ends when resources become available again.</p>@endif</div>
     <div class="card">
-        <h3>Price</h3><p>{{ $summary->pricing($type) }}</p>
+        <h2 class="h3">Price</h2><p>{{ $summary->pricing($type) }}</p>
         @if($type->pricing_mode->value === 'rate')<p class="muted">Example: {{ $examplePrice }}</p>@endif
         @if($type->pricing_mode->value === 'per_attendee')
             @if(($type->attendee_pricing_mode?->value ?? 'flat') !== 'flat')
@@ -33,19 +33,19 @@
         @endif
         @if($type->shortNoticeFeeRules->where('is_active', true)->isNotEmpty())<p class="muted">An additional short-notice fee may apply after you select a start time.</p>@endif
     </div>
-    <div class="card"><h3>Attendance</h3><p>{{ $summary->attendance($type) }}</p></div>
-    <div class="card"><h3>Location</h3><p>{{ $summary->location($type) }}</p></div>
-    @unless($type->ticketing_enabled)<div class="card"><h3>Season</h3><p>{{ $summary->season($type) }}</p></div>@endunless
-    @unless($type->ticketing_enabled)<div class="card"><h3>Booking notice</h3><p>{{ $summary->bookingNotice($type) }}</p></div>@endunless
+    <div class="card"><h2 class="h3">Attendance</h2><p>{{ $summary->attendance($type) }}</p></div>
+    <div class="card"><h2 class="h3">Location</h2><p>{{ $summary->location($type) }}</p></div>
+    @unless($type->ticketing_enabled)<div class="card"><h2 class="h3">Season</h2><p>{{ $summary->season($type) }}</p></div>@endunless
+    @unless($type->ticketing_enabled)<div class="card"><h2 class="h3">Booking notice</h2><p>{{ $summary->bookingNotice($type) }}</p></div>@endunless
     @if($type->ticketing_enabled)
-        <div class="card"><h3>Event timing</h3><p>@if($event = $type->currentEventOccurrence())Doors open {{ $event->starts_at_utc->setTimezone($organization->timezone)->format('D, M j, Y · g:i A') }} ({{ $organization->timezone }}).@elseEvent date not yet set.@endif<br>Show starts {{ $type->show_start_offset_minutes === 0 ? 'when doors open' : $type->show_start_offset_minutes.' minutes later' }}.@if($type->show_end_offset_minutes !== null)<br>Show ends {{ $type->show_end_offset_minutes }} minutes after doors open.@endif</p></div>
-        <div class="card"><h3>Admission</h3><p>{{ $summary->seating($type) }}</p></div>
+        <div class="card"><h2 class="h3">Event timing</h2><p>@if($event = $type->currentEventOccurrence())Doors open {{ $event->starts_at_utc->setTimezone($organization->timezone)->format('D, M j, Y · g:i A') }} ({{ $organization->timezone }}).@elseEvent date not yet set.@endif<br>Show starts {{ $type->show_start_offset_minutes === 0 ? 'when doors open' : $type->show_start_offset_minutes.' minutes later' }}.@if($type->show_end_offset_minutes !== null)<br>Show ends {{ $type->show_end_offset_minutes }} minutes after doors open.@endif</p></div>
+        <div class="card"><h2 class="h3">Admission</h2><p>{{ $summary->seating($type) }}</p></div>
     @endif
 </div>
 
 <div class="grid">
-    <div class="card"><h3>Cancellation</h3><p>{{ $type->cancellation_allowed ? ((int) $type->cancellation_notice_value === 0 ? 'Allowed until start' : 'Allowed until '.$type->cancellation_notice_value.' '.$type->cancellation_notice_unit->plural((int) $type->cancellation_notice_value).' before start') : 'Not allowed' }}</p>@if($type->cancellation_policy_text)<div class="muted rich-text">{!! $type->safeCancellationPolicyHtml() !!}</div>@endif</div>
-    <div class="card"><h3>Rescheduling</h3><p>{{ $type->rescheduling_allowed ? ((int) $type->rescheduling_notice_value === 0 ? 'Allowed until start' : 'Allowed until '.$type->rescheduling_notice_value.' '.$type->rescheduling_notice_unit->plural((int) $type->rescheduling_notice_value).' before start') : 'Not allowed' }}</p>@if($type->rescheduling_max_count > 0)<p class="muted">Maximum {{ $type->rescheduling_max_count }} reschedule(s).</p>@endif @if($type->rescheduling_policy_text)<div class="muted rich-text">{!! $type->safeReschedulingPolicyHtml() !!}</div>@endif</div>
+    <div class="card"><h2 class="h3">Cancellation</h2><p>{{ $type->cancellation_allowed ? ((int) $type->cancellation_notice_value === 0 ? 'Allowed until start' : 'Allowed until '.$type->cancellation_notice_value.' '.$type->cancellation_notice_unit->plural((int) $type->cancellation_notice_value).' before start') : 'Not allowed' }}</p>@if($type->cancellation_policy_text)<div class="muted rich-text">{!! $type->safeCancellationPolicyHtml() !!}</div>@endif</div>
+    <div class="card"><h2 class="h3">Rescheduling</h2><p>{{ $type->rescheduling_allowed ? ((int) $type->rescheduling_notice_value === 0 ? 'Allowed until start' : 'Allowed until '.$type->rescheduling_notice_value.' '.$type->rescheduling_notice_unit->plural((int) $type->rescheduling_notice_value).' before start') : 'Not allowed' }}</p>@if($type->rescheduling_max_count > 0)<p class="muted">Maximum {{ $type->rescheduling_max_count }} reschedule(s).</p>@endif @if($type->rescheduling_policy_text)<div class="muted rich-text">{!! $type->safeReschedulingPolicyHtml() !!}</div>@endif</div>
 </div>
 
 <div class="card booking-scheduler" id="booking-scheduler">
