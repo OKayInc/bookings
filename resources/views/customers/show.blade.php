@@ -75,7 +75,9 @@
                     <td>
                         @if($booking->couponRedemption)
                             Yes<div class="small text-body-secondary">{{ $money->format($booking->couponRedemption->discount_minor, $booking->currency) }} discount</div>
-                        @else — @endif
+                        @else
+                            —
+                        @endif
                     </td>
                     <td><span class="badge {{ $booking->status->badgeClass() }}">{{ $booking->status->label() }}</span></td>
                     <td>
