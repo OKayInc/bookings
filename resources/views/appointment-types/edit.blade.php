@@ -6,11 +6,27 @@
     <div class="actions"><a class="btn" href="{{ route('appointment-types.questionnaire.index',$appointmentType) }}">Questionnaire</a><a class="btn" href="{{ route('appointment-types.calendars.edit',$appointmentType) }}">Calendars</a><a class="btn" href="{{ route('appointment-types.index') }}">Back to appointment types</a></div>
 </div>
 
-<form method="post" enctype="multipart/form-data" action="{{ route('appointment-types.update', $appointmentType) }}" class="form-stack">
+<div class="appointment-editor-toolbar" data-appointment-editor-toolbar>
+    <div>
+        <strong>Appointment configuration</strong>
+        <div class="muted">Open only the section you want to change. Your existing settings remain active while sections are collapsed.</div>
+    </div>
+    <div class="actions">
+        <button class="btn" type="button" data-appointment-sections="expand">Expand all</button>
+        <button class="btn" type="button" data-appointment-sections="collapse">Collapse all</button>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" action="{{ route('appointment-types.update', $appointmentType) }}" class="form-stack" id="appointment-type-editor">
     @csrf @method('PUT')
     @include('appointment-types.partials.form', ['appointmentType' => $appointmentType])
     <div class="sticky-actions"><button class="btn btn-primary" type="submit">Save appointment type</button></div>
 </form>
+
+<script>
+window.appointmentTypeEditorErrors = @json(array_keys($errors->toArray()));
+</script>
+<script src="{{ asset('js/appointment-type-editor.js') }}" defer></script>
 
 @include('gallery.manage', [
     'galleryPhotos' => $appointmentType->galleryPhotos,
