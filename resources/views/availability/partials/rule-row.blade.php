@@ -1,15 +1,15 @@
 <div class="availability-rule card compact" style="margin-bottom:10px">
     <div class="availability-rule-grid">
         <div class="field availability-rule-day">
-            <label>Day</label>
-            <select name="rules[{{ $index }}][weekday]">
+            <label class="visually-hidden">Day of week</label>
+            <select name="rules[{{ $index }}][weekday]" aria-label="Day of week">
                 @foreach(['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'] as $day => $label)
                     <option value="{{ $day }}" @selected((int)($rule['weekday'] ?? 1) === $day)>{{ $label }}</option>
                 @endforeach
             </select>
         </div>
-        <div class="field availability-rule-time"><label>Start</label><input type="time" name="rules[{{ $index }}][start_time]" value="{{ $rule['start_time'] ?? '09:00' }}" required></div>
-        <div class="field availability-rule-time"><label>End</label><input type="time" name="rules[{{ $index }}][end_time]" value="{{ $rule['end_time'] ?? '17:00' }}" required></div>
+        <div class="field availability-rule-time"><label class="visually-hidden">Starting hour</label><input type="time" aria-label="Starting hour" name="rules[{{ $index }}][start_time]" value="{{ $rule['start_time'] ?? '09:00' }}" required></div>
+        <div class="field availability-rule-time"><label class="visually-hidden">Ending hour</label><input type="time" aria-label="Ending hour" name="rules[{{ $index }}][end_time]" value="{{ $rule['end_time'] ?? '17:00' }}" required></div>
         <div class="field availability-rule-remove">
             <label class="visually-hidden">Remove interval</label>
             <button class="btn btn-outline-danger btn-sm" type="button" data-remove-rule aria-label="Remove interval" title="Remove interval">
