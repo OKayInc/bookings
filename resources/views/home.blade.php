@@ -1,6 +1,8 @@
 @extends('layouts.public')
 
-@php($seo = app(\App\Support\Seo\PublicSeo::class)->home())
+@php
+    $seo = app(\App\Support\Seo\PublicSeo::class)->home();
+@endphp
 
 @push('head')
     <style>
