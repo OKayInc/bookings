@@ -139,7 +139,8 @@ class BookingCreationService
             }
             $email = trim($contactData['email']);
             $normalized = OrganizationContact::normalizeEmail($email);
-            $paymentRule = $this->paymentRules->assertMayBook($organization, $email);
+            $paymentRule = $this->paymentRules->assertMayBook($organization, $email, $contactData['phone'] ?? null);
+            $reputationAllowlisted = $this->paymentRules->isReputationAllowlisted($organization, $email, $contactData['phone'] ?? null);
 
             if ($hold->invitation !== null) {
                 /** @var AppointmentTypeInvitation $invitation */
@@ -249,7 +250,7 @@ class BookingCreationService
                 $type,
                 $priceMinor,
                 CarbonImmutable::instance($hold->starts_at_utc)->utc(),
-                $paymentRule !== null,
+                $paymentRule !== null || $reputationAllowlisted,
                 $paymentRule?->getKey(),
                 $depositMinor,
             );
