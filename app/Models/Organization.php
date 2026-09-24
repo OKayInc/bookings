@@ -22,6 +22,7 @@ class Organization extends Model
         'timezone',
         'holiday_region',
         'currency',
+        'onboarding_completed_at',
         'plan_tier',
         'hide_platform_branding',
         'logo_path',
@@ -47,6 +48,7 @@ class Organization extends Model
             'hide_platform_branding' => 'boolean',
             'collects_taxes' => 'boolean',
             'tax_price_mode' => TaxPriceMode::class,
+            'onboarding_completed_at' => 'immutable_datetime',
         ];
     }
 
