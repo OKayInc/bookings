@@ -105,6 +105,7 @@ class OrganizationController extends Controller
                     $data,
                     $request,
                     $money,
+                    $planLimits,
                 );
             }
 
@@ -222,11 +223,14 @@ class OrganizationController extends Controller
         array $data,
         StoreOrganizationRequest $request,
         MoneyService $money,
+        PlanLimitService $planLimits,
     ): AppointmentType {
         $pricingMode = (string) ($data['guided_pricing_mode'] ?? 'free');
         $isOnline = ($data['guided_location_mode'] ?? 'in_person') === 'online';
         $attendanceMode = (string) ($data['guided_attendance_mode'] ?? 'single');
         $name = trim((string) $data['guided_appointment_name']);
+
+        $planLimits->assertCanActivateAppointmentType($organization);
 
         $appointmentType = $organization->appointmentTypes()->create([
             'name' => $name,
@@ -257,6 +261,8 @@ class OrganizationController extends Controller
         ]);
 
         if ($request->boolean('guided_use_owner_resource')) {
+            $planLimits->assertCanActivateResource($organization, true);
+
             $resource = Resource::create([
                 'organization_id' => $organization->getKey(),
                 'person_id' => $person->getKey(),
