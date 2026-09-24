@@ -4,10 +4,34 @@
 <div class="page-heading"><h1>Booking {{ $booking->reference }}</h1><p><span class="badge">{{ $booking->status->label() }}</span> · {{ $booking->appointmentType->name }}</p></div>
 
 <div class="grid">
-    <div class="card"><h3>Client</h3><p>{{ $booking->first_name }} {{ $booking->last_name }}</p><p>{{ $booking->email }} @if($booking->phone)<br>{{ $booking->phone }}@endif</p></div>
+    <div class="card"><h3>Client</h3><p>{{ $booking->first_name }} {{ $booking->last_name }}</p><p>{{ $booking->email }} @if($booking->phone)<br>{{ $booking->phone }}@endif</p>@if($canManage)<p class="mb-0"><a href="{{ route('customers.show', $booking->contact) }}">View customer history</a></p>@endif</div>
     <div class="card"><h3>{{ $booking->appointment->ticketing_enabled ? 'Event schedule' : 'Schedule' }}</h3>@if($booking->appointment->ticketing_enabled)<p><strong>Doors open:</strong> {{ $booking->appointment->starts_at_utc->setTimezone($booking->booking_timezone)->format('D, M j Y · g:i A') }}<br><strong>Show starts:</strong> {{ $booking->appointment->show_starts_at_utc->setTimezone($booking->booking_timezone)->format('D, M j Y · g:i A') }}@if($booking->appointment->show_ends_at_utc)<br><strong>Show ends:</strong> {{ $booking->appointment->show_ends_at_utc->setTimezone($booking->booking_timezone)->format('D, M j Y · g:i A') }}@endif<br><span class="muted">Resource booking ends {{ $booking->appointment->ends_at_utc->setTimezone($booking->booking_timezone)->format('g:i A') }}</span></p>@else<p>{{ $booking->appointment->starts_at_utc->setTimezone($booking->booking_timezone)->format('D, M j Y · g:i A') }} – {{ $booking->appointment->ends_at_utc->setTimezone($booking->booking_timezone)->format('g:i A') }}</p>@endif<p class="muted">Client: {{ $booking->booking_timezone }}</p></div>
     <div class="card"><h3>Price</h3><p>{{ app(\App\Domain\Money\MoneyService::class)->format($booking->price_minor, $booking->currency) }}</p><p>{{ $booking->attendee_count }} attendee(s)</p></div>
 </div>
+
+@if($canManage)
+<div class="card">
+    <div class="d-flex flex-column flex-md-row justify-content-between gap-3 align-items-md-center">
+        <div><h2 class="h4 mb-1">Attendance outcome</h2><p class="text-body-secondary mb-0">Record whether this customer attended successfully or was a no-show.</p></div>
+        @if(in_array($booking->status->value, ['cancelled','declined'], true))
+            <span class="badge text-bg-secondary">Not applicable</span>
+        @else
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                @if($booking->outcome?->outcome === 'successful')<span class="badge text-bg-success">Successful</span>@elseif($booking->outcome?->outcome === 'no_show')<span class="badge text-bg-danger">No-show</span>@else<span class="badge text-bg-secondary">Not reviewed</span>@endif
+                <form method="post" action="{{ route('customers.bookings.outcome', [$booking->contact, $booking]) }}">@csrf<input type="hidden" name="outcome" value="successful"><button class="btn btn-sm btn-outline-success" type="submit">Successful</button></form>
+                <form method="post" action="{{ route('customers.bookings.outcome', [$booking->contact, $booking]) }}">@csrf<input type="hidden" name="outcome" value="no_show"><button class="btn btn-sm btn-outline-danger" type="submit">No-show</button></form>
+            </div>
+        @endif
+    </div>
+    @php $customerListEntry = $booking->contact->accessEntries->where('status', 'active')->sortByDesc('created_at')->first(); @endphp
+    @if($customerListEntry)
+        <div class="alert {{ $customerListEntry->list_type === 'blacklist' ? 'alert-danger' : 'alert-success' }} mt-3 mb-0">
+            <strong>{{ ucfirst($customerListEntry->list_type) }}:</strong> {{ $customerListEntry->source === 'policy' ? 'automatically included by policy' : 'added manually' }}@if($customerListEntry->reason) — {{ $customerListEntry->reason }}@endif
+        </div>
+    @endif
+</div>
+@endif
+
 @if($booking->appointment->ticketing_enabled && $booking->appointment->event_location)
 <div class="card"><h2>Event location</h2><p>{!! nl2br(e($booking->appointment->event_location)) !!}</p><p class="muted">Attendee disclosure: {{ $booking->appointment->location_disclosure_mode->label() }}@if($booking->appointment->location_disclosure_mode === \App\Enums\LocationDisclosureMode::HoursBeforeEvent) · {{ $booking->appointment->location_disclosure_hours }} hours before show start @endif</p></div>
 @endif
