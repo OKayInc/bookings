@@ -11,6 +11,7 @@
         .filter((section) => section.querySelector(':scope > h2'));
 
     const normalizeName = (name) => String(name || '')
+        .replace(/\[\]/g, '')
         .replace(/\[([^\]]+)\]/g, '.$1')
         .replace(/^\./, '');
 
