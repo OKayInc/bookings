@@ -22,6 +22,7 @@ use App\Http\Controllers\PlanWebhookController;
 use App\Http\Controllers\PlatformPlanController;
 use App\Http\Controllers\GalleryPhotoController;
 use App\Http\Controllers\OrganizationController;
+use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\OrganizationSettingsController;
 use App\Http\Controllers\OrganizationInvitationAcceptanceController;
 use App\Http\Controllers\OrganizationMemberController;
@@ -223,6 +224,10 @@ Route::middleware('auth')->group(function (): void {
 });
 
 Route::middleware(['auth', 'verified'])->group(function (): void {
+    Route::get('/onboarding', [OnboardingController::class, 'show'])->name('onboarding.show');
+    Route::post('/onboarding', [OnboardingController::class, 'store'])->name('onboarding.store');
+    Route::post('/onboarding/skip', [OnboardingController::class, 'skip'])->name('onboarding.skip');
+
     Route::middleware('can:manage-platform')->prefix('platform/plans')->name('platform.plans.')->group(function (): void {
         Route::get('/', [PlatformPlanController::class, 'index'])->name('index');
         Route::post('/organizations/{organization}/grant', [PlatformPlanController::class, 'grant'])->name('grants.store');
