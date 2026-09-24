@@ -3,7 +3,7 @@
 @section('content')
 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
     <div><h1 class="mb-1">Customers</h1><p class="text-body-secondary mb-0">Search appointment history by email or phone number.</p></div>
-    @can('update', $activeOrganization)
+    @can('update', $organization)
         <a class="btn btn-outline-primary" href="{{ route('customers.settings.edit') }}">Reputation policies</a>
     @endcan
 </div>
@@ -15,7 +15,9 @@
             <input id="customer_search" class="form-control" name="q" value="{{ $search }}" placeholder="customer@example.com or 613-555-1234">
         </div>
         <div class="col-md-auto"><button class="btn btn-primary" type="submit">Search</button></div>
-        @if($search !== '')<div class="col-md-auto"><a class="btn btn-outline-secondary" href="{{ route('customers.index') }}">Clear</a></div>@endif
+        @if($search !== '')
+            <div class="col-md-auto"><a class="btn btn-outline-secondary" href="{{ route('customers.index') }}">Clear</a></div>
+        @endif
     </form>
 </div>
 
@@ -31,14 +33,21 @@
                 @endphp
                 <tr>
                     <td><strong>{{ $name ?: 'Unnamed customer' }}</strong></td>
-                    <td>{{ $customer->email ?: '—' }}@if($customer->phone)<br><span class="text-body-secondary">{{ $customer->phone }}</span>@endif</td>
+                    <td>
+                        {{ $customer->email ?: '—' }}
+                        @if($customer->phone)
+                            <br><span class="text-body-secondary">{{ $customer->phone }}</span>
+                        @endif
+                    </td>
                     <td>{{ $customer->bookings_count }}</td>
                     <td>{{ $customer->successful_count }}</td>
                     <td>{{ $customer->no_show_count }}</td>
                     <td>
                         @if($entry)
                             <span class="badge {{ $entry->list_type === 'blacklist' ? 'text-bg-danger' : 'text-bg-success' }}">{{ ucfirst($entry->list_type) }}</span>
-                            @if($entry->status === 'suggested')<span class="badge text-bg-warning">Suggested</span>@endif
+                            @if($entry->status === 'suggested')
+                                <span class="badge text-bg-warning">Suggested</span>
+                            @endif
                             <div class="small text-body-secondary">{{ $entry->source === 'policy' ? 'Policy' : 'Manual' }}</div>
                         @else
                             <span class="text-body-secondary">—</span>
@@ -52,6 +61,8 @@
             </tbody>
         </table>
     </div>
-    @if($customers->hasPages())<div class="mt-3">{{ $customers->links() }}</div>@endif
+    @if($customers->hasPages())
+        <div class="mt-3">{{ $customers->links() }}</div>
+    @endif
 </div>
 @endsection
