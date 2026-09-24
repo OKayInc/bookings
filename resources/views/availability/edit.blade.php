@@ -71,16 +71,18 @@
     @else
         <form method="post" action="{{ route('availability.exceptions.store', $schedule) }}">
             @csrf
-            <div class="row">
-                <div class="field">
-                    <label for="mode">Type</label>
-                    <select id="mode" name="mode">
-                        <option value="unavailable">Unavailable / blackout</option>
-                        <option value="available">Extra availability</option>
-                    </select>
+            <div class="availability-exception-fields">
+                <div class="availability-exception-grid">
+                    <div class="field">
+                        <label for="mode">Type</label>
+                        <select id="mode" name="mode">
+                            <option value="unavailable">Unavailable / blackout</option>
+                            <option value="available">Extra availability</option>
+                        </select>
+                    </div>
+                    <div class="field"><label for="starts_at_local">Starts ({{ $schedule->timezone }})</label><input type="datetime-local" id="starts_at_local" name="starts_at_local" required></div>
+                    <div class="field"><label for="ends_at_local">Ends ({{ $schedule->timezone }})</label><input type="datetime-local" id="ends_at_local" name="ends_at_local" required></div>
                 </div>
-                <div class="field"><label for="starts_at_local">Starts ({{ $schedule->timezone }})</label><input type="datetime-local" id="starts_at_local" name="starts_at_local" required></div>
-                <div class="field"><label for="ends_at_local">Ends ({{ $schedule->timezone }})</label><input type="datetime-local" id="ends_at_local" name="ends_at_local" required></div>
             </div>
             <div class="field"><label for="reason">Reason (optional)</label><input id="reason" name="reason" maxlength="255"></div>
             <button class="btn" type="submit">Add exception</button>
