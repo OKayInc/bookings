@@ -191,6 +191,20 @@ class AvailabilityConfigurationTest extends TestCase
         $response->assertSee('<select id="timezone" name="timezone" required>', false);
         $response->assertSee('<option value="America/Toronto" selected>America/Toronto</option>', false);
         $response->assertDontSee('<input id="timezone"', false);
+        $response->assertSee('Choose your timezone.');
+        $response->assertDontSee('If your business operates under many timezones, select the main one.');
+    }
+
+    public function test_organization_availability_uses_business_timezone_guidance(): void
+    {
+        [$user, $organization] = $this->ownerContext();
+
+        $response = $this->actingAs($user)
+            ->withSession(['active_organization_uuid' => $organization->uuid])
+            ->get(route('availability.organization.edit'));
+
+        $response->assertOk();
+        $response->assertSee('Choose your timezone. If your business operates under many timezones, select the main one.');
     }
 
     private function ownerContext(): array

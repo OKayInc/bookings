@@ -36,7 +36,13 @@
                     <option value="{{ $timezoneOption }}" @selected($timezone === $timezoneOption)>{{ $timezoneOption }}</option>
                 @endforeach
             </select>
-            <div class="muted">Choose your timezone. If your business operates under many timezones, select the main one.</div>
+            <div class="muted">
+                @if($scope->value === 'organization')
+                    Choose your timezone. If your business operates under many timezones, select the main one.
+                @else
+                    Choose your timezone.
+                @endif
+            </div>
         </div>
         <label class="inline-check"><input type="checkbox" name="is_active" value="1" @checked(old('is_active', $schedule?->is_active ?? true))> Schedule active</label>
     </div>
