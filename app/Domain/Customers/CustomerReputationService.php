@@ -109,7 +109,7 @@ class CustomerReputationService
         return DB::transaction(function () use ($contact, $listType, $actor, $reason): CustomerAccessEntry {
             CustomerAccessEntry::query()
                 ->where('organization_contact_id', $contact->getKey())
-                ->where('status', 'active')
+                ->whereIn('status', ['active', 'suggested'])
                 ->update(['status' => 'resolved', 'resolved_at_utc' => now('UTC')]);
 
             $entry = CustomerAccessEntry::create([
@@ -125,6 +125,22 @@ class CustomerReputationService
             $this->log($entry, 'added', 'manual', $reason, $actor);
 
             return $entry;
+        });
+    }
+
+    public function approveSuggestion(CustomerAccessEntry $entry, ?Person $actor): void
+    {
+        abort_unless($entry->status === 'suggested' && $entry->source === 'policy', 422, 'This entry is not a policy suggestion.');
+
+        DB::transaction(function () use ($entry, $actor): void {
+            CustomerAccessEntry::query()
+                ->where('organization_contact_id', $entry->organization_contact_id)
+                ->where('status', 'active')
+                ->whereKeyNot($entry->getKey())
+                ->update(['status' => 'resolved', 'resolved_at_utc' => now('UTC')]);
+
+            $entry->update(['status' => 'active']);
+            $this->log($entry, 'policy_accepted', 'manual', 'Policy suggestion accepted by staff.', $actor);
         });
     }
 
