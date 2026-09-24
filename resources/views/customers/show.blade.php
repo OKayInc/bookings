@@ -46,9 +46,14 @@
                     @if($entry->reason)<div class="text-body-secondary small">{{ $entry->reason }}</div>@endif
                     @if($entry->expires_at_utc)<div class="text-body-secondary small">Expires {{ $entry->expires_at_utc->setTimezone($customer->organization->timezone)->format('Y-m-d') }}</div>@endif
                 </div>
-                @if($entry->status === 'active')
-                    <form method="post" action="{{ route('customers.access.resolve', [$customer, $entry]) }}">@csrf<button class="btn btn-sm btn-outline-secondary" type="submit">Remove</button></form>
-                @endif
+                <div class="d-flex gap-2">
+                    @if($entry->status === 'suggested')
+                        <form method="post" action="{{ route('customers.access.approve', [$customer, $entry]) }}">@csrf<button class="btn btn-sm btn-primary" type="submit">Apply suggestion</button></form>
+                    @endif
+                    @if($entry->status === 'active')
+                        <form method="post" action="{{ route('customers.access.resolve', [$customer, $entry]) }}">@csrf<button class="btn btn-sm btn-outline-secondary" type="submit">Remove</button></form>
+                    @endif
+                </div>
             </div>
         </div>
     @endforeach
