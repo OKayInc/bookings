@@ -3,7 +3,7 @@
 @section('content')
 <div class="card" style="max-width:760px;margin:auto">
 <h1>Create account</h1>
-<p class="muted">A backend account is tied to a person. Registration also creates the first organization. You must verify your email address before accessing the backend.</p>
+<p class="muted">A backend account is tied to a person. Registration creates your first organization. After email verification, a short guided setup will build your first booking page, hours, and resource.</p>
 <form method="post" action="{{ url('/register') }}">@csrf
 <div class="row">
 <div class="field"><label>First name</label><input name="first_name" value="{{ old('first_name') }}" required></div>

@@ -33,6 +33,10 @@ class EnsureActiveOrganization
 
         $this->context->set($organization);
 
+        if ($organization->onboarding_completed_at === null && ! $request->routeIs('onboarding.*')) {
+            return redirect()->route('onboarding.show');
+        }
+
         return $next($request);
     }
 }
