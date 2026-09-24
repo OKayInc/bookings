@@ -14,6 +14,7 @@ Schedule::command('appointments:expire-schedule-proposals')->everyTenMinutes()->
 
 Schedule::command('appointments:send-reminders')->everyTenMinutes()->withoutOverlapping();
 Schedule::command('appointments:send-outcome-reviews')->everyTenMinutes()->withoutOverlapping();
+Schedule::command('customers:expire-access-entries')->hourly()->withoutOverlapping();
 Schedule::command('appointments:sync-staff-confirmations')->everyTenMinutes()->withoutOverlapping();
 Schedule::command('appointments:disclose-event-locations')->everyTenMinutes()->withoutOverlapping();
 
