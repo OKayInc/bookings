@@ -293,6 +293,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::get('/customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');
         Route::post('/customers/{customer}/bookings/{booking}/outcome', [CustomerController::class, 'outcome'])->name('customers.bookings.outcome');
         Route::post('/customers/{customer}/access', [CustomerController::class, 'access'])->name('customers.access.store');
+        Route::post('/customers/{customer}/access/{entry}/approve', [CustomerController::class, 'approveAccess'])->name('customers.access.approve');
         Route::post('/customers/{customer}/access/{entry}/resolve', [CustomerController::class, 'resolveAccess'])->name('customers.access.resolve');
 
         Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
