@@ -57,7 +57,9 @@
                 <thead><tr><th>Allowance</th><th class="text-end">Used</th><th class="text-end">Limit</th></tr></thead>
                 <tbody>
                 @foreach($labels as $key => $label)
-                    @php($limit = $limits[$key])
+                    @php
+                        $limit = $limits[$key];
+                    @endphp
                     <tr class="{{ $limit !== null && $usage[$key] >= $limit ? 'table-warning' : '' }}">
                         <td>{{ $label }}</td>
                         <td class="text-end">{{ number_format($usage[$key]) }}</td>
