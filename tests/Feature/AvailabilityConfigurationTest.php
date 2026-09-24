@@ -87,7 +87,13 @@ class AvailabilityConfigurationTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('availability-rule-grid', false);
+        $response->assertSee('aria-label="Day of week"', false);
+        $response->assertSee('aria-label="Starting hour"', false);
+        $response->assertSee('aria-label="Ending hour"', false);
         $response->assertSee('aria-label="Remove interval"', false);
+        $response->assertDontSee('<label>Day</label>', false);
+        $response->assertDontSee('<label>Start</label>', false);
+        $response->assertDontSee('<label>End</label>', false);
         $response->assertDontSee('>Remove</button>', false);
     }
 
