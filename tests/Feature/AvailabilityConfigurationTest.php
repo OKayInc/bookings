@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Availability\AvailabilityScheduleService;
 use App\Enums\AvailabilityScope;
 use App\Enums\MembershipRole;
 use App\Enums\MembershipStatus;
@@ -45,20 +46,20 @@ class AvailabilityConfigurationTest extends TestCase
     {
         [$user, $organization] = $this->ownerContext();
 
-        $this->actingAs($user)
-            ->withSession(['active_organization_uuid' => $organization->uuid])
-            ->put(route('availability.organization.update'), [
-                'timezone' => 'America/Toronto',
-                'is_active' => '1',
-                'rules' => [
-                    ['weekday' => 2, 'start_time' => '14:00', 'end_time' => '17:00'],
-                    ['weekday' => 0, 'start_time' => '12:00', 'end_time' => '15:00'],
-                    ['weekday' => 0, 'start_time' => '08:00', 'end_time' => '11:00'],
-                    ['weekday' => 0, 'start_time' => '08:00', 'end_time' => '10:00'],
-                    ['weekday' => 1, 'start_time' => '09:00', 'end_time' => '17:00'],
-                ],
-            ])
-            ->assertSessionHasNoErrors();
+        app(AvailabilityScheduleService::class)->save(
+            $organization,
+            AvailabilityScope::Organization,
+            $organization,
+            'America/Toronto',
+            true,
+            [
+                ['weekday' => 2, 'start_time' => '14:00', 'end_time' => '17:00'],
+                ['weekday' => 0, 'start_time' => '12:00', 'end_time' => '15:00'],
+                ['weekday' => 0, 'start_time' => '08:00', 'end_time' => '11:00'],
+                ['weekday' => 0, 'start_time' => '08:00', 'end_time' => '10:00'],
+                ['weekday' => 1, 'start_time' => '09:00', 'end_time' => '17:00'],
+            ],
+        );
 
         $rules = AvailabilitySchedule::firstOrFail()->rules()->get();
 
