@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.public')
 @section('title', 'Review appointment attendance')
 @section('content')
 <div class="card mx-auto" style="max-width:640px">
