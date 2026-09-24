@@ -62,6 +62,7 @@ class CustomerReputationService
         $noShows = $blacklistBookings->where('outcome.outcome', 'no_show')->count();
 
         if ($settings->blacklist_mode !== 'disabled' && $noShows >= (int) $settings->blacklist_no_show_threshold) {
+            $this->resolvePolicy($contact, 'whitelist_good_history', 'Superseded by the blacklist policy.');
             $this->applyPolicy(
                 $contact,
                 'blacklist',
@@ -74,6 +75,8 @@ class CustomerReputationService
             return;
         }
 
+        $this->resolvePolicy($contact, 'blacklist_no_shows', 'The customer no longer meets the blacklist policy.');
+
         $whiteBookings = $reviewed->filter(function (Booking $booking) use ($settings, $now): bool {
             if (! $settings->whitelist_window_days) {
                 return true;
@@ -84,12 +87,12 @@ class CustomerReputationService
         $whiteNoShows = $whiteBookings->where('outcome.outcome', 'no_show')->count();
         $revenue = $whiteBookings->sum(fn (Booking $booking): int => $booking->netPaidMinor());
 
-        if (
-            $settings->whitelist_mode !== 'disabled'
+        $qualifiesForWhitelist = $settings->whitelist_mode !== 'disabled'
             && $successes >= (int) $settings->whitelist_success_threshold
             && $whiteNoShows <= (int) $settings->whitelist_max_no_shows
-            && $revenue >= (int) $settings->whitelist_min_revenue_minor
-        ) {
+            && $revenue >= (int) $settings->whitelist_min_revenue_minor;
+
+        if ($qualifiesForWhitelist) {
             $this->applyPolicy(
                 $contact,
                 'whitelist',
@@ -99,7 +102,10 @@ class CustomerReputationService
                 ['successes' => $successes, 'no_shows' => $whiteNoShows, 'revenue_minor' => $revenue, 'window_days' => $settings->whitelist_window_days],
                 $settings,
             );
+            return;
         }
+
+        $this->resolvePolicy($contact, 'whitelist_good_history', 'The customer no longer meets the whitelist policy.');
     }
 
     public function addManual(OrganizationContact $contact, string $listType, ?Person $actor, ?string $reason = null): CustomerAccessEntry
@@ -178,7 +184,22 @@ class CustomerReputationService
             ->first();
 
         if ($existing) {
-            $existing->update(['reason' => $reason, 'policy_snapshot' => $snapshot]);
+            $changes = ['reason' => $reason, 'policy_snapshot' => $snapshot];
+
+            if ($status === 'active' && $existing->status === 'suggested') {
+                CustomerAccessEntry::query()
+                    ->where('organization_contact_id', $contact->getKey())
+                    ->where('status', 'active')
+                    ->where('source', 'policy')
+                    ->whereKeyNot($existing->getKey())
+                    ->update(['status' => 'resolved', 'resolved_at_utc' => now('UTC')]);
+                $changes['status'] = 'active';
+                $existing->update($changes);
+                $this->log($existing, 'policy_applied', 'policy', $reason, null, $snapshot);
+                return;
+            }
+
+            $existing->update($changes);
             return;
         }
 
@@ -205,6 +226,21 @@ class CustomerReputationService
         ]);
 
         $this->log($entry, $status === 'active' ? 'policy_applied' : 'policy_suggested', 'policy', $reason, null, $snapshot);
+    }
+
+    private function resolvePolicy(OrganizationContact $contact, string $policyKey, string $reason): void
+    {
+        $entries = CustomerAccessEntry::query()
+            ->where('organization_contact_id', $contact->getKey())
+            ->where('source', 'policy')
+            ->where('policy_key', $policyKey)
+            ->whereIn('status', ['active', 'suggested'])
+            ->get();
+
+        foreach ($entries as $entry) {
+            $entry->update(['status' => 'resolved', 'resolved_at_utc' => now('UTC')]);
+            $this->log($entry, 'policy_revoked', 'policy', $reason, null);
+        }
     }
 
     private function log(CustomerAccessEntry $entry, string $event, string $source, ?string $reason, ?Person $actor, array $metadata = []): void
