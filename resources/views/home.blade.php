@@ -1,10 +1,8 @@
 @extends('layouts.public')
 
-@section('title', 'Appointment.to | Simple online scheduling for real-world businesses')
+@php($seo = app(\App\Support\Seo\PublicSeo::class)->home())
 
 @push('head')
-    <meta name="description" content="Appointment.to helps businesses accept appointments, events and payments online while coordinating staff, resources and calendars. Start free and grow when you need more.">
-    <meta name="robots" content="index,follow">
     <style>
         .sales-hero { background: radial-gradient(circle at 85% 15%, rgba(255,255,255,.13), transparent 28%), linear-gradient(135deg,#111827 0%,#1f2937 58%,#7f1d1d 100%); }
         .sales-eyebrow { letter-spacing:.09em; }
