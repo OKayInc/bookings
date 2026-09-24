@@ -1,9 +1,6 @@
 @extends('layouts.public')
 
-@section('title', 'Pricing | Appointment.to')
-@push('head')
-<meta name="description" content="Compare Appointment.to Free and Business plans, included capacity and optional Business add-ons.">
-@endpush
+@php($seo = app(\App\Support\Seo\PublicSeo::class)->pricing())
 
 @section('content')
 @php
