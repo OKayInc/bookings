@@ -34,7 +34,13 @@
     <div class="alert alert-info">Current access is scheduled through {{ $entitlement->expiresAt->setTimezone($organization->timezone)->format('M j, Y g:i A') }}.</div>
 @endif
 @if($subscription?->cancel_at_period_end)
-    <div class="alert alert-warning">Cancellation is scheduled for the end of the current paid period@if($subscription->current_period_ends_at_utc), {{ $subscription->current_period_ends_at_utc->setTimezone($organization->timezone)->format('M j, Y') }}@endif. Capacity and features remain available until then.</div>
+    <div class="alert alert-warning">
+        Cancellation is scheduled for the end of the current paid period
+        @if($subscription->current_period_ends_at_utc)
+            , {{ $subscription->current_period_ends_at_utc->setTimezone($organization->timezone)->format('M j, Y') }}
+        @endif.
+        Capacity and features remain available until then.
+    </div>
 @endif
 
 <div class="row g-4 mb-4">
