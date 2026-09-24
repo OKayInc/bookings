@@ -21,6 +21,7 @@
         && in_array($subscription->status, ['trialing', 'active', 'past_due'], true);
     $mayStartCheckout = (!$entitlement->hasBusinessFeatures() || $entitlement->source === 'legacy_paid')
         && !$hasProviderSubscription;
+    $isUnlimitedPlan = $entitlement->level->isUnlimited();
 @endphp
 <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
     <div>
@@ -100,7 +101,7 @@
 <div class="card mb-4"><div class="card-body">
     <h2 class="h4">Business add-ons</h2>
     <p class="text-body-secondary">Increases apply after Stripe confirms the update. Reductions stay available until the current paid period ends and require usage to fit the new capacity. Nothing is deleted automatically. Annual subscriptions use the same monthly equivalent, billed as 12 months on the annual invoice.</p>
-    @if($entitlement->level->isUnlimited())
+    @if($isUnlimitedPlan)
         <div class="alert alert-success mb-0">Complimentary Unlimited does not need add-ons.</div>
     @else
         <form method="post" action="{{ route('plans.addons.update') }}">@csrf @method('PUT')
@@ -108,13 +109,14 @@
             @foreach($addonTypes as $addon)
                 @php
                     $record = $addonRecords->get($addon->value);
+                    $hasPendingAddonChange = $record !== null && $record->pending_quantity !== null;
                     $price = ((int) config('plans.addons.'.$addon->value.'.unit_amount_minor')) / 100;
                     $displayPrice = rtrim(rtrim(number_format($price, 2), '0'), '.');
                 @endphp
                 <div class="col-md-6 col-xl-4">
                     <label class="form-label" for="addon-{{ $addon->value }}">{{ $addon->label() }}</label>
                     <div class="input-group"><span class="input-group-text">{{ $currencyPrefix }}{{ $displayPrice }}/mo ×</span><input class="form-control" id="addon-{{ $addon->value }}" type="number" min="0" max="100000" name="addons[{{ $addon->value }}]" value="{{ old('addons.'.$addon->value, $addonSelections[$addon->value]) }}"></div>
-                    @if($record?->pending_quantity !== null)
+                    @if($hasPendingAddonChange)
                         <div class="form-text text-warning">Changes to {{ $record->pending_quantity }} on {{ $record->pending_effective_at_utc->setTimezone($organization->timezone)->format('M j, Y') }}.</div>
                     @endif
                 </div>
