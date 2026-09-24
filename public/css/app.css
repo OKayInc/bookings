@@ -249,18 +249,13 @@ main {
     display: grid;
     grid-template-columns: minmax(88px, 1.35fr) minmax(82px, 1fr) minmax(82px, 1fr) 38px;
     gap: .5rem;
-    align-items: end;
+    align-items: center;
     min-width: 314px;
 }
 
 .availability-rule-grid .field {
     min-width: 0;
     margin-bottom: 0;
-}
-
-.availability-rule-grid .field label {
-    margin-bottom: .25rem;
-    font-size: .875rem;
 }
 
 .availability-rule-grid input,
