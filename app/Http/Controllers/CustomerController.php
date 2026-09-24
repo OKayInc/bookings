@@ -90,6 +90,16 @@ class CustomerController extends Controller
         return back()->with('success', ucfirst($data['list_type']).' entry added.');
     }
 
+    public function approveAccess(Request $request, OrganizationContact $customer, CustomerAccessEntry $entry, OrganizationContext $context, CustomerReputationService $service): RedirectResponse
+    {
+        $this->sameOrganization($customer, $context);
+        $this->authorize('manageScheduling', $context->organization());
+        abort_unless(hash_equals((string) $customer->getKey(), (string) $entry->organization_contact_id), 404);
+        $service->approveSuggestion($entry, $request->user()->person);
+
+        return back()->with('success', 'Policy suggestion applied.');
+    }
+
     public function resolveAccess(Request $request, OrganizationContact $customer, CustomerAccessEntry $entry, OrganizationContext $context, CustomerReputationService $service): RedirectResponse
     {
         $this->sameOrganization($customer, $context);
