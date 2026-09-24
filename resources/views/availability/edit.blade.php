@@ -131,8 +131,9 @@
     });
 
     rules.addEventListener('click', (event) => {
-        if (event.target.matches('[data-remove-rule]')) {
-            event.target.closest('.availability-rule').remove();
+        const removeButton = event.target.closest('[data-remove-rule]');
+        if (removeButton) {
+            removeButton.closest('.availability-rule').remove();
             refreshEmpty();
         }
     });
