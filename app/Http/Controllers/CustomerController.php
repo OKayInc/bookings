@@ -41,7 +41,7 @@ class CustomerController extends Controller
             ->paginate(40)
             ->withQueryString();
 
-        return view('customers.index', compact('customers', 'search'));
+        return view('customers.index', compact('organization', 'customers', 'search'));
     }
 
     public function show(OrganizationContact $customer, OrganizationContext $context): View
