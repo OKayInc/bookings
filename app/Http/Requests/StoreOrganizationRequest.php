@@ -8,6 +8,7 @@ use App\Rules\IanaTimezone;
 use App\Rules\YouTubeChannelUrl;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreOrganizationRequest extends FormRequest
 {
@@ -86,6 +87,81 @@ class StoreOrganizationRequest extends FormRequest
             'taxes.*.percentage' => $collectsTaxes
                 ? ['required', 'numeric', 'gt:0', 'lte:100', 'regex:/^\d{1,3}(?:\.\d{1,4})?$/']
                 : ['nullable'],
+
+            // Guided organization onboarding. These fields are only used while
+            // creating an organization; editing continues to use the full
+            // organization and appointment-type editors.
+            'guided_setup' => ['nullable', 'boolean'],
+            'guided_business_type' => [
+                Rule::requiredIf(fn (): bool => $this->routeIs('organizations.store') && $this->boolean('guided_setup')),
+                'nullable',
+                Rule::in(['photography', 'beauty', 'consulting', 'wellness', 'home_services', 'fitness', 'rental', 'events', 'other']),
+            ],
+            'guided_appointment_name' => [
+                Rule::requiredIf(fn (): bool => $this->routeIs('organizations.store') && $this->boolean('guided_setup')),
+                'nullable', 'string', 'max:180',
+            ],
+            'guided_duration_minutes' => [
+                Rule::requiredIf(fn (): bool => $this->routeIs('organizations.store') && $this->boolean('guided_setup')),
+                'nullable', 'integer', 'between:5,1440',
+            ],
+            'guided_location_mode' => [
+                Rule::requiredIf(fn (): bool => $this->routeIs('organizations.store') && $this->boolean('guided_setup')),
+                'nullable', Rule::in(['in_person', 'online']),
+            ],
+            'guided_pricing_mode' => [
+                Rule::requiredIf(fn (): bool => $this->routeIs('organizations.store') && $this->boolean('guided_setup')),
+                'nullable', Rule::in(['free', 'fixed']),
+            ],
+            'guided_fixed_price' => [
+                Rule::requiredIf(fn (): bool => $this->routeIs('organizations.store')
+                    && $this->boolean('guided_setup')
+                    && $this->input('guided_pricing_mode') === 'fixed'),
+                'nullable', 'numeric', 'gt:0', 'max:999999999',
+            ],
+            'guided_attendance_mode' => [
+                Rule::requiredIf(fn (): bool => $this->routeIs('organizations.store') && $this->boolean('guided_setup')),
+                'nullable', Rule::in(['single', 'group']),
+            ],
+            'guided_capacity' => [
+                Rule::requiredIf(fn (): bool => $this->routeIs('organizations.store')
+                    && $this->boolean('guided_setup')
+                    && $this->input('guided_attendance_mode') === 'group'),
+                'nullable', 'integer', 'between:2,100000',
+            ],
+            'guided_use_owner_resource' => ['nullable', 'boolean'],
+            'guided_booking_notice_hours' => [
+                Rule::requiredIf(fn (): bool => $this->routeIs('organizations.store') && $this->boolean('guided_setup')),
+                'nullable', 'integer', 'between:0,8760',
+            ],
+            'guided_weekdays' => [
+                Rule::requiredIf(fn (): bool => $this->routeIs('organizations.store') && $this->boolean('guided_setup')),
+                'nullable', 'array', 'min:1', 'max:7',
+            ],
+            'guided_weekdays.*' => ['integer', 'between:0,6', 'distinct'],
+            'guided_start_time' => [
+                Rule::requiredIf(fn (): bool => $this->routeIs('organizations.store') && $this->boolean('guided_setup')),
+                'nullable', 'date_format:H:i',
+            ],
+            'guided_end_time' => [
+                Rule::requiredIf(fn (): bool => $this->routeIs('organizations.store') && $this->boolean('guided_setup')),
+                'nullable', 'date_format:H:i',
+            ],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if (! $this->routeIs('organizations.store') || ! $this->boolean('guided_setup')) {
+                return;
+            }
+
+            $start = (string) $this->input('guided_start_time', '');
+            $end = (string) $this->input('guided_end_time', '');
+            if ($start !== '' && $end !== '' && $end <= $start) {
+                $validator->errors()->add('guided_end_time', 'The closing time must be later than the opening time.');
+            }
+        });
     }
 }
