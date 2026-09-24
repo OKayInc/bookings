@@ -6,6 +6,7 @@ use App\Enums\AppointmentVisibility;
 use App\Models\AppointmentType;
 use App\Models\Organization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class PublicSeoTest extends TestCase
@@ -14,11 +15,15 @@ class PublicSeoTest extends TestCase
 
     public function test_homepage_has_indexable_metadata_canonical_and_structured_data(): void
     {
+        config(['filesystems.public_asset_url' => 'https://images.appointment.to']);
+
         $this->get('/')
             ->assertOk()
             ->assertSee('<meta name="robots" content="index,follow,max-image-preview:large">', false)
             ->assertSee('<link rel="canonical" href="'.route('home').'">', false)
             ->assertSee('property="og:title"', false)
+            ->assertSee('<meta property="og:image" content="https://images.appointment.to/images/appointment-to-logo.png">', false)
+            ->assertSee('<link rel="icon" href="https://images.appointment.to/images/appointment-to-logo.png">', false)
             ->assertSee('application/ld+json', false)
             ->assertSee('"SoftwareApplication"', false);
     }
@@ -61,6 +66,55 @@ class PublicSeoTest extends TestCase
             ->assertSee('Family Photo Session | More Than Photos | Appointment.to')
             ->assertSee('Relaxed family photography in Cornwall. Book online with More Than Photos.')
             ->assertSee('"Service"', false);
+    }
+
+    public function test_public_social_images_follow_appointment_organization_and_platform_fallbacks(): void
+    {
+        Storage::fake('public');
+        config([
+            'filesystems.disks.public.url' => 'https://images.appointment.to/storage',
+            'filesystems.public_asset_url' => 'https://images.appointment.to',
+            'organizations.logo_disk' => 'public',
+            'appointment-types.logo_disk' => 'public',
+        ]);
+
+        $organization = Organization::factory()->create([
+            'name' => 'More Than Photos',
+            'slug' => 'more-than-photos',
+            'logo_path' => 'organizations/logos/mtp.png',
+        ]);
+        Storage::disk('public')->put($organization->logo_path, 'organization-logo');
+
+        $type = $this->type($organization, 'Family Session', AppointmentVisibility::Public, [
+            'logo_path' => 'appointment-types/logos/family.png',
+        ]);
+        Storage::disk('public')->put($type->logo_path, 'appointment-logo');
+
+        $organizationUrl = route('public.appointment-types.index', $organization->slug);
+        $this->get($organizationUrl)
+            ->assertOk()
+            ->assertSee('<meta property="og:image" content="https://images.appointment.to/storage/organizations/logos/mtp.png">', false)
+            ->assertSee('<link rel="icon" href="https://images.appointment.to/storage/organizations/logos/mtp.png">', false);
+
+        $typeUrl = route('public.appointment-types.show', [
+            'organizationSlug' => $organization->slug,
+            'appointmentSlug' => $type->slug,
+        ]);
+        $this->get($typeUrl)
+            ->assertOk()
+            ->assertSee('<meta property="og:image" content="https://images.appointment.to/storage/appointment-types/logos/family.png">', false)
+            ->assertSee('<link rel="icon" href="https://images.appointment.to/storage/appointment-types/logos/family.png">', false);
+
+        $type->update(['logo_path' => null]);
+        $this->get($typeUrl)
+            ->assertOk()
+            ->assertSee('<meta property="og:image" content="https://images.appointment.to/storage/organizations/logos/mtp.png">', false);
+
+        $organization->update(['logo_path' => null]);
+        $this->get($organizationUrl)
+            ->assertOk()
+            ->assertSee('<meta property="og:image" content="https://images.appointment.to/images/appointment-to-logo.png">', false)
+            ->assertSee('<link rel="icon" href="https://images.appointment.to/images/appointment-to-logo.png">', false);
     }
 
     public function test_secret_and_password_protected_appointment_pages_are_noindex(): void
