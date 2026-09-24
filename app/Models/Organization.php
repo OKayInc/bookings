@@ -56,7 +56,14 @@ class Organization extends Model
             return null;
         }
 
-        return Storage::disk((string) config('organizations.logo_disk', 'public'))->url($this->logo_path);
+        $disk = (string) config('organizations.logo_disk', 'public');
+        $configuredUrl = config("filesystems.disks.{$disk}.url");
+
+        if (is_string($configuredUrl) && $configuredUrl !== '') {
+            return rtrim($configuredUrl, '/').'/'.ltrim($this->logo_path, '/');
+        }
+
+        return Storage::disk($disk)->url($this->logo_path);
     }
 
     public function memberships(): HasMany
