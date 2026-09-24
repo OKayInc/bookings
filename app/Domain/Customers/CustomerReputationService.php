@@ -45,7 +45,7 @@ class CustomerReputationService
 
         $reviewed = $contact->bookings()
             ->whereHas('outcome')
-            ->with('outcome')
+            ->with(['outcome', 'appointment'])
             ->get();
 
         if ($reviewed->count() < (int) $settings->minimum_reviewed_appointments) {
