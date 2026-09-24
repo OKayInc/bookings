@@ -11,7 +11,12 @@
     <div>
         <a class="small" href="{{ route('customers.index') }}">← Customers</a>
         <h1 class="mb-1">{{ $name }}</h1>
-        <p class="text-body-secondary mb-0">{{ $customer->email }}@if($customer->phone) · {{ $customer->phone }}@endif</p>
+        <p class="text-body-secondary mb-0">
+            {{ $customer->email }}
+            @if($customer->phone)
+                · {{ $customer->phone }}
+            @endif
+        </p>
     </div>
     <div class="d-flex gap-2">
         <form method="post" action="{{ route('customers.access.store', $customer) }}">@csrf<input type="hidden" name="list_type" value="whitelist"><button class="btn btn-outline-success" type="submit">Add to whitelist</button></form>
@@ -38,13 +43,23 @@
                     <span class="badge {{ $entry->status === 'suggested' ? 'text-bg-warning' : ($entry->list_type === 'blacklist' ? 'text-bg-danger' : 'text-bg-success') }}">{{ ucfirst($entry->status) }}</span>
                     <div class="small mt-1">
                         @if($entry->source === 'policy')
-                            Added by policy@if($entry->policy_key): <code>{{ $entry->policy_key }}</code>@endif
+                            Added by policy
+                            @if($entry->policy_key)
+                                : <code>{{ $entry->policy_key }}</code>
+                            @endif
                         @else
-                            Added manually@if($entry->createdBy) by {{ $entry->createdBy->full_name }}@endif
+                            Added manually
+                            @if($entry->createdBy)
+                                by {{ $entry->createdBy->full_name }}
+                            @endif
                         @endif
                     </div>
-                    @if($entry->reason)<div class="text-body-secondary small">{{ $entry->reason }}</div>@endif
-                    @if($entry->expires_at_utc)<div class="text-body-secondary small">Expires {{ $entry->expires_at_utc->setTimezone($customer->organization->timezone)->format('Y-m-d') }}</div>@endif
+                    @if($entry->reason)
+                        <div class="text-body-secondary small">{{ $entry->reason }}</div>
+                    @endif
+                    @if($entry->expires_at_utc)
+                        <div class="text-body-secondary small">Expires {{ $entry->expires_at_utc->setTimezone($customer->organization->timezone)->format('Y-m-d') }}</div>
+                    @endif
                 </div>
                 <div class="d-flex gap-2">
                     @if($entry->status === 'suggested')
@@ -115,8 +130,12 @@
             <li class="list-group-item px-0">
                 <strong>{{ str_replace('_', ' ', ucfirst($event->event_type)) }}</strong>
                 <span class="text-body-secondary">· {{ $event->occurred_at_utc->setTimezone($customer->organization->timezone)->format('Y-m-d H:i') }}</span>
-                @if($event->actor)<span class="text-body-secondary"> · {{ $event->actor->full_name }}</span>@endif
-                @if($event->reason)<div class="small">{{ $event->reason }}</div>@endif
+                @if($event->actor)
+                    <span class="text-body-secondary"> · {{ $event->actor->full_name }}</span>
+                @endif
+                @if($event->reason)
+                    <div class="small">{{ $event->reason }}</div>
+                @endif
             </li>
         @endforeach
     </ul>
