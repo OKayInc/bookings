@@ -25,7 +25,12 @@
 <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
     <div>
         <h1 class="mb-1">Plan &amp; billing</h1>
-        <p class="text-body-secondary mb-0">{{ $organization->name }} is on <strong>{{ $entitlement->level->label() }}</strong>@if($entitlement->source !== 'default') via {{ str_replace('_', ' ', $entitlement->source) }}@endif.</p>
+        <p class="text-body-secondary mb-0">
+            {{ $organization->name }} is on <strong>{{ $entitlement->level->label() }}</strong>
+            @if($entitlement->source !== 'default')
+                via {{ str_replace('_', ' ', $entitlement->source) }}
+            @endif.
+        </p>
     </div>
     <span class="badge {{ $entitlement->hasBusinessFeatures() ? 'text-bg-success' : 'text-bg-secondary' }} fs-6">{{ $entitlement->level->label() }}</span>
 </div>
@@ -95,7 +100,7 @@
 <div class="card mb-4"><div class="card-body">
     <h2 class="h4">Business add-ons</h2>
     <p class="text-body-secondary">Increases apply after Stripe confirms the update. Reductions stay available until the current paid period ends and require usage to fit the new capacity. Nothing is deleted automatically. Annual subscriptions use the same monthly equivalent, billed as 12 months on the annual invoice.</p>
-    @if($entitlement->level === \App\Enums\PlanLevel::Complimentary)
+    @if($entitlement->level->isUnlimited())
         <div class="alert alert-success mb-0">Complimentary Unlimited does not need add-ons.</div>
     @else
         <form method="post" action="{{ route('plans.addons.update') }}">@csrf @method('PUT')
