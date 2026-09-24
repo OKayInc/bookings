@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Availability\AvailabilityScheduleService;
 use App\Enums\AvailabilityScope;
 use App\Enums\MembershipRole;
 use App\Enums\MembershipStatus;
@@ -39,6 +40,55 @@ class AvailabilityConfigurationTest extends TestCase
         $this->assertSame(AvailabilityScope::Organization, $schedule->scope_type);
         $this->assertSame('America/Toronto', $schedule->timezone);
         $this->assertCount(2, $schedule->rules);
+    }
+
+    public function test_weekly_hours_are_saved_and_loaded_in_day_start_end_order(): void
+    {
+        [$user, $organization] = $this->ownerContext();
+
+        app(AvailabilityScheduleService::class)->save(
+            $organization,
+            AvailabilityScope::Organization,
+            $organization,
+            'America/Toronto',
+            true,
+            [
+                ['weekday' => 2, 'start_time' => '14:00', 'end_time' => '17:00'],
+                ['weekday' => 0, 'start_time' => '12:00', 'end_time' => '15:00'],
+                ['weekday' => 0, 'start_time' => '08:00', 'end_time' => '11:00'],
+                ['weekday' => 0, 'start_time' => '08:00', 'end_time' => '10:00'],
+                ['weekday' => 1, 'start_time' => '09:00', 'end_time' => '17:00'],
+            ],
+        );
+
+        $rules = AvailabilitySchedule::firstOrFail()->rules()->get();
+
+        $this->assertSame([
+            [0, '08:00:00', '10:00:00', 0],
+            [0, '08:00:00', '11:00:00', 1],
+            [0, '12:00:00', '15:00:00', 2],
+            [1, '09:00:00', '17:00:00', 3],
+            [2, '14:00:00', '17:00:00', 4],
+        ], $rules->map(fn ($rule) => [
+            $rule->weekday,
+            $rule->start_time,
+            $rule->end_time,
+            $rule->sort_order,
+        ])->all());
+    }
+
+    public function test_weekly_hours_editor_uses_compact_single_row_controls_and_trash_button(): void
+    {
+        [$user, $organization] = $this->ownerContext();
+
+        $response = $this->actingAs($user)
+            ->withSession(['active_organization_uuid' => $organization->uuid])
+            ->get(route('availability.organization.edit'));
+
+        $response->assertOk();
+        $response->assertSee('availability-rule-grid', false);
+        $response->assertSee('aria-label="Remove interval"', false);
+        $response->assertDontSee('>Remove</button>', false);
     }
 
     public function test_overlapping_weekly_rules_are_rejected(): void

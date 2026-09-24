@@ -43,7 +43,17 @@ class AvailabilityScheduleService
             );
 
             $schedule->rules()->delete();
-            foreach (array_values($rules) as $index => $rule) {
+
+            $rules = collect($rules)
+                ->sortBy([
+                    ['weekday', 'asc'],
+                    ['start_time', 'asc'],
+                    ['end_time', 'asc'],
+                ])
+                ->values()
+                ->all();
+
+            foreach ($rules as $index => $rule) {
                 $schedule->rules()->create([
                     'weekday' => (int) $rule['weekday'],
                     'start_time' => $rule['start_time'],
