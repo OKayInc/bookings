@@ -155,15 +155,21 @@ class PublicSeo
             ?? $type->logo_url
             ?? $organization->logo_url;
 
+        $canPublishEventSchema = $type->ticketing_enabled
+            && $type->currentEventOccurrence() !== null
+            && ($type->is_online
+                || ($type->location_disclosure_mode === LocationDisclosureMode::Public
+                    && filled($type->event_location)));
+
         return [
             'indexable' => $indexable,
             'title' => $type->name.' | '.$organization->name.' | Appointment.to',
             'description' => $description,
             'canonical' => $url,
-            'type' => $type->ticketing_enabled ? 'event' : 'website',
+            'type' => $canPublishEventSchema ? 'event' : 'website',
             'image' => $image,
             'jsonLd' => $indexable
-                ? ($type->ticketing_enabled
+                ? ($canPublishEventSchema
                     ? $this->eventSchema($organization, $type, $url, $description, $image)
                     : $this->serviceSchema($organization, $type, $url, $description, $image))
                 : null,
@@ -232,8 +238,12 @@ class PublicSeo
             }
         }
 
-        if (! $type->is_online
-            && $type->location_disclosure_mode === LocationDisclosureMode::Public
+        if ($type->is_online) {
+            $schema['location'] = [
+                '@type' => 'VirtualLocation',
+                'url' => $url,
+            ];
+        } elseif ($type->location_disclosure_mode === LocationDisclosureMode::Public
             && filled($type->event_location)) {
             $schema['location'] = [
                 '@type' => 'Place',
