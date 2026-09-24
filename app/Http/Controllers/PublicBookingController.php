@@ -17,6 +17,7 @@ use App\Domain\Tickets\TicketInventoryService;
 use App\Domain\Coupons\CouponRedemptionService;
 use App\Domain\Questionnaires\QuestionnaireSubmission;
 use App\Domain\Taxes\OrganizationTaxService;
+use App\Domain\Configuration\ConfigurationCache;
 use App\Domain\Taxes\TaxRate;
 use App\Enums\AttendanceMode;
 use App\Enums\AppointmentVisibility;
@@ -52,6 +53,7 @@ class PublicBookingController extends Controller
         EquipmentPricingService $equipmentPricing,
         ResourceDepositService $resourceDeposits,
         OrganizationTaxService $taxes,
+        ConfigurationCache $configuration,
     ): JsonResponse {
         $data = $request->validate([
             'access_mode' => ['required', Rule::in(['direct', 'unlisted', 'invitation'])],
@@ -63,6 +65,7 @@ class PublicBookingController extends Controller
         ]);
 
         $access->resolve($appointmentType, $request, $data['access_mode'], $data['access_token'] ?? null);
+        $configuration->prime($appointmentType);
         $this->validateAttendeeCount($appointmentType, (int) $data['attendee_count']);
 
         $timezone = $data['timezone'];
@@ -238,6 +241,7 @@ class PublicBookingController extends Controller
         string $token,
         TicketEventService $ticketEvents,
         ConditionalResourceRequirementService $conditionalResources,
+        ConfigurationCache $configuration,
     ): View|Response
     {
         $hold = $this->holdByToken($token);
@@ -245,7 +249,8 @@ class PublicBookingController extends Controller
             return $this->expiredHoldResponse($hold, $token);
         }
 
-        $hold->load(['organization', 'resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.questions.visibilityConditions.expectedOptions', 'appointmentType.shortNoticeFeeRules', 'contractTemplate', 'invitation']);
+        $hold->load(['organization', 'resources', 'appointmentType', 'contractTemplate', 'invitation']);
+        $configuration->prime($hold->appointmentType);
 
         $initialQuote = app(\App\Domain\Questionnaires\QuestionnairePricingService::class)->quote(
             $hold->appointmentType, (int) $hold->duration_value,
@@ -283,13 +288,15 @@ class PublicBookingController extends Controller
         CouponRedemptionService $coupons,
         ConditionalResourceRequirementService $conditionalResources,
         OrganizationTaxService $taxes,
+        ConfigurationCache $configuration,
     ): JsonResponse {
         $hold = $this->holdByToken($token);
         if (! $hold->isActive()) {
             return $this->expiredHoldJsonResponse($hold, $token);
         }
 
-        $hold->load(['resources', 'appointmentType.organization', 'appointmentType.resources', 'appointmentType.questions.options', 'appointmentType.questions.visibilityConditions.sourceQuestion', 'appointmentType.questions.visibilityConditions.expectedOption', 'appointmentType.questions.visibilityConditions.expectedOptions', 'appointmentType.shortNoticeFeeRules']);
+        $hold->load(['resources', 'appointmentType']);
+        $configuration->prime($hold->appointmentType);
         $answers = (array) $request->input('answers', []);
         try {
             $quote = $questionnaires->quote(

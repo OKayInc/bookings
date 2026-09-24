@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Appointments\AppointmentTypeSummaryService;
+use App\Domain\Configuration\ConfigurationCache;
 use App\Domain\Availability\AppointmentTypeSeasonService;
 use App\Domain\Bookings\PublicAppointmentAccessService;
 use App\Domain\Money\MoneyService;
@@ -23,16 +24,12 @@ class PublicAppointmentTypeController extends Controller
         string $organizationSlug,
         AppointmentTypeSummaryService $summary,
         AppointmentTypeSeasonService $seasons,
+        ConfigurationCache $configuration,
     ): View
     {
-        $organization = Organization::where('slug', $organizationSlug)->firstOrFail();
+        $organization = $configuration->organization($organizationSlug);
         $organization->load('galleryPhotos');
-        $appointmentTypes = $organization->appointmentTypes()
-            ->with(['organization', 'resources'])
-            ->where('is_active', true)
-            ->where('visibility', AppointmentVisibility::Public->value)
-            ->orderBy('name')
-            ->get()
+        $appointmentTypes = $configuration->publicTypes($organization)
             ->filter(fn (AppointmentType $type): bool => $seasons->isOpenAt($type, CarbonImmutable::now('UTC')))
             ->values();
         $requestedType = $request->query('type');
@@ -61,13 +58,10 @@ class PublicAppointmentTypeController extends Controller
         AppointmentTypeSummaryService $summary,
         MoneyService $money,
         PublicAppointmentAccessService $access,
+        ConfigurationCache $configuration,
     ): View {
-        $organization = Organization::where('slug', $organizationSlug)->firstOrFail();
-        $type = $organization->appointmentTypes()
-            ->with(['organization', 'resources'])
-            ->where('slug', $appointmentSlug)
-            ->where('is_active', true)
-            ->firstOrFail();
+        $organization = $configuration->organization($organizationSlug);
+        $type = $configuration->publicType($organization, $appointmentSlug);
 
         abort_if(in_array($type->visibility, [AppointmentVisibility::Unlisted, AppointmentVisibility::InviteOnly], true), 404);
 
@@ -106,8 +100,9 @@ class PublicAppointmentTypeController extends Controller
         string $token,
         AppointmentTypeSummaryService $summary,
         MoneyService $money,
+        ConfigurationCache $configuration,
     ): View {
-        $organization = Organization::where('slug', $organizationSlug)->firstOrFail();
+        $organization = $configuration->organization($organizationSlug);
         $type = $organization->appointmentTypes()
             ->with(['organization', 'resources'])
             ->where('visibility', AppointmentVisibility::Unlisted->value)
@@ -123,8 +118,9 @@ class PublicAppointmentTypeController extends Controller
         string $token,
         AppointmentTypeSummaryService $summary,
         MoneyService $money,
+        ConfigurationCache $configuration,
     ): View {
-        $organization = Organization::where('slug', $organizationSlug)->firstOrFail();
+        $organization = $configuration->organization($organizationSlug);
         $invitation = AppointmentTypeInvitation::query()
             ->where('organization_id', $organization->getKey())
             ->where('token_hash', hash('sha256', $token))
@@ -150,6 +146,7 @@ class PublicAppointmentTypeController extends Controller
         ?AppointmentTypeInvitation $invitation = null,
         ?string $accessToken = null,
     ): View {
+        app(ConfigurationCache::class)->prime($type);
         $exampleMinor = $summary->examplePrice($type);
         $examplePrice = $money->format($exampleMinor, $organization->currency);
 

@@ -2,6 +2,7 @@
 
 namespace App\Domain\Bookings;
 
+use App\Domain\Configuration\ConfigurationCache;
 use App\Domain\Money\MoneyService;
 use App\Domain\Questionnaires\PercentageService;
 use App\Enums\PricingAdjustmentType;
@@ -41,6 +42,7 @@ class ShortNoticeFeeRuleService
             }
         });
 
+        app(ConfigurationCache::class)->invalidateAfterCommit($type->organization_id);
         $type->unsetRelation('shortNoticeFeeRules');
     }
 }
