@@ -18,7 +18,9 @@ class PostAppointmentReviewService
             ->whereNull('outcome_review_requested_at_utc')
             ->whereNotIn('status', ['cancelled', 'declined'])
             ->whereDoesntHave('outcome')
-            ->whereHas('appointment', fn ($query) => $query->where('ends_at_utc', '<=', now('UTC')))
+            ->whereHas('appointment', fn ($query) => $query
+                ->where('ends_at_utc', '<=', now('UTC'))
+                ->where('ends_at_utc', '>=', now('UTC')->subHours(48)))
             ->with(['appointment', 'appointmentType', 'organization.memberships.person.user'])
             ->orderBy('created_at')
             ->limit(200)
