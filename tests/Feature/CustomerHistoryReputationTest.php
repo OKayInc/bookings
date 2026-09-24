@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Domain\Customers\CustomerReputationService;
 use App\Domain\Customers\PostAppointmentReviewService;
+use App\Domain\Payments\PaymentRuleService;
 use App\Enums\MembershipRole;
 use App\Enums\MembershipStatus;
 use App\Models\Appointment;
@@ -104,6 +105,22 @@ class CustomerHistoryReputationTest extends TestCase
         Notification::assertSentTo($user, PostAppointmentOutcomeReviewEmail::class);
         $this->assertNotNull($booking->fresh()->outcome_review_requested_at_utc);
         $this->assertSame(0, $service->sendDue());
+    }
+
+
+    public function test_reputation_blacklist_blocks_and_whitelist_waives_prepayment(): void
+    {
+        [$user, $organization, , $contact] = $this->context();
+        $service = app(CustomerReputationService::class);
+        $rules = app(PaymentRuleService::class);
+
+        $service->addManual($contact, 'whitelist', $user->person, 'Trusted customer');
+        $this->assertTrue($rules->isReputationAllowlisted($organization, 'history@example.test', '+1 613 555 0123'));
+        $this->assertNull($rules->assertMayBook($organization, 'history@example.test', '+1 613 555 0123'));
+
+        $service->addManual($contact, 'blacklist', $user->person, 'Repeated no-shows');
+        $this->expectException(\RuntimeException::class);
+        $rules->assertMayBook($organization, 'history@example.test', '+1 613 555 0123');
     }
 
     public function test_manual_list_entry_keeps_manual_provenance(): void
