@@ -70,13 +70,15 @@ class PublicSeoTest extends TestCase
 
     public function test_public_social_images_follow_appointment_organization_and_platform_fallbacks(): void
     {
-        Storage::fake('public');
+        // Storage::fake() builds and caches the fake disk from the current
+        // filesystem configuration, so set the CDN URL before faking it.
         config([
             'filesystems.disks.public.url' => 'https://images.appointment.to/storage',
             'filesystems.public_asset_url' => 'https://images.appointment.to',
             'organizations.logo_disk' => 'public',
             'appointment-types.logo_disk' => 'public',
         ]);
+        Storage::fake('public');
 
         $organization = Organization::factory()->create([
             'name' => 'More Than Photos',
