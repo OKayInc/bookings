@@ -36,7 +36,7 @@
                     <option value="{{ $timezoneOption }}" @selected($timezone === $timezoneOption)>{{ $timezoneOption }}</option>
                 @endforeach
             </select>
-            <div class="muted">Select an IANA timezone. MariaDB timezone tables are used for database-side conversions; PHP handles the scheduling calculations.</div>
+            <div class="muted">Choose your timezone. If your business operates under many timezones, select the main one.</div>
         </div>
         <label class="inline-check"><input type="checkbox" name="is_active" value="1" @checked(old('is_active', $schedule?->is_active ?? true))> Schedule active</label>
     </div>
