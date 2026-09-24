@@ -101,10 +101,12 @@ class GuidedOrganizationSetupTest extends TestCase
             'status' => MembershipStatus::Active,
         ]);
 
-        $type = AppointmentType::factory()->create([
+        $type = AppointmentType::create([
             'organization_id' => $organization->getKey(),
             'name' => 'Consultation',
             'slug' => 'consultation',
+            'visibility' => 'public',
+            'is_active' => true,
         ]);
 
         $response = $this->actingAs($user)
