@@ -13,6 +13,7 @@ Schedule::command('appointments:expire-pending-bookings')->everyTenMinutes()->wi
 Schedule::command('appointments:expire-schedule-proposals')->everyTenMinutes()->withoutOverlapping();
 
 Schedule::command('appointments:send-reminders')->everyTenMinutes()->withoutOverlapping();
+Schedule::command('appointments:send-outcome-reviews')->everyTenMinutes()->withoutOverlapping();
 Schedule::command('appointments:sync-staff-confirmations')->everyTenMinutes()->withoutOverlapping();
 Schedule::command('appointments:disclose-event-locations')->everyTenMinutes()->withoutOverlapping();
 
