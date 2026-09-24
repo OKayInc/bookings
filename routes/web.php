@@ -45,6 +45,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'home')->name('home');
+Route::view('/pricing', 'pricing')->name('pricing');
 
 Route::view('/a/privacy.html', 'legal.privacy')->name('legal.privacy');
 Route::view('/a/terms.html', 'legal.terms')->name('legal.terms');
