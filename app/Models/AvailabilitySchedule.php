@@ -45,7 +45,10 @@ class AvailabilitySchedule extends Model
 
     public function rules(): HasMany
     {
-        return $this->hasMany(AvailabilityRule::class, 'schedule_id')->orderBy('weekday')->orderBy('start_time');
+        return $this->hasMany(AvailabilityRule::class, 'schedule_id')
+            ->orderBy('weekday')
+            ->orderBy('start_time')
+            ->orderBy('end_time');
     }
 
     public function exceptions(): HasMany
