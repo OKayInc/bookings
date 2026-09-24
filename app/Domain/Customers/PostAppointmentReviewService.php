@@ -21,7 +21,7 @@ class PostAppointmentReviewService
             ->whereHas('appointment', fn ($query) => $query
                 ->where('ends_at_utc', '<=', now('UTC'))
                 ->where('ends_at_utc', '>=', now('UTC')->subHours(48)))
-            ->with(['appointment', 'appointmentType', 'organization.memberships.person.user'])
+            ->with(['appointment', 'appointmentType', 'organization.customerReputationSetting', 'organization.memberships.person.user'])
             ->orderBy('created_at')
             ->limit(200)
             ->get()
