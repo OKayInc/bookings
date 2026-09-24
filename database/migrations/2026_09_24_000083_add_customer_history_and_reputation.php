@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
@@ -10,6 +11,8 @@ return new class extends Migration {
         Schema::table('bookings', function (Blueprint $table): void {
             $table->dateTime('outcome_review_requested_at_utc', 6)->nullable()->after('cancelled_at_utc');
         });
+
+        DB::statement("UPDATE organization_contacts SET phone_normalized = NULLIF(REGEXP_REPLACE(phone, '[^0-9]', ''), '') WHERE phone IS NOT NULL");
 
         Schema::create('booking_outcomes', function (Blueprint $table): void {
             $table->binary('id', 16, true)->primary();
