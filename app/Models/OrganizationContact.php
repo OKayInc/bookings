@@ -48,6 +48,10 @@ class OrganizationContact extends Model
 
             if ($contact->phone !== null) {
                 $contact->phone = trim((string) $contact->phone);
+                $digits = preg_replace('/\\D+/', '', $contact->phone);
+                $contact->phone_normalized = $digits !== '' ? $digits : null;
+            } else {
+                $contact->phone_normalized = null;
             }
         });
     }
