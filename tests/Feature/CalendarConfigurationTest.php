@@ -48,6 +48,35 @@ class CalendarConfigurationTest extends TestCase
         $this->assertTrue((bool) $type->externalCalendars->firstWhere('uuid', $busy->uuid)->pivot->check_availability);
     }
 
+    public function test_calendar_connections_page_shows_usage_for_each_appointment_type(): void
+    {
+        [$user, $organization] = $this->ownerContext();
+        $resource = Resource::create([
+            'organization_id' => $organization->getKey(), 'person_id' => $user->person_id,
+            'type' => 'person', 'name' => 'Photographer', 'timezone' => 'America/Toronto',
+            'is_active' => true, 'is_required_by_default' => true,
+        ]);
+        $type = $this->type($organization);
+        $type->resources()->attach($resource->getKey(), ['is_required' => true, 'requirement_mode' => 'inherit']);
+        $connection = CalendarConnection::create([
+            'organization_id' => $organization->getKey(), 'resource_id' => $resource->getKey(), 'provider' => 'google',
+            'access_token' => 'token', 'refresh_token' => 'refresh', 'token_expires_at_utc' => now('UTC')->addHour(), 'status' => 'active',
+        ]);
+        $calendar = $this->calendar($connection, 'primary@example.test', 'Work calendar', true);
+        $type->externalCalendars()->attach($calendar->getKey(), ['check_availability' => true, 'create_event' => true]);
+
+        $this->actingAs($user)
+            ->withSession(['active_organization_uuid' => $organization->uuid])
+            ->get(route('calendar-connections.index'))
+            ->assertOk()
+            ->assertSee('Calendar usage by appointment type')
+            ->assertSee('Checks availability in')
+            ->assertSee('Writes appointments to')
+            ->assertSee('Calendar Session')
+            ->assertSee('Work calendar')
+            ->assertSee(route('appointment-types.calendars.edit', $type), false);
+    }
+
     private function calendar(CalendarConnection $connection, string $externalId, string $name, bool $write): ExternalCalendar
     {
         return ExternalCalendar::create([
