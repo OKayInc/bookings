@@ -48,6 +48,9 @@
                         <a class="nav-link dropdown-toggle @if(request()->routeIs('resources.*', 'organizations.*', 'organization-members.*', 'settings.*', 'payment-settings.*', 'payment-rules.*', 'coupons.*', 'plans.*', 'platform.plans.*', 'admin.*')) active @endif" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Organization</a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="{{ route('resources.index') }}">Resources</a></li>
+                            @if($activeOrganization && auth()->user()->can('manageScheduling', $activeOrganization))
+                                <li><a class="dropdown-item" href="{{ route('dashboard') }}#startup-checklist">Startup checklist</a></li>
+                            @endif
                             @if($activeOrganization && auth()->user()->can('update', $activeOrganization))
                                 <li><a class="dropdown-item" href="{{ route('organization-members.index') }}">Members</a></li>
                                 <li><a class="dropdown-item" href="{{ route('settings.edit') }}">Settings</a></li>
