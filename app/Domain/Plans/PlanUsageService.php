@@ -31,6 +31,17 @@ class PlanUsageService
         return $this->consume($organization, 'distance_lookup_count', 'monthly_distance_lookups', 'monthly distance lookups');
     }
 
+    public function releaseDistanceLookup(PlanUsageMonth $reservation): void
+    {
+        DB::transaction(function () use ($reservation): void {
+            Organization::query()->whereKey($reservation->organization_id)->lockForUpdate()->firstOrFail();
+            $usage = PlanUsageMonth::query()->whereKey($reservation->getKey())->lockForUpdate()->firstOrFail();
+            if ($usage->distance_lookup_count > 0) {
+                $usage->decrement('distance_lookup_count');
+            }
+        }, 3);
+    }
+
     private function consume(Organization $organization, string $column, string $limitKey, string $label): PlanUsageMonth
     {
         return DB::transaction(function () use ($organization, $column, $limitKey, $label): PlanUsageMonth {

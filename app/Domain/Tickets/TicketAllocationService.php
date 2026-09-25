@@ -6,6 +6,7 @@ use App\Enums\TicketStatus;
 use App\Models\Booking;
 use App\Models\BookingHold;
 use App\Models\Ticket;
+use App\Support\Uuid\UuidBinary;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -30,17 +31,28 @@ class TicketAllocationService
             ? $this->inventory->reserveForAppointment($booking->appointment, $quantity, $hold)
             : $this->inventory->validateReservation($booking->appointment, $reservedSeats, $quantity, $hold);
 
+        $now = now('UTC')->format('Y-m-d H:i:s.u');
+        $tickets = [];
         foreach ($booking->attendees as $position => $attendee) {
             $seat = $seats[$position];
-            Ticket::create([
+            $tickets[] = [
+                'id' => UuidBinary::toBytes((string) Str::uuid7()),
                 'organization_id' => $booking->organization_id,
                 'appointment_id' => $booking->appointment_id,
                 'booking_id' => $booking->getKey(),
                 'booking_attendee_id' => $attendee->getKey(),
-                'code' => $this->uniqueCode(),
+                'code' => 'AT-'.Str::upper(Str::random(14)),
                 'status' => TicketStatus::Reserved->value,
                 ...$seat,
-            ]);
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        if ($tickets !== []) {
+            // The unique code and attendee indexes enforce uniqueness without
+            // a SELECT for each ticket. Creation already runs in a transaction.
+            Ticket::query()->insert($tickets);
         }
     }
 
@@ -73,14 +85,5 @@ class TicketAllocationService
                 ...$seats[$position],
             ]);
         }
-    }
-
-    private function uniqueCode(): string
-    {
-        do {
-            $code = 'AT-'.Str::upper(Str::random(14));
-        } while (Ticket::query()->where('code', $code)->exists());
-
-        return $code;
     }
 }

@@ -5,7 +5,9 @@ namespace Tests\Unit;
 use App\Domain\Questionnaires\DrivingDistanceService;
 use App\Models\Organization;
 use App\Models\OrganizationConferenceSetting;
+use App\Models\PlanUsageMonth;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -74,5 +76,44 @@ class DrivingDistanceServiceTest extends TestCase
             'X-Goog-Api-Key',
             'organization-routes-key',
         ));
+    }
+
+    public function test_failed_routes_response_releases_quota_and_does_not_cache_failure(): void
+    {
+        $organization = Organization::factory()->create();
+        Http::fake(['https://routes.googleapis.com/*' => Http::sequence()
+            ->push([], 503)
+            ->push(['routes' => [['distanceMeters' => 1000]]])]);
+
+        $service = app(DrivingDistanceService::class);
+        try {
+            $service->between('Origin', 'Destination', $organization);
+            $this->fail('The provider error should be reported.');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('temporarily unavailable', $e->getMessage());
+        }
+
+        $this->assertSame(0, PlanUsageMonth::query()->where('organization_id', $organization->getKey())->firstOrFail()->distance_lookup_count);
+        $this->assertSame(1000, $service->between('Origin', 'Destination', $organization));
+        $this->assertSame(1, PlanUsageMonth::query()->where('organization_id', $organization->getKey())->firstOrFail()->distance_lookup_count);
+        Http::assertSentCount(2);
+    }
+
+    public function test_connection_failure_reports_provider_error_without_using_quota(): void
+    {
+        $organization = Organization::factory()->create();
+        Http::fake(function (): never {
+            throw new ConnectionException('Routes connection timed out.');
+        });
+
+        try {
+            app(DrivingDistanceService::class)->between('Origin', 'Destination', $organization);
+            $this->fail('The connection error should be reported.');
+        } catch (RuntimeException $e) {
+            $this->assertSame('The driving distance service is temporarily unavailable.', $e->getMessage());
+            $this->assertInstanceOf(ConnectionException::class, $e->getPrevious());
+        }
+
+        $this->assertSame(0, PlanUsageMonth::query()->where('organization_id', $organization->getKey())->firstOrFail()->distance_lookup_count);
     }
 }
