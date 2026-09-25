@@ -2,46 +2,78 @@
 @section('title', 'Appointment calendars')
 @section('content')
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
-    <div><h1 class="h2 mb-1">Calendars — {{ $appointmentType->name }}</h1><p class="text-body-secondary mb-0">Choose which calendars block availability and where this appointment type creates external events.</p></div>
-    <div class="d-flex gap-2"><a class="btn btn-outline-secondary" href="{{ route('calendar-connections.index') }}">Calendar connections</a><a class="btn btn-outline-secondary" href="{{ route('appointment-types.edit', $appointmentType) }}">Back</a></div>
+    <div>
+        <h1 class="h2 mb-1">Calendars — {{ $appointmentType->name }}</h1>
+        <p class="text-body-secondary mb-0">Use member defaults or customize availability checks and the writing calendar for this appointment type.</p>
+    </div>
+    <a class="btn btn-outline-secondary" href="{{ route('calendar-connections.index') }}">Calendar connections</a>
 </div>
 
-<form method="post" action="{{ route('appointment-types.calendars.update', $appointmentType) }}">@csrf @method('PUT')
-@forelse($appointmentType->resources as $resource)
-<div class="card shadow-sm mb-4">
-    <div class="card-body">
-        <h2 class="h5">{{ $resource->name }}</h2>
-        <p class="text-body-secondary small">Select any number of calendars to check for conflicts. Select at most one writable target calendar for events created by this appointment type.</p>
+<form method="post" action="{{ route('appointment-types.calendars.update', ['appointmentType' => $appointmentType, 'resource' => $resourceFilter]) }}">
+    @csrf
+    @method('PUT')
+    <input type="hidden" name="calendar_settings_submitted" value="1">
+    @forelse($resources as $resource)
         @php
-            $calendars = $resourceCalendars->get($resource->uuid, collect());
-            $hasWriteTarget = $calendars->contains(function ($candidate) use ($configured) {
-                $candidateSetting = $configured->get($candidate->uuid);
-                return (bool) ($candidateSetting?->pivot?->create_event);
-            });
+            $calendars = $selection['calendars']->filter(fn ($calendar) => $calendar->connection->resource_id === $resource->getKey());
+            $usingDefaults = !in_array($resource->getKey(), $selection['custom_resource_ids'], true);
+            $mode = old('calendar_mode.'.$resource->uuid, $usingDefaults ? 'default' : 'custom');
+            $checked = old('calendar_settings_submitted') ? old('check_calendars', []) : $selection['check']->pluck('uuid')->all();
+            $currentWrite = $selection['write']->first(fn ($calendar) => $calendar->connection->resource_id === $resource->getKey());
+            $writeUuid = old('write_calendar.'.$resource->uuid, $currentWrite?->uuid ?? '');
         @endphp
-        @if($calendars->isEmpty())
-            <div class="alert alert-warning mb-0">No calendar is connected for this resource.</div>
-        @else
-            <div class="table-responsive"><table class="table align-middle">
-            <thead><tr><th>Calendar</th><th>Check availability</th><th>Create appointment event</th></tr></thead><tbody>
-            @foreach($calendars as $calendar)
-                @php
-                    $setting = $configured->get($calendar->uuid);
-                @endphp
-                <tr>
-                    <td><strong>{{ $calendar->name }}</strong><div class="small text-body-secondary">{{ $calendar->connection->provider->label() }} · {{ $calendar->connection->external_account_name }}</div></td>
-                    <td><input class="form-check-input" type="checkbox" name="check_calendars[]" value="{{ $calendar->uuid }}" @checked($setting?->pivot?->check_availability)></td>
-                    <td>@if($calendar->can_write)<input class="form-check-input" type="radio" name="write_calendar[{{ $resource->uuid }}]" value="{{ $calendar->uuid }}" @checked($setting?->pivot?->create_event)>@else<span class="text-body-secondary">Read only</span>@endif</td>
-                </tr>
-            @endforeach
-            <tr><td colspan="2"></td><td><label class="small"><input class="form-check-input" type="radio" name="write_calendar[{{ $resource->uuid }}]" value="" @checked(!$hasWriteTarget)> Do not create an external event</label></td></tr>
-            </tbody></table></div>
-        @endif
-    </div>
-</div>
-@empty
-<div class="alert alert-warning">Assign resources to this appointment type first.</div>
-@endforelse
-<button class="btn btn-primary" type="submit">Save calendar settings</button>
+        <section class="card shadow-sm mb-4" id="resource-{{ $resource->uuid }}">
+            <div class="card-body">
+                <h2 class="h5">{{ $resource->name }}</h2>
+                <label class="form-label" for="mode-{{ $resource->uuid }}">Calendar settings</label>
+                <select class="form-select mb-2" id="mode-{{ $resource->uuid }}" name="calendar_mode[{{ $resource->uuid }}]">
+                    <option value="default" @selected($mode === 'default')>Use member defaults</option>
+                    <option value="custom" @selected($mode === 'custom')>Customize for this appointment type</option>
+                </select>
+                <p class="small text-body-secondary">Member defaults check all calendars owned by the connected accounts, exclude calendars shared with you, and write to the member's default writing calendar. Selecting member defaults removes this member's custom choices for this appointment type.</p>
+
+                <h3 class="h6 mt-4">Custom calendar choices</h3>
+                <p class="small text-body-secondary">These choices are saved only when <strong>Customize for this appointment type</strong> is selected above. Check availability in any number of calendars. Choose at most one writable calendar for new appointment events. Shared calendars can be included explicitly here; these choices do not change Google or Microsoft sharing permissions.</p>
+                @if($calendars->isEmpty())
+                    <div class="alert alert-warning">No available calendars are connected for this member. Connect or refresh an account on the Calendar connections page.</div>
+                @else
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead><tr><th scope="col">Calendar</th><th scope="col">Check availability</th><th scope="col">Write appointments</th></tr></thead>
+                            <tbody>
+                                @foreach($calendars as $calendar)
+                                    <tr>
+                                        <td>
+                                            <strong>{{ $calendar->name }}</strong>
+                                            <div class="small text-body-secondary">{{ $calendar->connection->provider->label() }} · {{ $calendar->connection->external_account_name }}</div>
+                                        </td>
+                                        <td>
+                                            <input class="form-check-input" type="checkbox" name="check_calendars[]" value="{{ $calendar->uuid }}" aria-label="Check availability in {{ $calendar->name }}" @checked(in_array($calendar->uuid, (array) $checked, true))>
+                                        </td>
+                                        <td>
+                                            @if($calendar->can_write)
+                                                <input class="form-check-input" type="radio" name="write_calendar[{{ $resource->uuid }}]" value="{{ $calendar->uuid }}" aria-label="Write appointments to {{ $calendar->name }}" @checked($writeUuid === $calendar->uuid)>
+                                            @else
+                                                <span class="text-body-secondary">Read only</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+                <label class="form-check-label small">
+                    <input class="form-check-input me-1" type="radio" name="write_calendar[{{ $resource->uuid }}]" value="" @checked(!$writeUuid)>
+                    Do not create an external event
+                </label>
+            </div>
+        </section>
+    @empty
+        <div class="alert alert-warning">Assign resources to this appointment type first.</div>
+    @endforelse
+    @if($resources->isNotEmpty())
+        <button class="btn btn-primary" type="submit">Save calendar settings</button>
+    @endif
 </form>
 @endsection
