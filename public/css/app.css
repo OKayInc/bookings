@@ -7,6 +7,29 @@ body {
     min-height: 100vh;
 }
 
+.startup-checklist {
+    scroll-margin-top: 6rem;
+}
+
+.startup-checklist summary {
+    cursor: pointer;
+}
+
+.startup-checklist-icon {
+    flex: 0 0 1.5rem;
+    text-align: center;
+}
+
+.startup-checklist-step:last-child {
+    border-bottom: 0 !important;
+}
+
+@media (max-width: 575.98px) {
+    .startup-checklist-action {
+        margin-left: 2rem;
+    }
+}
+
 .page-is-loading {
     cursor: progress;
 }
