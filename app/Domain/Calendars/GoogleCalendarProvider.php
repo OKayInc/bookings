@@ -62,8 +62,9 @@ class GoogleCalendarProvider implements CalendarProviderContract
                     'name' => (string) ($item['summaryOverride'] ?? $item['summary'] ?? $item['id']),
                     'timezone' => $item['timeZone'] ?? null,
                     'access_role' => $item['accessRole'] ?? null,
-                    'can_write' => in_array($item['accessRole'] ?? '', ['writer', 'owner'], true),
+                    'can_write' => in_array($item['accessRole'] ?? '', ['writer', 'writerWithoutPrivateAccess', 'owner'], true),
                     'is_primary' => (bool) ($item['primary'] ?? false),
+                    'owner_email' => $item['dataOwner'] ?? null,
                 ];
             }
             $pageToken = $json['nextPageToken'] ?? null;
@@ -74,6 +75,14 @@ class GoogleCalendarProvider implements CalendarProviderContract
     public function busyIntervals(string $accessToken, array $calendars, CarbonImmutable $fromUtc, CarbonImmutable $toUtc): array
     {
         if ($calendars === []) { return []; }
+        // Google limits free/busy expansion to 50 calendars per request.
+        if (count($calendars) > 50) {
+            $busy = [];
+            foreach (array_chunk($calendars, 50) as $batch) {
+                array_push($busy, ...$this->busyIntervals($accessToken, $batch, $fromUtc, $toUtc));
+            }
+            return $busy;
+        }
         $json = $this->api($accessToken)->post('https://www.googleapis.com/calendar/v3/freeBusy', [
             'timeMin' => $fromUtc->toIso8601String(), 'timeMax' => $toUtc->toIso8601String(), 'timeZone' => 'UTC',
             'items' => array_map(fn (array $calendar): array => ['id' => $calendar['external_id']], $calendars),

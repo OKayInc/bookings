@@ -42,7 +42,11 @@ class MicrosoftCalendarProvider implements CalendarProviderContract
     public function accountProfile(string $accessToken): array
     {
         $json = $this->api($accessToken)->get('https://graph.microsoft.com/v1.0/me', ['$select' => 'id,displayName,mail,userPrincipalName'])->throw()->json();
-        return ['id' => $json['id'] ?? null, 'name' => $json['displayName'] ?? null, 'email' => $json['mail'] ?? ($json['userPrincipalName'] ?? null)];
+        return [
+            'id' => $json['id'] ?? null, 'name' => $json['displayName'] ?? null,
+            'email' => $json['mail'] ?? ($json['userPrincipalName'] ?? null),
+            'emails' => array_values(array_filter([$json['mail'] ?? null, $json['userPrincipalName'] ?? null])),
+        ];
     }
 
     public function listCalendars(string $accessToken): array
@@ -54,7 +58,8 @@ class MicrosoftCalendarProvider implements CalendarProviderContract
                 $items[] = [
                     'external_id' => (string) $item['id'], 'name' => (string) ($item['name'] ?? 'Calendar'),
                     'timezone' => null, 'access_role' => ! empty($item['canEdit']) ? 'writer' : 'reader',
-                    'can_write' => (bool) ($item['canEdit'] ?? false), 'is_primary' => false,
+                    'can_write' => (bool) ($item['canEdit'] ?? false), 'is_primary' => (bool) ($item['isDefaultCalendar'] ?? false),
+                    'owner_email' => $item['owner']['address'] ?? null,
                 ];
             }
             $url = $json['@odata.nextLink'] ?? null;

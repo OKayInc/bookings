@@ -1,43 +1,40 @@
 @extends('layouts.app')
+@inject('calendarSelections', 'App\Domain\Calendars\CalendarSelectionService')
 @section('title', 'Calendar connections')
 @section('content')
-<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
-    <div>
-        <h1 class="h2 mb-1">Calendar connections</h1>
-        <p class="text-body-secondary mb-0">Connect Google Calendar or Microsoft Outlook / 365 accounts, then choose how each appointment type uses those calendars.</p>
-    </div>
+<div class="mb-4">
+    <h1 class="h2 mb-1">Calendar connections</h1>
+    <p class="text-body-secondary mb-0">Connect a calendar account, choose a default writing calendar, and let Appointment.To check your own calendars for availability.</p>
 </div>
 
 @if(!$googleConfigured || !$microsoftConfigured)
-<div class="alert alert-warning">
-    <strong>Provider configuration:</strong>
-    Google {{ $googleConfigured ? 'configured' : 'not configured' }} · Microsoft {{ $microsoftConfigured ? 'configured' : 'not configured' }}.
-    See <code>docs/CALENDAR-INTEGRATIONS.md</code> for OAuth application setup.
-</div>
+    <div class="alert alert-warning">
+        <strong>Provider configuration:</strong>
+        Google {{ $googleConfigured ? 'configured' : 'not configured' }} · Microsoft {{ $microsoftConfigured ? 'configured' : 'not configured' }}.
+        See <code>docs/CALENDAR-INTEGRATIONS.md</code> for OAuth application setup.
+    </div>
 @endif
 
-<div class="alert alert-info">
-    <strong>How calendar usage works:</strong>
-    each appointment type can use one or more calendars to <strong>check availability</strong>, and can choose at most one writable calendar per resource to <strong>create Appointment.To events</strong>.
-</div>
-
-<div class="row g-4">
 @forelse($resources as $resource)
-<div class="col-12">
-    <div class="card shadow-sm">
+    @php
+        $allCalendars = $resource->calendarConnections->flatMap(function ($connection) {
+            return $connection->calendars->map(function ($calendar) use ($connection) {
+                return $calendar->setRelation('connection', $connection);
+            });
+        });
+        $availableCalendars = $allCalendars->filter(fn ($calendar) => $calendar->is_active && $calendar->connection->status->value !== 'revoked')->sortBy('name');
+        $ownedCalendars = $availableCalendars->filter(fn ($calendar) => $calendar->is_owned === true);
+        $writableCalendars = $availableCalendars->where('can_write', true);
+        $savedDefault = $allCalendars->firstWhere('is_default_write', true);
+        $defaultUuid = old('resource_uuid') === $resource->uuid ? old('default_write_calendar', '') : ($savedDefault?->uuid ?? '');
+    @endphp
+    <section class="card shadow-sm mb-4" id="resource-{{ $resource->uuid }}">
         <div class="card-body">
-            <div class="d-flex flex-wrap justify-content-between gap-3 align-items-start">
-                <div>
-                    <h2 class="h5 mb-1">{{ $resource->name }}</h2>
-                    <div class="text-body-secondary small">
-                        {{ ucfirst($resource->type) }}
-                        @if($resource->person) · {{ $resource->person->primary_email }} @endif
-                    </div>
-                </div>
-                <a class="btn btn-outline-secondary btn-sm" href="{{ route('resources.edit', $resource) }}">Resource</a>
-            </div>
-
-            <div class="d-flex flex-wrap gap-2 my-3">
+            <h2 class="h4 mb-1">{{ $resource->name }}</h2>
+            @if($resource->person)
+                <p class="text-body-secondary small mb-3">{{ $resource->person->primary_email }}</p>
+            @endif
+            <div class="d-flex flex-wrap gap-2 mb-4">
                 @if($googleConfigured)
                     <a class="btn btn-outline-primary btn-sm" href="{{ route('calendar-connections.connect', [$resource, 'google']) }}">Connect Google</a>
                 @endif
@@ -46,7 +43,45 @@
                 @endif
             </div>
 
-            <h3 class="h6 mt-4">Connected calendars</h3>
+            <div class="border rounded p-3 mb-4">
+                <h3 class="h5">Default calendar settings</h3>
+                <p class="small text-body-secondary">These defaults apply to this member in the current organization, unless an appointment type has custom calendar settings.</p>
+                <form method="post" action="{{ route('calendar-connections.defaults.update', $resource) }}">
+                    @csrf
+                    @method('PUT')
+                    <input type="hidden" name="resource_uuid" value="{{ $resource->uuid }}">
+                    <label class="form-label fw-semibold" for="default-write-{{ $resource->uuid }}">Default writing calendar</label>
+                    <div class="row g-2 align-items-start">
+                        <div class="col-12 col-lg-8">
+                            <select class="form-select" id="default-write-{{ $resource->uuid }}" name="default_write_calendar" aria-describedby="default-write-help-{{ $resource->uuid }}">
+                                <option value="" @selected(!$defaultUuid)>Do not write appointments to an external calendar</option>
+                                @if($savedDefault && !$writableCalendars->contains('uuid', $savedDefault->uuid))
+                                    <option value="{{ $savedDefault->uuid }}" @selected($defaultUuid === $savedDefault->uuid)>{{ $savedDefault->name }} — unavailable; choose another calendar</option>
+                                @endif
+                                @foreach($writableCalendars as $calendar)
+                                    <option value="{{ $calendar->uuid }}" @selected($defaultUuid === $calendar->uuid)>{{ $calendar->name }} — {{ $calendar->connection->provider->label() }} · {{ $calendar->connection->external_account_name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-12 col-lg-auto">
+                            <button class="btn btn-primary" type="submit" @disabled($allCalendars->isEmpty())>Save default calendar</button>
+                        </div>
+                    </div>
+                    <p class="small text-body-secondary mt-2" id="default-write-help-{{ $resource->uuid }}">Choose one writable calendar across your connected accounts. No writing calendar is chosen automatically. Existing scheduled appointments follow a changed default during the next calendar sync.</p>
+                </form>
+                <h4 class="h6 mt-3">Default availability checks</h4>
+                <p class="small mb-2">All calendars owned by the connected accounts are checked automatically. Calendars shared with you are excluded, even when you can edit them. Newly imported owned calendars are included automatically.</p>
+                @forelse($ownedCalendars as $calendar)
+                    <span class="badge text-bg-light border me-1 mb-1" title="{{ $calendar->connection->provider->label() }} · {{ $calendar->connection->external_account_name }}">{{ $calendar->name }}</span>
+                @empty
+                    <p class="small text-body-secondary mb-0">No calendars with confirmed ownership are available for default checks.</p>
+                @endforelse
+                @if($availableCalendars->contains(fn ($calendar) => $calendar->is_owned === null))
+                    <div class="alert alert-warning small mt-3 mb-0">Some calendar ownership information is missing. Use <strong>Refresh calendars</strong> below to update it. Calendars whose ownership cannot be confirmed are not checked automatically; they can still be selected in appointment-type settings.</div>
+                @endif
+            </div>
+
+            <h3 class="h5">Connected accounts</h3>
             @forelse($resource->calendarConnections as $connection)
                 <div class="border rounded p-3 mb-3">
                     <div class="d-flex flex-wrap justify-content-between gap-2 align-items-start">
@@ -55,7 +90,7 @@
                             <div class="small text-body-secondary">{{ $connection->external_account_name ?: 'Connected account' }}</div>
                             <div class="small">Status: <span class="badge {{ $connection->status->value === 'active' ? 'text-bg-success' : 'text-bg-danger' }}">{{ $connection->status->value }}</span></div>
                         </div>
-                        <div class="d-flex gap-2">
+                        <div class="d-flex flex-wrap gap-2">
                             <form method="post" action="{{ route('calendar-connections.refresh', $connection) }}">
                                 @csrf
                                 <button class="btn btn-outline-secondary btn-sm">Refresh calendars</button>
@@ -67,105 +102,70 @@
                             </form>
                         </div>
                     </div>
-
                     @if($connection->last_error)
                         <div class="alert alert-danger py-2 mt-2 mb-0 small">{{ $connection->last_error }}</div>
                     @endif
-
                     <div class="table-responsive mt-3">
                         <table class="table table-sm align-middle mb-0">
-                            <thead>
-                                <tr><th>Calendar</th><th>Access</th><th>Timezone</th></tr>
-                            </thead>
+                            <thead><tr><th scope="col">Calendar</th><th scope="col">Access</th><th scope="col">Ownership</th></tr></thead>
                             <tbody>
-                            @forelse($connection->calendars->where('is_active', true) as $calendar)
-                                <tr>
-                                    <td>
-                                        {{ $calendar->name }}
-                                        @if($calendar->is_primary)<span class="badge text-bg-secondary">primary</span>@endif
-                                    </td>
-                                    <td>{{ $calendar->can_write ? 'Read/write' : 'Read' }}</td>
-                                    <td>{{ $calendar->timezone ?: 'Provider default' }}</td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="3" class="text-body-secondary">No calendars imported yet.</td></tr>
-                            @endforelse
+                                @forelse($connection->calendars->where('is_active', true) as $calendar)
+                                    <tr>
+                                        <td>{{ $calendar->name }}</td>
+                                        <td>{{ $calendar->can_write ? 'Read/write' : 'Read only' }}</td>
+                                        <td>{{ $calendar->is_owned === true ? 'Owned by this account' : ($calendar->is_owned === false ? 'Shared with this account' : 'Not confirmed') }}</td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="3" class="text-body-secondary">No calendars imported yet.</td></tr>
+                                @endforelse
                             </tbody>
                         </table>
                     </div>
                 </div>
             @empty
-                <p class="text-body-secondary">No external calendar account connected to this resource.</p>
+                <p class="text-body-secondary">Connect an account to start using external calendars.</p>
             @endforelse
 
             <hr class="my-4">
-
-            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
-                <div>
-                    <h3 class="h6 mb-1">Calendar usage by appointment type</h3>
-                    <p class="small text-body-secondary mb-0">Choose what blocks availability and where newly scheduled appointments are written.</p>
-                </div>
-            </div>
-
-            @if($resource->appointmentTypes->isEmpty())
-                <div class="text-body-secondary small">This resource is not assigned to any appointment type yet.</div>
-            @else
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th>Appointment type</th>
-                                <th>Checks availability in</th>
-                                <th>Writes appointments to</th>
-                                <th class="text-end">Settings</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        @foreach($resource->appointmentTypes as $appointmentType)
+            <h3 class="h5">Customize calendars by appointment type</h3>
+            <p class="text-body-secondary small">You can customize which calendars are read-only for availability checks and which writable calendar receives appointments for each appointment type. Custom choices replace the defaults for this member only, not for other members. The appointment types below are linked to this member.</p>
+            <h4 class="h6">Calendar usage by appointment type</h4>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th scope="col">Appointment type</th><th scope="col">Checks availability in</th><th scope="col">Writes appointments to</th><th scope="col">Settings</th></tr></thead>
+                    <tbody>
+                        @forelse($resource->appointmentTypes as $appointmentType)
                             @php
-                                $resourceCalendarIds = $resource->calendarConnections
-                                    ->flatMap(fn ($connection) => $connection->calendars)
-                                    ->pluck('id');
-
-                                $calendarSettings = $appointmentType->externalCalendars
-                                    ->whereIn('id', $resourceCalendarIds);
-
-                                $checkedCalendars = $calendarSettings
-                                    ->filter(fn ($calendar) => (bool) $calendar->pivot->check_availability);
-
-                                $writeCalendar = $calendarSettings
-                                    ->first(fn ($calendar) => (bool) $calendar->pivot->create_event);
+                                $usage = $calendarSelections->forType($appointmentType, [$resource->getKey()]);
+                                $usingDefaults = !in_array($resource->getKey(), $usage['custom_resource_ids'], true);
                             @endphp
                             <tr>
-                                <td><strong>{{ $appointmentType->name }}</strong></td>
+                                <td><strong>{{ $appointmentType->name }}</strong><div class="small text-body-secondary">{{ $usingDefaults ? 'Using member defaults' : 'Custom settings' }}</div></td>
                                 <td>
-                                    @forelse($checkedCalendars as $calendar)
-                                        <span class="badge text-bg-light border me-1">{{ $calendar->name }}</span>
+                                    @forelse($usage['check'] as $calendar)
+                                        <span class="badge text-bg-light border me-1 mb-1">{{ $calendar->name }}</span>
                                     @empty
                                         <span class="text-body-secondary">None</span>
                                     @endforelse
                                 </td>
                                 <td>
-                                    @if($writeCalendar)
-                                        <span class="badge text-bg-light border">{{ $writeCalendar->name }}</span>
-                                    @else
+                                    @forelse($usage['write'] as $calendar)
+                                        <span class="badge text-bg-light border me-1 mb-1">{{ $calendar->name }}</span>
+                                    @empty
                                         <span class="text-body-secondary">None</span>
-                                    @endif
+                                    @endforelse
                                 </td>
-                                <td class="text-end">
-                                    <a class="btn btn-outline-primary btn-sm" href="{{ route('appointment-types.calendars.edit', $appointmentType) }}">Configure</a>
-                                </td>
+                                <td><a class="btn btn-outline-primary btn-sm" href="{{ route('appointment-types.calendars.edit', ['appointmentType' => $appointmentType, 'resource' => $resource->uuid]) }}">Customize calendars</a></td>
                             </tr>
-                        @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @endif
+                        @empty
+                            <tr><td colspan="4" class="text-body-secondary">This member is not linked to any appointment types yet.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
-</div>
+    </section>
 @empty
-<div class="col-12"><div class="alert alert-info">Create an organization resource before connecting calendars.</div></div>
+    <div class="alert alert-info">Create or link a member resource before connecting calendars.</div>
 @endforelse
-</div>
 @endsection
