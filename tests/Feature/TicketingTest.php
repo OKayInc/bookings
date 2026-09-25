@@ -141,6 +141,8 @@ class TicketingTest extends TestCase
         $this->assertSame('2026-08-31 11:00', $first->appointment->show_ends_at_utc->setTimezone('America/Toronto')->format('Y-m-d H:i'));
         $this->assertSame(['1', '2'], $first->tickets->pluck('seat_label')->all());
         $this->assertSame(['issued', 'issued'], $first->tickets->pluck('status')->map->value->all());
+        $this->assertCount(2, $first->tickets->pluck('code')->unique());
+        $this->assertCount(2, $first->tickets->pluck('uuid')->unique());
 
         $second = $this->book($type->fresh(['organization', 'resources']), $start, 2, 'second@example.test');
         $this->assertTrue($second->appointment->is($first->appointment));

@@ -4,6 +4,7 @@ namespace App\Domain\Questionnaires;
 
 use App\Domain\Plans\PlanUsageService;
 use App\Models\Organization;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -42,40 +43,49 @@ class DrivingDistanceService
             $cacheKey,
             now()->addSeconds((int) config('questionnaire.google.routes_cache_seconds', 900)),
             function () use ($key, $originAddress, $destinationAddress, $organization): int {
-                if ($organization !== null) {
-                    $this->planUsage->consumeDistanceLookup($organization);
-                }
-                $response = Http::timeout((int) config('questionnaire.google.routes_timeout_seconds', 8))
-                    ->acceptJson()
-                    ->asJson()
-                    ->withHeaders([
-                        'X-Goog-Api-Key' => $key,
-                        'X-Goog-FieldMask' => 'routes.distanceMeters',
-                    ])
-                    ->post((string) config('questionnaire.google.routes_url'), [
-                        'origin' => ['address' => $originAddress],
-                        'destination' => ['address' => $destinationAddress],
-                        'travelMode' => 'DRIVE',
-                        'routingPreference' => 'TRAFFIC_UNAWARE',
-                        'computeAlternativeRoutes' => false,
-                        'units' => 'METRIC',
-                    ]);
+                $reservation = $organization === null ? null : $this->planUsage->consumeDistanceLookup($organization);
+                $resolved = false;
+                try {
+                    $response = Http::timeout((int) config('questionnaire.google.routes_timeout_seconds', 8))
+                        ->acceptJson()
+                        ->asJson()
+                        ->withHeaders([
+                            'X-Goog-Api-Key' => $key,
+                            'X-Goog-FieldMask' => 'routes.distanceMeters',
+                        ])
+                        ->post((string) config('questionnaire.google.routes_url'), [
+                            'origin' => ['address' => $originAddress],
+                            'destination' => ['address' => $destinationAddress],
+                            'travelMode' => 'DRIVE',
+                            'routingPreference' => 'TRAFFIC_UNAWARE',
+                            'computeAlternativeRoutes' => false,
+                            'units' => 'METRIC',
+                        ]);
 
-                if (! $response->successful()) {
-                    throw new RuntimeException('The driving distance service is temporarily unavailable.');
-                }
+                    if (! $response->successful()) {
+                        throw new RuntimeException('The driving distance service is temporarily unavailable.');
+                    }
 
-                $meters = $response->json('routes.0.distanceMeters');
-                if (! is_int($meters) && ! (is_string($meters) && ctype_digit($meters))) {
-                    throw new RuntimeException('A driving route could not be found for this address.');
-                }
+                    $meters = $response->json('routes.0.distanceMeters');
+                    if (! is_int($meters) && ! (is_string($meters) && ctype_digit($meters))) {
+                        throw new RuntimeException('A driving route could not be found for this address.');
+                    }
 
-                $meters = (int) $meters;
-                if ($meters < 0) {
-                    throw new RuntimeException('A driving route could not be found for this address.');
-                }
+                    $meters = (int) $meters;
+                    if ($meters < 0) {
+                        throw new RuntimeException('A driving route could not be found for this address.');
+                    }
 
-                return $meters;
+                    $resolved = true;
+
+                    return $meters;
+                } catch (ConnectionException $e) {
+                    throw new RuntimeException('The driving distance service is temporarily unavailable.', 0, $e);
+                } finally {
+                    if (! $resolved && $reservation !== null) {
+                        $this->planUsage->releaseDistanceLookup($reservation);
+                    }
+                }
             },
         );
     }

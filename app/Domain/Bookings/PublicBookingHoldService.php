@@ -71,36 +71,45 @@ class PublicBookingHoldService
             throw new RuntimeException('A required resource is closed for a holiday on the selected date.');
         }
 
-        if ($type->attendance_mode === AttendanceMode::Group) {
-            $existing = Appointment::query()
-                ->where('appointment_type_id', $type->getKey())
-                ->where('status', AppointmentStatus::Scheduled->value)
-                ->where('duration_value', $selectedDuration)
-                ->where('starts_at_utc', $startsAtUtc->format('Y-m-d H:i:s.u'))
-                ->first();
+        $reserve = function () use ($type, $startsAtUtc, $selectedDuration, $bookingTimezone, $attendeeCount, $invitation, $ttlMinutes): BookingHoldLease {
+            if ($type->attendance_mode === AttendanceMode::Group) {
+                // Check after locking the type. A concurrent first booking may have
+                // created the session while this request waited for the lock.
+                $lockedType = AppointmentType::query()->whereKey($type->getKey())->lockForUpdate()->firstOrFail();
+                $existing = Appointment::query()
+                    ->where('appointment_type_id', $lockedType->getKey())
+                    ->where('status', AppointmentStatus::Scheduled->value)
+                    ->where('duration_value', $selectedDuration)
+                    ->where('starts_at_utc', $startsAtUtc->format('Y-m-d H:i:s.u'))
+                    ->first();
 
-            if ($existing !== null) {
-                return $this->acquireCapacityHold($type, $existing, $bookingTimezone, $attendeeCount, $invitation, $ttlMinutes);
+                if ($existing !== null) {
+                    return $this->acquireCapacityHold($lockedType, $existing, $bookingTimezone, $attendeeCount, $invitation, $ttlMinutes);
+                }
             }
-        }
 
-        $lease = $this->holds->acquire(
-            $type,
-            $startsAtUtc,
-            $selectedDuration,
-            $bookingTimezone,
-            $ttlMinutes ?? (int) config('booking.public_hold_ttl_minutes', 15),
-            $attendeeCount,
-        );
+            $lease = $this->holds->acquire(
+                $type,
+                $startsAtUtc,
+                $selectedDuration,
+                $bookingTimezone,
+                $ttlMinutes ?? (int) config('booking.public_hold_ttl_minutes', 15),
+                $attendeeCount,
+            );
 
-        $contractId = $type->contractTemplate()->value('id');
-        $lease->hold->update([
-            'appointment_type_invitation_id' => $invitation?->getKey(),
-            'contract_template_id' => $contractId,
-            'attendee_count' => $attendeeCount,
-        ]);
+            $contractId = $type->contractTemplate()->value('id');
+            $lease->hold->update([
+                'appointment_type_invitation_id' => $invitation?->getKey(),
+                'contract_template_id' => $contractId,
+                'attendee_count' => $attendeeCount,
+            ]);
 
-        return new BookingHoldLease($lease->hold->fresh(['resources', 'contractTemplate', 'invitation']), $lease->token);
+            return new BookingHoldLease($lease->hold->fresh(['resources', 'contractTemplate', 'invitation']), $lease->token);
+        };
+
+        return $type->attendance_mode === AttendanceMode::Group
+            ? DB::transaction($reserve, 3)
+            : $reserve();
     }
 
     private function acquireCapacityHold(
