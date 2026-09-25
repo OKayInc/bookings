@@ -27,6 +27,10 @@ class CalendarConnectionController extends Controller
         $organization = $context->organization();
         $resources = $organization->resources()->with([
             'person',
+            'appointmentTypes' => fn ($query) => $query
+                ->where('appointment_types.organization_id', $organization->getKey())
+                ->orderBy('appointment_types.name'),
+            'appointmentTypes.externalCalendars.connection',
             'calendarConnections' => fn ($query) => $query->where('organization_id', $organization->getKey()),
             'calendarConnections.calendars',
         ])->orderBy('name');
