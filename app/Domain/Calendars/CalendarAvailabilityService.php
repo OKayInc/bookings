@@ -5,7 +5,6 @@ namespace App\Domain\Calendars;
 use App\Domain\Availability\AvailabilityInterval;
 use App\Domain\Resources\ResourceRequirementService;
 use App\Models\AppointmentType;
-use App\Models\ExternalCalendar;
 use App\Models\Resource;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
@@ -13,7 +12,11 @@ use Illuminate\Support\Str;
 
 class CalendarAvailabilityService
 {
-    public function __construct(private readonly CalendarManager $manager, private readonly ResourceRequirementService $requirements) {}
+    public function __construct(
+        private readonly CalendarManager $manager,
+        private readonly ResourceRequirementService $requirements,
+        private readonly CalendarSelectionService $selections,
+    ) {}
 
     /** @return list<AvailabilityInterval> */
     public function forRequiredResources(AppointmentType $type, CarbonImmutable $fromUtc, CarbonImmutable $toUtc, bool $fresh = false): array
@@ -68,12 +71,7 @@ class CalendarAvailabilityService
     /** @param list<string> $resourceIds */
     private function configuredCalendars(AppointmentType $type, array $resourceIds): Collection
     {
-        return ExternalCalendar::query()
-            ->with('connection')
-            ->where('is_active', true)
-            ->whereHas('connection', fn ($q) => $q->where('organization_id', $type->organization_id)->whereIn('resource_id', $resourceIds)->where('status', '!=', 'revoked'))
-            ->whereHas('appointmentTypes', fn ($q) => $q->where('appointment_types.id', $type->getKey())->where('appointment_type_calendars.check_availability', true))
-            ->get();
+        return $this->selections->forType($type, $resourceIds)['check'];
     }
 
     /** @return list<AvailabilityInterval> */

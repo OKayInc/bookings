@@ -10,7 +10,10 @@ use Throwable;
 
 class CalendarSyncService
 {
-    public function __construct(private readonly CalendarManager $manager) {}
+    public function __construct(
+        private readonly CalendarManager $manager,
+        private readonly CalendarSelectionService $selections,
+    ) {}
 
     public function safeSyncAppointment(Appointment $appointment): void
     {
@@ -23,11 +26,7 @@ class CalendarSyncService
         if ($appointment->status !== AppointmentStatus::Scheduled) { $this->deleteAppointmentEvents($appointment); return; }
 
         $resourceIds = $appointment->resources->modelKeys();
-        $targets = ExternalCalendar::query()->with('connection')
-            ->where('is_active', true)->where('can_write', true)
-            ->whereHas('connection', fn ($q) => $q->where('organization_id', $appointment->organization_id)->whereIn('resource_id', $resourceIds)->where('status', '!=', 'revoked'))
-            ->whereHas('appointmentTypes', fn ($q) => $q->where('appointment_types.id', $appointment->appointment_type_id)->where('appointment_type_calendars.create_event', true))
-            ->get();
+        $targets = $this->selections->forType($appointment->appointmentType, $resourceIds)['write'];
 
         $targetIds = $targets->modelKeys();
         foreach ($appointment->externalEvents as $mapping) {

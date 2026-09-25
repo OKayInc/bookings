@@ -15,7 +15,7 @@ class ExternalCalendar extends Model
 
     protected $fillable = [
         'calendar_connection_id', 'external_id', 'external_id_hash', 'name', 'timezone', 'access_role',
-        'can_write', 'is_primary', 'is_active', 'last_seen_at_utc',
+        'can_write', 'is_primary', 'is_active', 'last_seen_at_utc', 'is_owned', 'is_default_write',
     ];
 
     protected $hidden = ['id', 'calendar_connection_id', 'external_id_hash'];
@@ -25,6 +25,7 @@ class ExternalCalendar extends Model
     {
         return [
             'can_write' => 'boolean', 'is_primary' => 'boolean', 'is_active' => 'boolean',
+            'is_owned' => 'boolean', 'is_default_write' => 'boolean',
             'last_seen_at_utc' => 'immutable_datetime',
         ];
     }

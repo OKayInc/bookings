@@ -60,6 +60,7 @@ class CalendarManager
                     'external_id' => $item['external_id'], 'name' => $item['name'], 'timezone' => $item['timezone'] ?? null,
                     'access_role' => $item['access_role'] ?? null, 'can_write' => (bool) ($item['can_write'] ?? false),
                     'is_primary' => (bool) ($item['is_primary'] ?? false), 'is_active' => true, 'last_seen_at_utc' => now('UTC'),
+                    'is_owned' => CalendarOwnership::detect($item, $profile),
                 ],
             );
         }
