@@ -6,6 +6,7 @@ use App\Domain\Money\PaymentCurrencyCatalog;
 use App\Enums\TaxPriceMode;
 use App\Rules\IanaTimezone;
 use App\Rules\YouTubeChannelUrl;
+use App\Support\Analytics\GoogleAnalytics;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -21,6 +22,12 @@ class StoreOrganizationRequest extends FormRequest
     {
         if ($this->has('currency')) {
             $this->merge(['currency' => strtoupper(trim((string) $this->input('currency')))]);
+        }
+
+        if ($this->has('google_analytics_measurement_id')) {
+            $value = $this->input('google_analytics_measurement_id');
+            $value = is_string($value) ? strtoupper(trim($value)) : $value;
+            $this->merge(['google_analytics_measurement_id' => $value === '' ? null : $value]);
         }
 
         foreach (['facebook_url', 'instagram_url', 'x_url', 'linkedin_url', 'tiktok_url', 'youtube_url'] as $field) {
@@ -58,6 +65,7 @@ class StoreOrganizationRequest extends FormRequest
             'name' => ['required', 'string', 'max:180'],
             'timezone' => ['required', new IanaTimezone()],
             'currency' => ['required', 'string', Rule::in(PaymentCurrencyCatalog::codes())],
+            'google_analytics_measurement_id' => ['bail', 'nullable', 'string', 'max:64', 'regex:'.GoogleAnalytics::MEASUREMENT_ID_PATTERN],
             'logo_file' => [
                 'nullable',
                 'file',
@@ -147,6 +155,13 @@ class StoreOrganizationRequest extends FormRequest
                 Rule::requiredIf(fn (): bool => $this->routeIs('organizations.store') && $this->boolean('guided_setup')),
                 'nullable', 'date_format:H:i',
             ],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'google_analytics_measurement_id.regex' => 'Enter a Google Analytics 4 measurement ID starting with G- (for example, G-ABC1234567), or leave it blank.',
         ];
     }
 

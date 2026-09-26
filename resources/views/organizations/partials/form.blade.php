@@ -85,6 +85,14 @@ $taxPriceMode = old('tax_price_mode', $organization?->tax_price_mode?->value ?? 
 <div class="field"><label for="tiktok_url">TikTok</label><input id="tiktok_url" type="url" name="tiktok_url" value="{{ old('tiktok_url', $organization?->tiktok_url) }}" maxlength="500" placeholder="https://www.tiktok.com/@your-account"></div>
 <div class="field"><label for="youtube_url">YouTube channel</label><input id="youtube_url" type="url" name="youtube_url" value="{{ old('youtube_url', $organization?->youtube_url) }}" maxlength="500" placeholder="https://www.youtube.com/@your-channel"><div class="muted">Enter a YouTube channel URL, such as a channel handle or /channel/ URL. Video, Shorts, playlist and youtu.be links are not accepted.</div></div>
 </fieldset>
+<fieldset class="mb-3">
+<legend class="h2">Google Analytics</legend>
+<div class="field">
+    <label for="google_analytics_measurement_id">Your GA4 measurement ID (optional)</label>
+    <input id="google_analytics_measurement_id" name="google_analytics_measurement_id" value="{{ old('google_analytics_measurement_id', $organization?->google_analytics_measurement_id) }}" maxlength="64" placeholder="G-ABC1234567" autocomplete="off" spellcheck="false" aria-describedby="google-analytics-help">
+    <div id="google-analytics-help" class="muted">Track visits to your public organization, appointment and gift-card listing pages in your own Google Analytics property. Find this ID in Google Analytics under Admin &gt; Data streams &gt; Web. Enter the ID only, not the script. Leave blank to turn off your tracking. Appointment.to may also use its own Analytics property.</div>
+</div>
+</fieldset>
 <template id="organization-tax-row-template">
 <div class="card compact organization-tax-row">
     <div class="row">

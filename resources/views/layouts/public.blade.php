@@ -28,6 +28,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $seoTitle }}</title>
+    @include('layouts.partials.google-analytics')
     <meta name="robots" content="{{ $seoIndexable ? 'index,follow,max-image-preview:large' : 'noindex,nofollow,noarchive' }}">
     @if($seoDescription)<meta name="description" content="{{ $seoDescription }}">@endif
     @if($seoCanonical)<link rel="canonical" href="{{ $seoCanonical }}">@endif

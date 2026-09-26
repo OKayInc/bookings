@@ -24,7 +24,7 @@
         <p class="small text-secondary mb-0">
             <strong>Effective:</strong> August 27, 2026
             <span class="mx-2" aria-hidden="true">&middot;</span>
-            <strong>Last updated:</strong> September 19, 2026
+            <strong>Last updated:</strong> September 26, 2026
         </p>
     </header>
 
@@ -221,6 +221,7 @@
 
     <section id="cookies" aria-labelledby="cookies-title">
         <h2 class="h3" id="cookies-title">11. Cookies and similar technologies</h2>
+        <p>When configured, Google Analytics 4 measures visits to public marketing, organization, appointment and gift-card listing pages. Appointment.to may use a platform Analytics property, and an Organization may configure its own property for its public pages. This integration omits query strings and fragments from page locations and limits referrers to their origin. It does not load on account, administration, private appointment, booking-management, questionnaire, confirmation or payment pages.</p>
         <p>
             The Service may use essential cookies and local storage for sessions, authentication, security, preferences, booking flows, and load balancing. We may use limited analytics technologies to understand performance and improve the Service. Eligible public directory and public appointment pages belonging to Free-plan Organizations may also load Google advertising technology, which may process IP address, device/browser information, page URL, ad interactions, and cookies or similar identifiers. Advertising is not loaded in the backend, password-protected, unlisted, invitation-only, questionnaire, contract, payment, upload, booking-management, or confirmation flows. Browser controls can block cookies, but essential features may then fail. Where law requires it, non-essential technologies are used only after the applicable choice or consent.
         </p>
