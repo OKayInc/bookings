@@ -62,6 +62,7 @@ class BladeCompilationTest extends TestCase
             'layouts/app.blade.php',
             'layouts/public.blade.php',
             'layouts/partials/page-loader.blade.php',
+            'layouts/partials/google-analytics.blade.php',
         ] as $view) {
             $path = resource_path('views/'.$view);
             $compiled = app('blade.compiler')->compileString(file_get_contents($path));

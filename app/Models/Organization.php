@@ -25,6 +25,7 @@ class Organization extends Model
         'onboarding_completed_at',
         'plan_tier',
         'hide_platform_branding',
+        'google_analytics_measurement_id',
         'logo_path',
         'facebook_url',
         'instagram_url',

@@ -76,6 +76,7 @@ class OrganizationController extends Controller
                 'timezone' => $data['timezone'],
                 'currency' => strtoupper($data['currency']),
                 'onboarding_completed_at' => now(),
+                'google_analytics_measurement_id' => $data['google_analytics_measurement_id'] ?? null,
                 'facebook_url' => $data['facebook_url'] ?? null,
                 'instagram_url' => $data['instagram_url'] ?? null,
                 'x_url' => $data['x_url'] ?? null,
@@ -151,6 +152,9 @@ class OrganizationController extends Controller
                 'timezone' => $data['timezone'],
                 'currency' => strtoupper($data['currency']),
                 'facebook_url' => $data['facebook_url'],
+                'google_analytics_measurement_id' => array_key_exists('google_analytics_measurement_id', $data)
+                    ? $data['google_analytics_measurement_id']
+                    : $organization->google_analytics_measurement_id,
                 'instagram_url' => $data['instagram_url'],
                 'x_url' => $data['x_url'],
                 'linkedin_url' => $data['linkedin_url'],

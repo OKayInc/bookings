@@ -47,6 +47,8 @@ Instead of forcing every organization into a single scheduling model, it provide
 
 ## Multi-Organization Platform
 
+Optional [Google Analytics 4](docs/google-analytics.md) tracking supports both a platform property and each customer's own property on their public pages.
+
 A single user account can participate in or operate multiple organizations.
 
 Organizations maintain their own:
