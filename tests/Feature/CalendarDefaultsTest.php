@@ -19,6 +19,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class CalendarDefaultsTest extends TestCase
@@ -29,6 +30,72 @@ class CalendarDefaultsTest extends TestCase
     {
         parent::setUp();
         Http::preventStrayRequests();
+    }
+
+    #[DataProvider('calendarProviders')]
+    public function test_custom_calendar_choices_survive_saving_and_reloading_the_form(string $provider): void
+    {
+        [$user, $org, $resource, $type, $connection] = $this->context();
+        if ($provider === 'microsoft') {
+            $connection = $this->connection($org, $resource, 'microsoft');
+        }
+        $owned = $this->calendar($connection, 'Default calendar');
+        $owned->update(['is_default_write' => true]);
+        $shared = $this->calendar($connection, 'Custom calendar', false);
+        $this->signIn($user, $org);
+        $editUrl = route('appointment-types.calendars.edit', ['appointmentType' => $type, 'resource' => $resource->uuid]);
+        $updateUrl = route('appointment-types.calendars.update', ['appointmentType' => $type, 'resource' => $resource->uuid]);
+
+        $initial = $this->calendarForm($editUrl);
+        $this->assertSame('default', $initial->evaluate('string(//select[@data-calendar-mode]/option[@selected]/@value)'));
+        $this->assertSame(2, $initial->query('//input[@data-calendar-choice][@data-default-checked="1"]')->length);
+        $this->assertSame(5, $initial->query('//input[@data-calendar-choice]')->length);
+
+        // The form's change handler switches this member to custom mode when a choice is edited.
+        $this->from($editUrl)->put($updateUrl, [
+            'calendar_settings_submitted' => '1',
+            'calendar_mode' => [$resource->uuid => 'custom'],
+            'check_calendars' => [$shared->uuid],
+            'write_calendar' => [$resource->uuid => $shared->uuid],
+        ])->assertSessionHasNoErrors()->assertSessionHas('success')->assertRedirect($editUrl);
+
+        $saved = $this->calendarForm($editUrl);
+        $this->assertSame('custom', $saved->evaluate('string(//select[@data-calendar-mode]/option[@selected]/@value)'));
+        $this->assertSame($shared->uuid, $saved->evaluate('string(//input[@type="checkbox"][@checked]/@value)'));
+        $this->assertSame($shared->uuid, $saved->evaluate('string(//input[@type="radio"][@checked]/@value)'));
+        $this->assertSame(2, $saved->query('//input[@data-calendar-choice][@data-default-checked="1"]')->length);
+        $this->get(route('calendar-connections.index'))->assertOk()->assertSee('Custom settings');
+
+        $this->from($editUrl)->put($updateUrl, [
+            'calendar_settings_submitted' => '1',
+            'calendar_mode' => [$resource->uuid => 'custom'],
+            'write_calendar' => [$resource->uuid => ''],
+        ])->assertSessionHasNoErrors()->assertRedirect($editUrl);
+        $empty = $this->calendarForm($editUrl);
+        $this->assertSame('custom', $empty->evaluate('string(//select[@data-calendar-mode]/option[@selected]/@value)'));
+        $this->assertSame(0, $empty->query('//input[@type="checkbox"][@checked]')->length);
+        $this->assertSame(1, $empty->query('//input[@type="radio"][@value=""][@checked]')->length);
+
+        $this->from($editUrl)->put($updateUrl, ['calendar_mode' => [$resource->uuid => 'default']])
+            ->assertSessionHasNoErrors()->assertRedirect($editUrl);
+        $restored = $this->calendarForm($editUrl);
+        $this->assertSame('default', $restored->evaluate('string(//select[@data-calendar-mode]/option[@selected]/@value)'));
+        $this->assertSame($owned->uuid, $restored->evaluate('string(//input[@type="checkbox"][@checked]/@value)'));
+        $this->assertSame($owned->uuid, $restored->evaluate('string(//input[@type="radio"][@checked]/@value)'));
+    }
+
+    public static function calendarProviders(): array
+    {
+        return ['Google' => ['google'], 'Outlook' => ['microsoft']];
+    }
+
+    private function calendarForm(string $url): \DOMXPath
+    {
+        $html = $this->get($url)->assertOk()->getContent();
+        $document = new \DOMDocument();
+        @$document->loadHTML($html);
+
+        return new \DOMXPath($document);
     }
 
     public function test_unconfigured_types_check_owned_calendars_only_and_use_the_saved_write_target(): void

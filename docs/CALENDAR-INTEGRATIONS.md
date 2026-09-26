@@ -85,14 +85,16 @@ After OAuth, M7 imports all calendars exposed by the account and records whether
 
 ## Configuring an appointment type
 
-Open an appointment type and select **Calendars**.
+Open an appointment type and select **Calendars**, or use **Customize calendars** beside the appointment type on the **Calendar connections** page.
 
 For each assigned resource:
 
 - select zero or more calendars under **Check availability**;
 - optionally select one writable calendar under **Create appointment event**.
 
-A calendar can perform both roles.
+A calendar can perform both roles. Changing any checkbox or writing-calendar choice automatically switches that member to **Customize for this appointment type**. Click **Save calendar settings** to persist the changes. If JavaScript is disabled, select the custom mode yourself before saving.
+
+Selecting **Use member defaults** restores the displayed defaults: availability checks use calendars owned by the connected accounts, and events use the member's default writing calendar. Save to remove that member's overrides. Other members' settings are unchanged.
 
 ## Availability failure behavior
 
