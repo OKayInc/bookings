@@ -146,6 +146,10 @@ class CalendarSyncTest extends TestCase
         $outlook = (new \ReflectionMethod($sync, 'eventPayload'))->invoke($sync, $appointment->fresh(['appointmentType.organization', 'bookings.answers.files']), 'microsoft');
         $this->assertSame($paid['description'], $outlook['body']['content']);
         $this->assertSame(['displayName' => '1 Main Street, Cornwall, ON'], $outlook['location']);
+        $appointment->update(['event_location' => 'Current event venue']);
+        $type->update(['event_location' => 'Old type venue']);
+        $venue = (new \ReflectionMethod($sync, 'eventPayload'))->invoke($sync, $appointment->fresh(['appointmentType.organization', 'bookings.answers.files']), 'google');
+        $this->assertSame('Current event venue', $venue['location']);
         $this->get(route('appointments.show', $appointment))->assertOk()->assertDontSee('Advertisement');
     }
 }

@@ -124,10 +124,9 @@ class CalendarSyncService
         }
         // A group slot may contain several client addresses. Never choose one
         // client's address as the location for everyone else.
-        $location = trim((string) ($appointment->event_location ?: ($type->ticketing_enabled ? $type->event_location : null)));
-        if ($location === '' && $appointment->meeting_status === 'ready') {
-            $location = trim((string) $appointment->meeting_join_url);
-        }
+        $location = $appointment->meeting_status === 'ready' && filled($appointment->meeting_join_url)
+            ? trim((string) $appointment->meeting_join_url)
+            : trim((string) $appointment->event_location);
         if ($location === '') {
             $addresses = $bookings->flatMap(fn ($booking) => $booking->answers
                 ->filter(fn ($answer) => $answer->question_type === 'address')
