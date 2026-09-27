@@ -132,7 +132,15 @@ class CalendarSyncTest extends TestCase
         ]);
         $this->actingAs($otherUser)->withSession(['active_organization_uuid' => $organization->uuid]);
         $this->get(route('appointments.show', $appointment))->assertForbidden();
-        $this->actingAs($user)->withSession(['active_organization_uuid' => $organization->uuid]);
+        $otherOrganization = Organization::factory()->create();
+        OrganizationMembership::create([
+            'organization_id' => $otherOrganization->getKey(), 'person_id' => $user->person_id,
+            'role' => 'owner', 'status' => 'active',
+        ]);
+        $user->forceFill(['active_organization_id' => $otherOrganization->getKey()])->save();
+        $this->actingAs($user)->withSession(['active_organization_uuid' => $otherOrganization->uuid]);
+        $this->get(route('appointments.show', $appointment))->assertOk();
+        $this->assertSame($organization->getKey(), $user->fresh()->active_organization_id);
 
         $organization->update(['plan_tier' => 'paid']);
         $paid = (new \ReflectionMethod($sync, 'eventPayload'))->invoke($sync, $appointment->fresh(['appointmentType.organization', 'bookings.answers.files']), 'google');
