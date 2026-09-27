@@ -3,8 +3,12 @@
 namespace App\Domain\Calendars;
 
 use App\Enums\AppointmentStatus;
+use App\Enums\BookingStatus;
+use App\Enums\PlanLevel;
+use App\Domain\Plans\PlanEntitlementService;
 use App\Models\Appointment;
 use App\Models\AppointmentExternalEvent;
+use App\Models\BookingAnswer;
 use App\Models\ExternalCalendar;
 use Throwable;
 
@@ -22,7 +26,7 @@ class CalendarSyncService
 
     public function syncAppointment(Appointment $appointment): void
     {
-        $appointment->loadMissing(['appointmentType.organization', 'resources', 'externalEvents.calendar.connection']);
+        $appointment->loadMissing(['appointmentType.organization', 'resources', 'bookings.answers.files', 'externalEvents.calendar.connection']);
         if ($appointment->status !== AppointmentStatus::Scheduled) { $this->deleteAppointmentEvents($appointment); return; }
 
         $resourceIds = $appointment->resources->modelKeys();
@@ -91,7 +95,21 @@ class CalendarSyncService
     {
         $type = $appointment->appointmentType; $organization = $type->organization;
         $summary = $type->name;
-        $description = "Managed by Appointment Software\nOrganization: {$organization->name}\nAppointment UUID: {$appointment->uuid}";
+        $description = "Managed by Appointment.to\nOrganization: {$organization->name}\nAppointment UUID: {$appointment->uuid}";
+        $bookings = $appointment->bookings->filter(fn ($booking) => ! in_array($booking->status, [BookingStatus::Cancelled, BookingStatus::Declined], true));
+        if (app(PlanEntitlementService::class)->for($organization)->level === PlanLevel::Free) {
+            $description .= "\nView appointment details: ".route('appointments.show', $appointment);
+        } else {
+            foreach ($bookings as $booking) {
+                $description .= "\n\nBooking {$booking->reference}: {$booking->first_name} {$booking->last_name}";
+                $description .= "\nEmail: {$booking->email}";
+                if (filled($booking->phone)) { $description .= "\nPhone: {$booking->phone}"; }
+                $description .= "\nAttendees: {$booking->attendee_count}";
+                foreach ($booking->answers as $answer) {
+                    $description .= "\n{$answer->question_label}: ".$this->answerText($answer);
+                }
+            }
+        }
         if ($appointment->ticketing_enabled) {
             $timezone = $organization->timezone;
             $description .= "\nDoors open: ".$appointment->starts_at_utc->setTimezone($timezone)->format('D, M j Y · g:i A')." ({$timezone})";
@@ -104,9 +122,23 @@ class CalendarSyncService
         if ($appointment->meeting_status === 'ready' && filled($appointment->meeting_join_url)) {
             $description .= "\nOnline meeting: {$appointment->meeting_join_url}";
         }
+        // A group slot may contain several client addresses. Never choose one
+        // client's address as the location for everyone else.
+        $location = trim((string) ($appointment->event_location ?: ($type->ticketing_enabled ? $type->event_location : null)));
+        if ($location === '' && $appointment->meeting_status === 'ready') {
+            $location = trim((string) $appointment->meeting_join_url);
+        }
+        if ($location === '') {
+            $addresses = $bookings->flatMap(fn ($booking) => $booking->answers
+                ->filter(fn ($answer) => $answer->question_type === 'address')
+                ->map(fn ($answer) => trim((string) (data_get($answer->normalized_json, 'formatted_address') ?: data_get($answer->value_json, 'value')))))
+                ->filter()->unique()->values();
+            if ($addresses->count() === 1) { $location = $addresses->first(); }
+        }
         if ($provider === 'google') {
             return [
                 'summary' => $summary, 'description' => $description,
+                'location' => $location,
                 'start' => ['dateTime' => $appointment->starts_at_utc->utc()->toIso8601String(), 'timeZone' => 'UTC'],
                 'end' => ['dateTime' => $appointment->ends_at_utc->utc()->toIso8601String(), 'timeZone' => 'UTC'],
                 'transparency' => 'opaque', 'visibility' => 'private',
@@ -115,9 +147,28 @@ class CalendarSyncService
         return [
             'subject' => $summary,
             'body' => ['contentType' => 'text', 'content' => $description],
+            'location' => ['displayName' => $location],
             'start' => ['dateTime' => $appointment->starts_at_utc->utc()->format('Y-m-d\\TH:i:s.u'), 'timeZone' => 'UTC'],
             'end' => ['dateTime' => $appointment->ends_at_utc->utc()->format('Y-m-d\\TH:i:s.u'), 'timeZone' => 'UTC'],
             'showAs' => 'busy', 'isReminderOn' => false, 'allowNewTimeProposals' => false,
         ];
+    }
+
+    private function answerText(BookingAnswer $answer): string
+    {
+        if ($answer->question_type === 'file') {
+            return $answer->files->pluck('original_name')->implode(', ') ?: '(no file)';
+        }
+        $value = data_get($answer->value_json, 'value');
+        if ($answer->question_type === 'textarea' && is_string($value)) {
+            $value = app(\App\Support\Html\RichTextSanitizer::class)->toPlainText($value);
+        }
+        if (is_array($value)) {
+            $value = array_key_exists('label', $value)
+                ? $value['label']
+                : collect($value)->map(fn ($item) => is_array($item) ? ($item['label'] ?? $item['value'] ?? '') : $item)->implode(', ');
+        }
+
+        return trim((string) $value) ?: '(no answer)';
     }
 }

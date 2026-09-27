@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AppointmentContractTemplateController;
+use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\AppointmentTypeController;
 use App\Http\Controllers\AppointmentTypeInvitationController;
 use App\Http\Controllers\AppointmentQuestionController;
@@ -302,6 +303,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::post('/customers/{customer}/access/{entry}/resolve', [CustomerController::class, 'resolveAccess'])->name('customers.access.resolve');
 
         Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
+        Route::get('/appointments/{appointment}', [AppointmentController::class, 'show'])->name('appointments.show');
         Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('bookings.show');
         Route::post('/bookings/{booking}/confirmations/{confirmation}/respond', [BookingController::class, 'respondConfirmation'])->name('bookings.confirmations.respond');
         Route::post('/bookings/{booking}/confirmations/{confirmation}/remind', [BookingController::class, 'remindConfirmation'])->name('bookings.confirmations.remind');
