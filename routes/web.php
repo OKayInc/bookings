@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AppointmentContractTemplateController;
+use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\AppointmentTypeController;
 use App\Http\Controllers\AppointmentTypeInvitationController;
 use App\Http\Controllers\AppointmentQuestionController;
@@ -224,6 +225,7 @@ Route::middleware('auth')->group(function (): void {
 });
 
 Route::middleware(['auth', 'verified'])->group(function (): void {
+    Route::get('/appointments/{appointment}', [AppointmentController::class, 'show'])->name('appointments.show');
     Route::get('/onboarding', [OnboardingController::class, 'show'])->name('onboarding.show');
     Route::post('/onboarding', [OnboardingController::class, 'store'])->name('onboarding.store');
     Route::post('/onboarding/skip', [OnboardingController::class, 'skip'])->name('onboarding.skip');
