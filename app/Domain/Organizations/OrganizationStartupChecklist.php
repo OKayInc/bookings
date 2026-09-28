@@ -55,6 +55,8 @@ class OrganizationStartupChecklist
         $missingMeetings = $types->filter(fn (AppointmentType $type) => $type->is_online
             && ! $this->conferences->isConfigured($organization, $type->meeting_provider ?? ConferenceProvider::Jitsi));
         $paymentNeeded = $types->contains(fn (AppointmentType $type) => $this->mayCharge($type));
+        $offlineReady = $paymentNeeded && $types->filter(fn (AppointmentType $type) => $this->mayCharge($type))
+            ->every(fn (AppointmentType $type) => (bool) $type->offline_payment_enabled && filled($type->offline_payment_instructions));
         $settings = $organization->paymentSettings;
         $liveProviders = collect(PaymentProvider::cases())->filter(fn (PaymentProvider $provider) => $settings?->isConfigured($provider)
             && ! $this->testMode($settings, $provider));
@@ -107,12 +109,13 @@ class OrganizationStartupChecklist
             (bool) $organization->collects_taxes,
             $organization->collects_taxes ? 'Tax collection is enabled. Add at least one tax rate and review whether prices include tax.' : 'You have chosen not to collect taxes. Change this if your business needs to charge tax.',
             $adminUrl(route('organizations.edit', $organization)), 'Review taxes', ! $organization->collects_taxes);
-        $steps[] = $this->step('payments', 'Connect Stripe or PayPal', $liveProviders->isNotEmpty(), $paymentNeeded,
+        $steps[] = $this->step('payments', 'Set up online or offline payments', $liveProviders->isNotEmpty() || $offlineReady, $paymentNeeded,
             $paymentNeeded
-                ? ($liveProviders->isNotEmpty() ? 'At least one live payment provider is configured. Check your provider account and try checkout before accepting payments.'
-                    : 'Your appointments can charge money, including extras or deposits. Enable Stripe or PayPal with its credentials and webhook settings in live mode.')
+                ? ($offlineReady && $liveProviders->isEmpty() ? 'All chargeable appointment types accept offline payment. Verify transfers manually before their reservation deadlines.'
+                    : ($liveProviders->isNotEmpty() ? 'At least one live payment provider is configured. Check your provider account and try checkout before accepting payments.'
+                    : 'Your appointments can charge money, including extras or deposits. Enable Stripe or PayPal in live mode, or configure offline payment for every chargeable appointment type.'))
                 : 'Not needed for your current free appointments. Set up either provider when you add prices, paid extras or deposits.',
-            $adminUrl(route('payment-settings.edit')), 'Set up payments', ! $paymentNeeded && $liveProviders->isEmpty());
+            $offlineReady && $liveProviders->isEmpty() ? $typeUrl : $adminUrl(route('payment-settings.edit')), 'Set up payments', ! $paymentNeeded && $liveProviders->isEmpty());
         if ($testProviders->isNotEmpty()) {
             $steps[array_key_last($steps)]['description'] .= ' Test mode is enabled for '.$testProviders->map(fn ($provider) => $provider->value)->implode(', ').'; it does not collect real payments.';
         }
