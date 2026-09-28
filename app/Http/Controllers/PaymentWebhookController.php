@@ -22,7 +22,7 @@ class PaymentWebhookController extends Controller
         PaymentWebhookService $webhooks,
     ): Response {
         $resolved = PaymentProvider::tryFrom($provider);
-        abort_if($resolved === null, 404);
+        abort_if($resolved === null || $resolved === PaymentProvider::Offline, 404);
         $settings = $organization->paymentSettings;
         abort_unless($settings?->hasCredentials($resolved), 404);
         $raw = $request->getContent();
