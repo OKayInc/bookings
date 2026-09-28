@@ -49,6 +49,20 @@ class ResourceAvailabilityCacheIntegrationTest extends TestCase
         DB::disableQueryLog();
     }
 
+    public function test_resource_cache_still_loads_an_unloaded_organization(): void
+    {
+        [$type, $resource, $start] = $this->context();
+        $organizationId = $type->organization_id;
+        $type->unsetRelation('organization');
+        $this->assertFalse($type->relationLoaded('organization'));
+
+        $this->assertTrue(app(ResourceAvailabilityCache::class)->resource(
+            $resource, $type, $start, $start->addHour(), false, fn () => true,
+        ));
+        $this->assertTrue($type->relationLoaded('organization'));
+        $this->assertSame($organizationId, $type->organization->getKey());
+    }
+
     public function test_hold_creation_and_bulk_release_invalidate_shared_resource_results(): void
     {
         [$type, $resource, $start] = $this->context();

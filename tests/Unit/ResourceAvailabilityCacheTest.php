@@ -13,7 +13,9 @@ use Illuminate\Cache\Repository as CacheRepository;
 use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Connection;
+use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Pivot;
@@ -29,6 +31,10 @@ class ResourceAvailabilityCacheTest extends TestCase
     private ResourceAvailabilityCache $cache;
     private CacheRepository $store;
     private Container $container;
+    private Container $previousContainer;
+    private mixed $previousFacadeApplication;
+    private ?ConnectionResolverInterface $previousConnectionResolver;
+    private ?Dispatcher $previousEventDispatcher;
     private Resource $resource;
     private AppointmentType $type;
     private CarbonImmutable $start;
@@ -40,8 +46,15 @@ class ResourceAvailabilityCacheTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->previousContainer = Container::getInstance();
+        $this->previousFacadeApplication = Facade::getFacadeApplication();
+        $this->previousConnectionResolver = Model::getConnectionResolver();
+        $this->previousEventDispatcher = Model::getEventDispatcher();
         Model::clearBootedModels();
         Model::unsetEventDispatcher();
+        // Eloquent keeps its resolver separately from the DB facade. Never reuse
+        // a DatabaseManager that belongs to a previous, torn-down application.
+        Model::unsetConnectionResolver();
         $this->container = new Container();
         Container::setInstance($this->container);
         Facade::clearResolvedInstances();
@@ -91,15 +104,48 @@ class ResourceAvailabilityCacheTest extends TestCase
 
     protected function tearDown(): void
     {
-        Carbon::setTestNow();
-        CarbonImmutable::setTestNow();
-        Model::clearBootedModels();
-        Model::unsetEventDispatcher();
-        Facade::clearResolvedInstances();
-        Facade::setFacadeApplication(null);
-        Container::setInstance(null);
-        Mockery::close();
-        parent::tearDown();
+        try {
+            Mockery::close();
+        } finally {
+            Carbon::setTestNow();
+            CarbonImmutable::setTestNow();
+            Model::clearBootedModels();
+            Model::unsetEventDispatcher();
+            Model::unsetConnectionResolver();
+            if ($this->previousConnectionResolver !== null) {
+                Model::setConnectionResolver($this->previousConnectionResolver);
+            }
+            if ($this->previousEventDispatcher !== null) {
+                Model::setEventDispatcher($this->previousEventDispatcher);
+            }
+            Facade::clearResolvedInstances();
+            Facade::setFacadeApplication($this->previousFacadeApplication);
+            Container::setInstance($this->previousContainer);
+            parent::tearDown();
+        }
+    }
+
+    public function test_preloaded_organization_needs_no_eloquent_connection(): void
+    {
+        $this->assertNull(Model::getConnectionResolver());
+        $organization = $this->type->getRelation('organization');
+        $calls = 0;
+        $loader = function () use (&$calls): bool { $calls++; return true; };
+
+        $this->assertTrue($this->read($loader));
+        $this->assertTrue($this->read($loader));
+        $this->assertSame(1, $calls);
+        $this->assertSame($organization, $this->type->getRelation('organization'));
+    }
+
+    public function test_preloaded_organization_does_not_consult_an_inherited_resolver(): void
+    {
+        $resolver = Mockery::mock(ConnectionResolverInterface::class);
+        $resolver->shouldNotReceive('connection');
+        Model::setConnectionResolver($resolver);
+
+        $this->assertTrue($this->read(fn () => true));
+        $this->assertTrue($this->read(fn () => false));
     }
 
     #[DataProvider('booleanValues')]
