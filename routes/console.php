@@ -9,7 +9,7 @@ Artisan::command('app:about-m1', function (): void {
 
 Schedule::command('appointments:expire-holds')->everyMinute()->withoutOverlapping();
 
-Schedule::command('appointments:expire-pending-bookings')->everyTenMinutes()->withoutOverlapping();
+Schedule::command('appointments:expire-pending-bookings')->everyMinute()->withoutOverlapping();
 Schedule::command('appointments:expire-schedule-proposals')->everyTenMinutes()->withoutOverlapping();
 
 Schedule::command('appointments:send-reminders')->everyTenMinutes()->withoutOverlapping();

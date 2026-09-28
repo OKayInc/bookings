@@ -26,7 +26,7 @@ class PaymentSettingsController extends Controller
             'organization' => $organization,
             'settings' => $organization->paymentSettings()->firstOrNew(),
             'rules' => $organization->paymentRules()->get(),
-            'providers' => PaymentProvider::cases(),
+            'providers' => [PaymentProvider::Stripe, PaymentProvider::PayPal],
             'ruleTypes' => PaymentRuleType::cases(),
             'matchTypes' => PaymentRuleMatchType::cases(),
         ]);

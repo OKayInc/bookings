@@ -50,6 +50,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+require __DIR__.'/offline-payments.php';
+
 Route::view('/', 'home')->name('home');
 Route::view('/pricing', 'pricing')->name('pricing');
 Route::get('/robots.txt', [PublicSeoController::class, 'robots'])->name('seo.robots');

@@ -20,7 +20,7 @@ class UpdatePaymentSettingsRequest extends FormRequest
         $secret = ['nullable', 'string', 'max:10000'];
 
         return [
-            'default_provider' => ['nullable', Rule::enum(PaymentProvider::class)],
+            'default_provider' => ['nullable', Rule::in([PaymentProvider::Stripe->value, PaymentProvider::PayPal->value])],
             'stripe_enabled' => ['nullable', 'boolean'],
             'stripe_test_mode' => ['nullable', 'boolean'],
             'stripe_secret_key' => $secret,

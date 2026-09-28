@@ -32,6 +32,9 @@ class PaymentCheckoutService
 
     public function start(Booking $booking, PaymentProvider $provider, PaymentPurpose $purpose): PaymentTransaction
     {
+        if ($provider === PaymentProvider::Offline) {
+            throw new RuntimeException('Choose offline payment on the booking page. Offline funds must be verified manually.');
+        }
         if ($purpose === PaymentPurpose::CouponPurchase) {
             throw new RuntimeException('Coupon purchases must start from the public gift-card page.');
         }

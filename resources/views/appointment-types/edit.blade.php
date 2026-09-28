@@ -6,6 +6,8 @@
     <div class="actions"><a class="btn" href="{{ route('appointment-types.questionnaire.index',$appointmentType) }}">Questionnaire</a><a class="btn" href="{{ route('appointment-types.calendars.edit',$appointmentType) }}">Calendars</a><a class="btn" href="{{ route('appointment-types.index') }}">Back to appointment types</a></div>
 </div>
 
+<p><a class="btn" href="{{ route('appointment-types.offline-payments.edit', $appointmentType) }}">Offline payments / e-Transfer settings</a></p>
+
 <div class="appointment-editor-toolbar" data-appointment-editor-toolbar>
     <div>
         <strong>Appointment configuration</strong>

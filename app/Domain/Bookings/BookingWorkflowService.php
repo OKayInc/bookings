@@ -105,9 +105,11 @@ class BookingWorkflowService
             'expires_at_utc' => match ($status) {
                 BookingStatus::PendingEmailVerification => $booking->expires_at_utc
                     ?: now('UTC')->addHours((int) config('booking.email_verification_ttl_hours', 24)),
-                BookingStatus::PendingPayment => $previous === BookingStatus::PendingPayment && $booking->expires_at_utc !== null
-                    ? $booking->expires_at_utc
-                    : now('UTC')->addMinutes(max(15, (int) config('payments.booking_payment_window_minutes', 60))),
+                BookingStatus::PendingPayment => $booking->offline_payment_selected_at_utc !== null
+                    ? ($booking->netPaidMinor() > 0 ? null : $booking->offline_payment_deadline_at_utc)
+                    : ($previous === BookingStatus::PendingPayment && $booking->expires_at_utc !== null
+                        ? $booking->expires_at_utc
+                        : now('UTC')->addMinutes(max(15, (int) config('payments.booking_payment_window_minutes', 60)))),
                 default => null,
             },
         ]);
