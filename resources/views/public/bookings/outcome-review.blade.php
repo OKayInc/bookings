@@ -18,6 +18,11 @@
             <form method="post" action="{{ request()->fullUrl() }}">@csrf<input type="hidden" name="outcome" value="no_show"><button class="btn btn-danger" type="submit">No-show</button></form>
         </div>
         <p class="text-body-secondary small mt-3 mb-0">Responding is optional. This secure link expires automatically.</p>
+        @if($booking->outstandingMinor() > 0)
+            <hr><h2 class="h4">Payment follow-up</h2>
+            <p>An outstanding balance remains. Attendance and payment are separate decisions.</p>
+            <a class="btn btn-primary" href="{{ route('booking-payment-review.show', $booking) }}">Sign in to review payment</a>
+        @endif
     @endif
 </div>
 @endsection
