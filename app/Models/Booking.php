@@ -79,6 +79,12 @@ class Booking extends Model
             'cancellation_notice_unit' => \App\Enums\BookingNoticeUnit::class,
             'cancelled_at_utc' => 'immutable_datetime',
             'outcome_review_requested_at_utc' => 'immutable_datetime',
+            'offline_payment_selected_at_utc' => 'immutable_datetime',
+            'offline_payment_deadline_at_utc' => 'immutable_datetime',
+            'payment_expiry_notified_at_utc' => 'immutable_datetime',
+            'balance_review_requested_at_utc' => 'immutable_datetime',
+            'balance_followup_at_utc' => 'immutable_datetime',
+            'balance_followup_closed_at_utc' => 'immutable_datetime',
             'rescheduling_allowed' => 'boolean',
             'rescheduling_notice_value' => 'integer',
             'rescheduling_notice_unit' => \App\Enums\BookingNoticeUnit::class,
@@ -143,7 +149,7 @@ class Booking extends Model
 
     public function contractTemplate(): BelongsTo
     {
-        return $this->belongsTo(AppointmentContractTemplate::class, 'contract_template_id');
+        return $this->belongsTo(AppointmentContractTemplate::class);
     }
 
     public function attendees(): HasMany
@@ -200,6 +206,11 @@ class Booking extends Model
     public function paymentRule(): BelongsTo
     {
         return $this->belongsTo(PaymentRule::class);
+    }
+
+    public function paymentActions(): HasMany
+    {
+        return $this->hasMany(BookingPaymentAction::class)->latest();
     }
 
     public function payments(): HasMany
