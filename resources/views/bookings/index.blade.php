@@ -2,6 +2,7 @@
 @section('title', 'Bookings')
 @section('content')
 <div class="page-heading"><h1>Bookings</h1><p class="muted">Guest bookings for the current organization.</p></div>
+<p><a class="btn btn-primary" href="{{ route('booking-payment-review.index') }}">Offline payments and unpaid balances</a></p>
 <div class="card table-scroll">
 <table class="table table-hover align-middle">
     <thead><tr><th>Reference</th><th>Appointment</th><th>Client</th><th>When</th><th>Status</th><th>Payment</th><th>Attendees</th></tr></thead>
