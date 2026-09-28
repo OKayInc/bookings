@@ -3,8 +3,10 @@
 @section('content')
 <div class="page-heading">
     <h1>{{ $organization->name }} payments</h1>
-    <p>Each organization uses its own Stripe and PayPal merchant credentials. Secrets are encrypted and are never displayed again.</p>
+    <p>Configure offline payments by appointment type or connect your organization's Stripe and PayPal accounts. Online provider secrets are encrypted and are never displayed again.</p>
 </div>
+
+@include('payments.offline-settings')
 
 <form method="post" action="{{ route('payment-settings.update') }}">
     @csrf
