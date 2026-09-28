@@ -56,6 +56,7 @@ class PaymentRefundService
             $initialPaid = (int) $locked->payments()
                 ->where('status', PaymentTransactionStatus::Succeeded->value)
                 ->where('purpose', PaymentPurpose::Initial->value)
+                ->where('provider', '!=', PaymentProvider::Offline->value)
                 ->sum('amount_minor');
             $technicalExcess = max(
                 max(0, $grossPaid - (int) $locked->price_minor),
@@ -241,6 +242,7 @@ class PaymentRefundService
             $initialPaid = (int) $booking->payments()
                 ->where('status', PaymentTransactionStatus::Succeeded->value)
                 ->where('purpose', PaymentPurpose::Initial->value)
+                ->where('provider', '!=', PaymentProvider::Offline->value)
                 ->sum('amount_minor');
             $initialAllocated = (int) $booking->refunds()
                 ->whereIn('status', [PaymentRefundStatus::Pending->value, PaymentRefundStatus::Succeeded->value])
@@ -541,6 +543,14 @@ class PaymentRefundService
     {
         if ($refund->status === PaymentRefundStatus::Succeeded) {
             return $refund;
+        }
+
+        if ($refund->provider === PaymentProvider::Offline) {
+            PaymentRefund::query()->whereKey($refund->getKey())->where('status', '!=', PaymentRefundStatus::Succeeded->value)->update([
+                'status' => PaymentRefundStatus::Pending->value,
+                'failure_message' => 'Offline refund required: return the funds outside the platform, then record completion from the staff payment-review page.',
+            ]);
+            return $refund->fresh();
         }
 
         $settings = $refund->organization->paymentSettings;
