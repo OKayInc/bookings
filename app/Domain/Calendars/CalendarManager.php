@@ -8,7 +8,7 @@ use App\Models\CalendarConnection;
 use App\Models\ExternalCalendar;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
+use App\Domain\Availability\ResourceAvailabilityCache;
 use RuntimeException;
 use Throwable;
 
@@ -84,17 +84,18 @@ class CalendarManager
         foreach ($calendars->groupBy('calendar_connection_id') as $group) {
             /** @var ExternalCalendar $first */ $first = $group->first();
             $connection = $first->connection;
-            $cacheKey = 'calendar_busy:'.$connection->uuid.':'.hash('sha256', $group->pluck('uuid')->sort()->implode('|').'|'.$fromUtc->format('YmdHi').'|'.$toUtc->format('YmdHi'));
+            $cacheKey = 'calendar_busy:'.$connection->uuid.':'.hash('sha256', $group->pluck('uuid')->sort()->implode('|').'|'.$fromUtc->utc()->format('YmdHisu').'|'.$toUtc->utc()->format('YmdHisu'));
             try {
                 $loader = function () use ($connection, $group, $fromUtc, $toUtc): array {
                     $token = $this->accessToken($connection);
                     return $this->provider($connection->provider)->busyIntervals($token, $group->map(fn (ExternalCalendar $c) => ['external_id' => $c->external_id])->values()->all(), $fromUtc, $toUtc);
                 };
-                $items = $fresh
-                    ? $loader()
-                    : Cache::remember($cacheKey, now()->addSeconds((int) config('calendars.busy_cache_seconds', 30)), $loader);
+                $items = app(ResourceAvailabilityCache::class)->calendar(
+                    $connection->getKey(), $cacheKey, $fresh, $loader,
+                );
                 array_push($all, ...$items);
             } catch (Throwable $e) {
+                app(ResourceAvailabilityCache::class)->limitLifetime(0);
                 $connection->update(['status' => CalendarConnectionStatus::Error->value, 'last_error' => $e->getMessage()]);
                 // Fail closed: an explicitly configured required external calendar that cannot be checked blocks the range.
                 $all[] = ['start' => $fromUtc->toIso8601String(), 'end' => $toUtc->toIso8601String()];
@@ -105,6 +106,9 @@ class CalendarManager
 
     public function forgetBusyCache(CalendarConnection $connection): void
     {
-        // Memcached does not support prefix deletion portably. Busy entries are intentionally short lived.
+        app(ResourceAvailabilityCache::class)->invalidate(
+            [$connection->organization_id], [$connection->resource_id], [$connection->getKey()],
+            $connection->getConnection(),
+        );
     }
 }

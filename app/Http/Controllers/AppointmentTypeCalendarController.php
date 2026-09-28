@@ -90,6 +90,10 @@ class AppointmentTypeCalendarController extends Controller
                 }
             }
             $appointmentType->externalCalendars()->syncWithoutDetaching($syncData);
+            // These are pivot-only writes, so there is no AppointmentType saved event.
+            app(\App\Domain\Availability\ResourceAvailabilityCache::class)->invalidate(
+                [$appointmentType->organization_id], $resources->modelKeys(),
+            );
         }, 3);
 
         $appointmentType->appointments()->where('status', 'scheduled')->where('ends_at_utc', '>=', now('UTC'))

@@ -63,9 +63,15 @@ class BookingHold extends Model
         return $this->belongsTo(AppointmentContractTemplate::class, 'contract_template_id');
     }
 
+    public function newEloquentBuilder($query): \App\Domain\Availability\AllocationMutationBuilder
+    {
+        return new \App\Domain\Availability\AllocationMutationBuilder($query);
+    }
+
     public function resources(): BelongsToMany
     {
         return $this->belongsToMany(Resource::class, 'booking_hold_resources', 'booking_hold_id', 'resource_id')
+            ->using(AvailabilityAllocationPivot::class)
             ->withPivot('is_required', 'replacement_group', 'quantity_reserved');
     }
 
