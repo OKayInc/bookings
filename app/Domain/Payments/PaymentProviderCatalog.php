@@ -16,7 +16,7 @@ class PaymentProviderCatalog
         }
 
         $providers = array_values(array_filter(
-            PaymentProvider::cases(),
+            [PaymentProvider::Stripe, PaymentProvider::PayPal],
             fn (PaymentProvider $provider): bool => $settings->isConfigured($provider),
         ));
 
