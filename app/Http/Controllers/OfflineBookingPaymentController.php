@@ -7,6 +7,7 @@ use App\Domain\Payments\OfflineBookingPaymentService;
 use App\Models\AppointmentType;
 use App\Models\Booking;
 use App\Support\Organizations\OrganizationContext;
+use App\Support\Html\OfflinePaymentInstructions;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,10 +37,14 @@ class OfflineBookingPaymentController extends Controller
         if ($minutes > 43200) {
             throw ValidationException::withMessages(['window_value' => 'The offline-payment window cannot exceed 30 days.']);
         }
+        $instructions = app(OfflinePaymentInstructions::class)->sanitize($data['instructions'] ?? null);
+        if ($request->boolean('offline_payment_enabled') && $instructions === null) {
+            throw ValidationException::withMessages(['instructions' => 'Enter payment instructions with visible text.']);
+        }
         $appointmentType->forceFill([
             'offline_payment_enabled' => $request->boolean('offline_payment_enabled'),
             'offline_payment_window_minutes' => $minutes,
-            'offline_payment_instructions' => trim((string) ($data['instructions'] ?? '')) ?: null,
+            'offline_payment_instructions' => $instructions,
         ])->save();
         return back()->with('success', 'Offline-payment settings saved. Existing reservation deadlines are unchanged.');
     }
