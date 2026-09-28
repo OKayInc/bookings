@@ -12,7 +12,7 @@
         <p>Select this option to receive payment instructions and your exact reservation deadline. Staff must verify payment before that deadline.</p>
         <form method="post" action="{{ route('public.offline-payments.choose', [$booking, $manageToken]) }}">@csrf<button class="btn btn-primary" type="submit">Pay offline / e-Transfer</button></form>
     @else
-        <div style="white-space:pre-wrap">{{ $booking->offline_payment_instructions ?? $booking->appointmentType->offline_payment_instructions }}</div>
+        <div class="rich-text mb-3">{!! app(\App\Support\Html\OfflinePaymentInstructions::class)->sanitize($booking->offline_payment_instructions ?? $booking->appointmentType->offline_payment_instructions) !!}</div>
         @if($booking->netPaidMinor() > 0)
             <p class="alert alert-success">Verified received: {{ $offlineMoney->format($booking->netPaidMinor(), $booking->currency) }}. Your reservation will not expire for missing the offline-payment deadline.</p>
         @elseif($booking->offline_payment_deadline_at_utc)
