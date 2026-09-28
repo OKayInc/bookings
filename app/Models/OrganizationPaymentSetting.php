@@ -50,6 +50,7 @@ class OrganizationPaymentSetting extends Model
         return match ($provider) {
             PaymentProvider::Stripe => $this->stripe_enabled && $this->hasCredentials($provider),
             PaymentProvider::PayPal => $this->paypal_enabled && $this->hasCredentials($provider),
+            PaymentProvider::Offline => false,
         };
     }
 
@@ -61,6 +62,7 @@ class OrganizationPaymentSetting extends Model
             PaymentProvider::PayPal => filled($this->paypal_client_id)
                 && filled($this->paypal_client_secret)
                 && filled($this->paypal_webhook_id),
+            PaymentProvider::Offline => false,
         };
     }
 }
