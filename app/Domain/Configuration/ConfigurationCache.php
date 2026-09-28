@@ -74,6 +74,8 @@ class ConfigurationCache
         // A new generation makes every cached type and its nested definitions unreachable.
         // Old generations expire after the bounded TTL; no key scans or Redis tag flushes.
         $this->store()->forever('configuration:generation:'.bin2hex($organizationId), (string) Str::uuid());
+        // Existing explicit configuration/pivot invalidations also expire browsing snapshots.
+        app(\App\Domain\Availability\ResourceAvailabilityCache::class)->invalidate([$organizationId]);
         foreach (array_unique(array_filter([$slug, $oldSlug])) as $value) {
             $this->store()->forget('organization:'.hash('sha256', $value));
         }

@@ -24,6 +24,9 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scoped(OrganizationContext::class, fn () => new OrganizationContext());
+        $this->app->scoped(\App\Domain\Availability\ResourceAvailabilityCache::class);
+        $this->app->bind(\App\Domain\Availability\AvailabilityService::class, \App\Domain\Availability\CachedAvailabilityService::class);
+        $this->app->singleton(\App\Observers\ResourceAvailabilityObserver::class);
     }
 
     public function boot(): void
@@ -47,6 +50,23 @@ class AppServiceProvider extends ServiceProvider
 
         foreach ([\App\Models\Booking::class, \App\Models\PaymentTransaction::class, \App\Models\PaymentRefund::class, \App\Models\Ticket::class] as $model) {
             $model::observe(\App\Observers\OutgoingWebhookObserver::class);
+        }
+
+        foreach ([
+            \App\Models\Organization::class,
+            \App\Models\AppointmentType::class,
+            \App\Models\Resource::class,
+            \App\Models\Appointment::class,
+            \App\Models\Booking::class,
+            \App\Models\BookingHold::class,
+            \App\Models\AvailabilitySchedule::class,
+            \App\Models\AvailabilityRule::class,
+            \App\Models\AvailabilityException::class,
+            \App\Models\CalendarConnection::class,
+            \App\Models\ExternalCalendar::class,
+            \App\Models\AppointmentExternalEvent::class,
+        ] as $model) {
+            $model::observe(\App\Observers\ResourceAvailabilityObserver::class);
         }
 
         VerifyEmail::createUrlUsing(function (object $notifiable): string {

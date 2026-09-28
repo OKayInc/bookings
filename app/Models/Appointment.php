@@ -72,9 +72,15 @@ class Appointment extends Model
         return $this->belongsTo(AppointmentType::class);
     }
 
+    public function newEloquentBuilder($query): \App\Domain\Availability\AllocationMutationBuilder
+    {
+        return new \App\Domain\Availability\AllocationMutationBuilder($query);
+    }
+
     public function resources(): BelongsToMany
     {
         return $this->belongsToMany(Resource::class, 'appointment_resources')
+            ->using(AvailabilityAllocationPivot::class)
             ->withPivot('is_required', 'replacement_group', 'quantity_reserved');
     }
 
