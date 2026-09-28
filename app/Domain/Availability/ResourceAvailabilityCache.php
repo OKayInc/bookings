@@ -31,7 +31,11 @@ class ResourceAvailabilityCache
             return $loader();
         }
 
-        $type->loadMissing('organization');
+        // Laravel 13's loadMissing() builds a query even for an already-loaded
+        // relation. Reuse the supplied graph without resolving a DB connection.
+        if (! $type->relationLoaded('organization')) {
+            $type->loadMissing('organization');
+        }
         $material = [
             'organization' => bin2hex((string) $type->organization_id),
             'type' => bin2hex((string) $type->getKey()),
