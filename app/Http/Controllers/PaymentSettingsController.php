@@ -26,6 +26,11 @@ class PaymentSettingsController extends Controller
             'organization' => $organization,
             'settings' => $organization->paymentSettings()->firstOrNew(),
             'rules' => $organization->paymentRules()->get(),
+            // Offline payment is configured per appointment type, not as a hosted gateway.
+            'offlineAppointmentTypes' => $organization->appointmentTypes()->orderBy('name')->get([
+                'id', 'organization_id', 'name', 'is_active', 'offline_payment_enabled',
+                'offline_payment_window_minutes', 'offline_payment_instructions',
+            ]),
             'providers' => [PaymentProvider::Stripe, PaymentProvider::PayPal],
             'ruleTypes' => PaymentRuleType::cases(),
             'matchTypes' => PaymentRuleMatchType::cases(),
