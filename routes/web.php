@@ -11,6 +11,7 @@ use App\Http\Controllers\AvailabilityController;
 use App\Http\Controllers\AvailabilityExceptionController;
 use App\Http\Controllers\AvailabilityPreviewController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\BookingOutcomeReviewController;
@@ -212,6 +213,10 @@ Route::get('/calendar-connections/oauth/{provider}/callback', [CalendarConnectio
 
 Route::middleware('auth')->group(function (): void {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+
+    Route::get('/account/password', [PasswordController::class, 'edit'])->name('account.password.edit');
+    Route::put('/account/password', [PasswordController::class, 'update'])
+        ->middleware('throttle:6,1')->name('account.password.update');
 
     Route::get('/email/verify', fn () => view('auth.verify-email'))
         ->name('verification.notice');

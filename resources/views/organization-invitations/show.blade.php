@@ -39,13 +39,8 @@
                             <label class="form-label" for="last-name">Last name</label>
                             <input class="form-control" id="last-name" name="last_name" value="{{ old('last_name') }}" required>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label" for="password">Password</label>
-                            <input class="form-control" id="password" type="password" name="password" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label" for="password-confirmation">Confirm password</label>
-                            <input class="form-control" id="password-confirmation" type="password" name="password_confirmation" required>
+                        <div class="col-12">
+                            <x-password-fields />
                         </div>
                         <div class="col-12">
                             <label class="form-label" for="member-timezone">Your timezone</label>

@@ -9,6 +9,7 @@ use App\Models\OrganizationMembership;
 use App\Models\Person;
 use App\Models\User;
 use App\Rules\IanaTimezone;
+use App\Support\Auth\AccountPasswordPolicy;
 use App\Support\Organizations\ActiveOrganizationResolver;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -16,7 +17,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -69,7 +69,7 @@ class OrganizationInvitationAcceptanceController extends Controller
             $data = $request->validate([
                 'first_name' => ['required', 'string', 'max:100'],
                 'last_name' => ['required', 'string', 'max:100'],
-                'password' => ['required', 'confirmed', Password::min(12)->letters()->mixedCase()->numbers()],
+                'password' => ['required', 'confirmed', AccountPasswordPolicy::rule()],
                 'timezone' => ['required', new IanaTimezone],
             ]);
         }

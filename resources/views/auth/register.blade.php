@@ -10,10 +10,7 @@
 <div class="field"><label>Last name</label><input name="last_name" value="{{ old('last_name') }}" required></div>
 </div>
 <div class="field"><label>Email</label><input type="email" name="email" value="{{ old('email') }}" required></div>
-<div class="row">
-<div class="field"><label>Password</label><input type="password" name="password" required></div>
-<div class="field"><label>Confirm password</label><input type="password" name="password_confirmation" required></div>
-</div>
+<x-password-fields />
 <div class="field"><label>Your timezone</label><select name="timezone" id="person-timezone" required>@foreach($timezones as $timezone)<option value="{{ $timezone }}" @selected(old('timezone') === $timezone)>{{ $timezone }}</option>@endforeach</select></div>
 <hr>
 <h2>First organization</h2>
