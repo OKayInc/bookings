@@ -121,6 +121,7 @@ class OrganizationController extends Controller
         if ($starterAppointmentType instanceof AppointmentType) {
             return redirect()
                 ->route('appointment-types.edit', $starterAppointmentType)
+                ->with('appointment_editor_mode', in_array($data['guided_business_type'] ?? null, ['events', 'rental'], true) ? 'advanced' : 'simple')
                 ->with('success', 'Your organization and starter appointment are ready. Review any section you want to fine-tune.');
         }
 
