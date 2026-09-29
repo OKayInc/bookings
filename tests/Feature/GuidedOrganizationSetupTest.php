@@ -42,6 +42,7 @@ class GuidedOrganizationSetupTest extends TestCase
         ]);
 
         $response->assertSessionHasNoErrors();
+        $response->assertSessionHas('appointment_editor_mode', 'simple');
 
         $organization = Organization::where('name', 'Simple Studio')->firstOrFail();
         $type = AppointmentType::where('organization_id', $organization->getKey())->firstOrFail();
@@ -89,6 +90,31 @@ class GuidedOrganizationSetupTest extends TestCase
         $this->assertSame(0, $organization->availabilitySchedules()->count());
     }
 
+    public function test_create_appointment_page_defaults_to_simple_view(): void
+    {
+        $user = User::factory()->create();
+        $organization = Organization::factory()->create(['timezone' => 'America/Toronto']);
+
+        OrganizationMembership::create([
+            'organization_id' => $organization->getKey(),
+            'person_id' => $user->person_id,
+            'role' => MembershipRole::Owner,
+            'status' => MembershipStatus::Active,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->withSession(['active_organization_uuid' => $organization->uuid])
+            ->get(route('appointment-types.create'));
+
+        $response->assertOk()
+            ->assertSee('data-default-mode="simple"', false)
+            ->assertSee('data-appointment-mode="simple"', false)
+            ->assertSee('data-appointment-mode="advanced"', false)
+            ->assertSee('Advanced settings are hidden, not disabled.', false)
+            ->assertSee('id="appointment-type-editor"', false)
+            ->assertSee('js/appointment-type-editor.js', false);
+    }
+
     public function test_edit_appointment_page_exposes_collapsible_editor_controls(): void
     {
         $user = User::factory()->create();
@@ -115,6 +141,10 @@ class GuidedOrganizationSetupTest extends TestCase
 
         $response->assertOk()
             ->assertSee('data-appointment-editor-toolbar', false)
+            ->assertSee('data-default-mode="advanced"', false)
+            ->assertSee('data-appointment-mode="simple"', false)
+            ->assertSee('data-appointment-mode="advanced"', false)
+            ->assertSee('Advanced settings are hidden, not disabled.', false)
             ->assertSee('data-appointment-sections="expand"', false)
             ->assertSee('data-appointment-sections="collapse"', false)
             ->assertSee('js/appointment-type-editor.js', false);
