@@ -60,6 +60,7 @@ class OnboardingController extends Controller
         if ($starter) {
             return redirect()
                 ->route('appointment-types.edit', $starter)
+                ->with('appointment_editor_mode', in_array($request->validated('guided_business_type'), ['events', 'rental'], true) ? 'advanced' : 'simple')
                 ->with('success', 'Your starter appointment is ready. Review anything you want to fine-tune.');
         }
 

@@ -3,9 +3,27 @@
     if (!editor) return;
 
     const toolbar = document.querySelector('[data-appointment-editor-toolbar]');
+    const simpleNote = document.querySelector('[data-appointment-simple-note]');
+    const modeDescription = toolbar?.querySelector('[data-appointment-mode-description]');
     const validationErrors = Array.isArray(window.appointmentTypeEditorErrors)
         ? window.appointmentTypeEditorErrors
         : [];
+    const modeStorageKey = 'appointment-to.appointment-editor-mode';
+
+    const simpleSectionTitles = new Set([
+        'Basics',
+        'Access',
+        'Attendance',
+        'Location',
+        'Duration',
+        'Booking notice',
+        'Pricing',
+        'Payment collection and refunds',
+        'Resources and confirmation',
+        'Cancellation policy',
+        'Rescheduling policy',
+        'Status',
+    ]);
 
     const sections = Array.from(editor.querySelectorAll(':scope > .section-card'))
         .filter((section) => section.querySelector(':scope > h2'));
@@ -127,10 +145,11 @@
         summary.textContent = summaryFor(section.dataset.sectionTitle || '', section);
     };
 
-    sections.forEach((section, index) => {
+    sections.forEach((section) => {
         const heading = section.querySelector(':scope > h2');
         const title = heading.textContent.trim();
         section.dataset.sectionTitle = title;
+        section.dataset.appointmentEditorLevel = simpleSectionTitles.has(title) ? 'simple' : 'advanced';
         section.classList.add('appointment-editor-section');
 
         const header = document.createElement('div');
@@ -179,12 +198,72 @@
         body.addEventListener('change', () => refreshSummary(section));
     });
 
+    const readStoredMode = () => {
+        try {
+            const stored = window.localStorage.getItem(modeStorageKey);
+            return stored === 'simple' || stored === 'advanced' ? stored : null;
+        } catch {
+            return null;
+        }
+    };
+
+    const storeMode = (mode) => {
+        try {
+            window.localStorage.setItem(modeStorageKey, mode);
+        } catch {
+            // The editor still works when storage is unavailable.
+        }
+    };
+
+    const advancedError = sections.some((section) =>
+        section.dataset.appointmentEditorLevel === 'advanced' && hasValidationError(section)
+    );
+
+    const defaultMode = toolbar?.dataset.defaultMode === 'simple' ? 'simple' : 'advanced';
+    let currentMode = advancedError ? 'advanced' : (readStoredMode() || defaultMode);
+
+    const applyMode = (mode, persist = false) => {
+        currentMode = mode === 'simple' ? 'simple' : 'advanced';
+
+        sections.forEach((section) => {
+            const hiddenByMode = currentMode === 'simple'
+                && section.dataset.appointmentEditorLevel === 'advanced';
+            section.classList.toggle('appointment-editor-mode-hidden', hiddenByMode);
+        });
+
+        document.querySelectorAll('[data-appointment-mode]').forEach((button) => {
+            const active = button.dataset.appointmentMode === currentMode;
+            button.setAttribute('aria-pressed', String(active));
+            button.classList.toggle('btn-primary', active);
+            button.classList.toggle('btn-outline-secondary', !active);
+        });
+
+        if (simpleNote) simpleNote.hidden = currentMode !== 'simple';
+        if (modeDescription) {
+            modeDescription.textContent = currentMode === 'simple'
+                ? 'Showing the settings most businesses need. Advanced settings remain active in the background.'
+                : 'Showing every appointment option.';
+        }
+
+        if (persist) storeMode(currentMode);
+    };
+
+    document.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-appointment-mode]');
+        if (!button) return;
+        applyMode(button.dataset.appointmentMode, true);
+    });
+
     toolbar?.addEventListener('click', (event) => {
         const button = event.target.closest('[data-appointment-sections]');
         if (!button) return;
         const open = button.dataset.appointmentSections === 'expand';
-        sections.forEach((section) => setOpen(section, open));
+        sections
+            .filter((section) => !section.classList.contains('appointment-editor-mode-hidden'))
+            .forEach((section) => setOpen(section, open));
     });
+
+    applyMode(currentMode);
 
     const firstErrorSection = sections.find(hasValidationError);
     if (firstErrorSection) {

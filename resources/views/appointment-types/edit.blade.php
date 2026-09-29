@@ -13,15 +13,29 @@
 
 <p><a class="btn" href="{{ route('appointment-types.offline-payments.edit', $appointmentType) }}">Offline payments / e-Transfer settings</a></p>
 
-<div class="appointment-editor-toolbar" data-appointment-editor-toolbar>
-    <div>
+<div class="appointment-editor-toolbar" data-appointment-editor-toolbar data-default-mode="{{ session('appointment_editor_mode', 'advanced') }}">
+    <div class="appointment-editor-toolbar-copy">
         <strong>Appointment configuration</strong>
-        <div class="muted">Open only the section you want to change. Your existing settings remain active while sections are collapsed.</div>
+        <div class="muted" data-appointment-mode-description>Choose Simple for the settings most businesses need, or Advanced for every option.</div>
     </div>
-    <div class="actions">
-        <button class="btn" type="button" data-appointment-sections="expand">Expand all</button>
-        <button class="btn" type="button" data-appointment-sections="collapse">Collapse all</button>
+    <div class="appointment-editor-toolbar-controls">
+        <div class="appointment-editor-mode-switch" role="group" aria-label="Appointment configuration view">
+            <button class="btn" type="button" data-appointment-mode="simple" aria-pressed="false">Simple</button>
+            <button class="btn" type="button" data-appointment-mode="advanced" aria-pressed="false">Advanced</button>
+        </div>
+        <div class="actions appointment-editor-section-actions">
+            <button class="btn" type="button" data-appointment-sections="expand">Expand all</button>
+            <button class="btn" type="button" data-appointment-sections="collapse">Collapse all</button>
+        </div>
     </div>
+</div>
+
+<div class="appointment-editor-simple-note" data-appointment-simple-note hidden>
+    <div>
+        <strong>Advanced settings are hidden, not disabled.</strong>
+        <div class="muted">Any advanced settings you already configured remain active and are saved unchanged.</div>
+    </div>
+    <button class="btn" type="button" data-appointment-mode="advanced">View advanced settings</button>
 </div>
 
 <form method="post" enctype="multipart/form-data" action="{{ route('appointment-types.update', $appointmentType) }}" class="form-stack" id="appointment-type-editor">
