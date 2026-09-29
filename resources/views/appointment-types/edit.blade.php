@@ -3,7 +3,12 @@
 @section('content')
 <div class="page-heading actions" style="justify-content:space-between">
     <div><h1>Edit {{ $appointmentType->name }}</h1><p class="muted">Appointment type UUID: {{ $appointmentType->uuid }}</p></div>
-    <div class="actions"><a class="btn" href="{{ route('appointment-types.questionnaire.index',$appointmentType) }}">Questionnaire</a><a class="btn" href="{{ route('appointment-types.calendars.edit',$appointmentType) }}">Calendars</a><a class="btn" href="{{ route('appointment-types.index') }}">Back to appointment types</a></div>
+    <div class="actions">
+        <a class="btn" href="{{ route('resources.index') }}">Resources</a>
+        <a class="btn" href="{{ route('appointment-types.questionnaire.index',$appointmentType) }}">Questionnaire</a>
+        <a class="btn" href="{{ route('appointment-types.calendars.edit',$appointmentType) }}">Calendars</a>
+        <a class="btn" href="{{ route('appointment-types.index') }}">Back to appointment types</a>
+    </div>
 </div>
 
 <p><a class="btn" href="{{ route('appointment-types.offline-payments.edit', $appointmentType) }}">Offline payments / e-Transfer settings</a></p>
