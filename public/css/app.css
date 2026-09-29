@@ -1318,6 +1318,60 @@ table.table {
     flex: 0 0 auto;
 }
 
+.appointment-editor-toolbar-copy {
+    min-width: 0;
+}
+
+.appointment-editor-toolbar-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: .75rem;
+    flex: 0 0 auto;
+}
+
+.appointment-editor-mode-switch {
+    display: inline-flex;
+    gap: .35rem;
+    padding: .25rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    background: var(--bs-body-bg);
+}
+
+.appointment-editor-mode-switch .btn {
+    min-width: 6.5rem;
+}
+
+.appointment-editor-simple-note {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    max-width: 960px;
+    margin: 0 0 1rem;
+    padding: .9rem 1rem;
+    border: 1px solid var(--bs-info-border-subtle);
+    border-radius: var(--bs-border-radius-lg);
+    background: var(--bs-info-bg-subtle);
+}
+
+.appointment-editor-simple-note[hidden] {
+    display: none !important;
+}
+
+.appointment-editor-simple-note > div {
+    min-width: 0;
+}
+
+.appointment-editor-simple-note .btn {
+    flex: 0 0 auto;
+}
+
+.appointment-editor-mode-hidden {
+    display: none !important;
+}
+
 .appointment-editor-section {
     padding: 0;
     overflow: hidden;
@@ -1398,8 +1452,39 @@ table.table {
         flex-direction: column;
     }
 
-    .appointment-editor-toolbar .actions,
-    .appointment-editor-toolbar .actions .btn {
+    .appointment-editor-toolbar-controls {
+        width: 100%;
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .appointment-editor-mode-switch {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .appointment-editor-mode-switch .btn {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .appointment-editor-section-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .appointment-editor-section-actions .btn {
+        width: 100%;
+    }
+
+    .appointment-editor-simple-note {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .appointment-editor-simple-note .btn {
         width: 100%;
     }
 
