@@ -2,7 +2,7 @@
 @section('title', 'Appointment Types')
 @section('content')
 <div class="actions page-heading" style="justify-content:space-between">
-    <div><h1>Appointment Types</h1><p class="muted">M2 configuration and access control.</p></div>
+    <div><h1>Appointment Types</h1><p class="muted">Configure the appointment types you need. If your business offers different kinds of services, you may need more than one appointment type.</p></div>
     <a class="btn btn-primary" href="{{ route('appointment-types.create') }}">Add appointment type</a>
 </div>
 <div class="card table-scroll"><table class="table table-hover align-middle">
