@@ -624,6 +624,7 @@
 
 <div class="section-card">
     <h2>Resources and confirmation</h2>
+    <p class="muted">Resources are the people, rooms, equipment or vehicles needed for this appointment. <a href="{{ route('resources.index') }}">Add or manage resources</a>, then select the ones to assign below.</p>
     <div class="field checkbox-list">
         <input type="hidden" name="show_resources_to_clients" value="0">
         <label>
