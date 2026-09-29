@@ -103,6 +103,7 @@
                             </span>
                         @endif
                     @endif
+                    <a class="btn btn-outline-light btn-sm" href="{{ route('account.password.edit') }}">Change password</a>
                     <form method="post" action="{{ route('logout') }}" class="m-0">
                         @csrf
                         <button class="btn btn-outline-light btn-sm w-100" type="submit">Log out</button>

@@ -64,7 +64,9 @@ class OrganizationMemberInvitationTest extends TestCase
 
         $this->get(route('organization-invitations.show', $token))
             ->assertOk()
-            ->assertSee('Create account and join');
+            ->assertSee('Create account and join')
+            ->assertSee('At least 12 characters')
+            ->assertSee('js/password-checklist.js');
 
         $response = $this->post(route('organization-invitations.accept', $token), [
             'first_name' => 'Invited',
