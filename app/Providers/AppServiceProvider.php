@@ -32,6 +32,16 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         foreach ([
+            \App\Models\Appointment::class, \App\Models\Booking::class,
+            \App\Models\BookingAnswer::class, \App\Models\BookingAnswerFile::class,
+            \App\Models\AppointmentType::class, \App\Models\Organization::class,
+            \App\Models\CalendarConnection::class, \App\Models\ExternalCalendar::class,
+            \App\Models\OrganizationPlanSubscription::class, \App\Models\OrganizationPlanGrant::class,
+        ] as $model) {
+            $model::observe(\App\Observers\AppointmentIntegrationObserver::class);
+        }
+
+        foreach ([
             \App\Models\Organization::class,
             \App\Models\AppointmentType::class,
             \App\Models\Resource::class,

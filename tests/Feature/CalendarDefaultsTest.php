@@ -281,6 +281,9 @@ class CalendarDefaultsTest extends TestCase
         $sync->syncAppointment($appointment->fresh());
         $this->assertSame(1, $appointment->externalEvents()->count());
         $this->assertSame($second->getKey(), $appointment->externalEvents()->firstOrFail()->external_calendar_id);
+        Http::assertNotSent(fn (ClientRequest $request) => $request->method() === 'PATCH');
+        $appointment->update(['event_location' => 'Updated location']);
+        $sync->syncAppointment($appointment->fresh());
         Http::assertSent(fn (ClientRequest $request) => $request->method() === 'PATCH');
         $appointment->update(['status' => 'cancelled']);
         $sync->syncAppointment($appointment->fresh());

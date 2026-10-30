@@ -5,7 +5,6 @@ namespace App\Domain\Bookings;
 use App\Enums\AppointmentStatus;
 use App\Domain\Calendars\CalendarSyncService;
 use App\Domain\Calendars\CalendarAvailabilityService;
-use App\Domain\Conferences\ConferenceMeetingService;
 use App\Domain\Availability\AvailabilityInterval;
 use App\Domain\Availability\AppointmentTypeSeasonService;
 use App\Domain\Availability\OrganizationHolidayService;
@@ -35,7 +34,6 @@ class BookingRescheduleService
         private readonly BookingWorkflowService $workflow,
         private readonly AppointmentLifecycleService $lifecycle,
         private readonly CalendarSyncService $calendarSync,
-        private readonly ConferenceMeetingService $conferenceMeetings,
         private readonly CalendarAvailabilityService $externalCalendars,
         private readonly OrganizationHolidayService $holidays,
         private readonly ResourceHolidayService $resourceHolidays,
@@ -199,7 +197,6 @@ class BookingRescheduleService
         $this->lifecycle->cancelIfOrphaned($oldAppointment);
         $this->workflow->refreshStatus($updated);
         $updated = $updated->fresh(['appointment', 'appointmentType']);
-        $this->conferenceMeetings->safeSync($updated->appointment);
         $this->calendarSync->safeSyncAppointment($updated->appointment);
         Notification::route('mail', $updated->email)->notify(new BookingStatusChangedEmail($updated, 'Your booking has been rescheduled.'));
 

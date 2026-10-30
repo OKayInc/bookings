@@ -13,7 +13,7 @@ class AppointmentExternalEvent extends Model
 
     protected $fillable = [
         'appointment_id', 'external_calendar_id', 'provider_event_id', 'etag', 'sync_status',
-        'last_error', 'last_synced_at_utc',
+        'last_error', 'last_synced_at_utc', 'payload_hash',
     ];
 
     protected $hidden = ['id', 'appointment_id', 'external_calendar_id'];

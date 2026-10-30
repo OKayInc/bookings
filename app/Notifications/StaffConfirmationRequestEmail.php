@@ -4,10 +4,12 @@ namespace App\Notifications;
 
 use App\Models\ResourceConfirmation;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class StaffConfirmationRequestEmail extends Notification
+class StaffConfirmationRequestEmail extends Notification implements ShouldQueue, ShouldBeEncrypted
 {
     use Queueable;
 
@@ -16,6 +18,8 @@ class StaffConfirmationRequestEmail extends Notification
         private readonly string $token,
         private readonly bool $reminder = false,
     ) {
+        $this->afterCommit();
+        $this->onQueue('notifications');
     }
 
     public function via(object $notifiable): array { return ['mail']; }

@@ -5,11 +5,13 @@ namespace App\Notifications;
 use App\Domain\Money\MoneyService;
 use App\Models\Booking;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\URL;
 
-class PostAppointmentOutcomeReviewEmail extends Notification
+class PostAppointmentOutcomeReviewEmail extends Notification implements ShouldQueue, ShouldBeEncrypted
 {
     use Queueable;
 
@@ -17,7 +19,9 @@ class PostAppointmentOutcomeReviewEmail extends Notification
         private readonly Booking $booking,
         private readonly bool $reviewAttendance = true,
         private readonly bool $reviewPayment = false,
-    ) {}
+    ) {
+        $this->afterCommit();
+        $this->onQueue('notifications');}
 
     public function via(object $notifiable): array { return ['mail']; }
 

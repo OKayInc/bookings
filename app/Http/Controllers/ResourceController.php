@@ -35,7 +35,7 @@ class ResourceController extends Controller
 
         $resourcesQuery = $organization->resources()
             ->with(['person', 'organization'])
-            ->withCount(['appointments', 'bookingHolds', 'confirmations']);
+            ->withExists(['appointments', 'bookingHolds', 'confirmations']);
 
         if ($search !== '') {
             $resourcesQuery->where('resources.name', 'like', '%'.$search.'%');
@@ -47,7 +47,8 @@ class ResourceController extends Controller
 
         $resources = $resourcesQuery
             ->orderBy('resources.name')
-            ->get();
+            ->orderBy('resources.id')
+            ->paginate(25)->withQueryString();
 
         return view('resources.index', [
             'organization' => $organization,

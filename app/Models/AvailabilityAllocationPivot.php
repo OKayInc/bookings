@@ -14,6 +14,12 @@ class AvailabilityAllocationPivot extends Pivot
             app(ResourceAvailabilityCache::class)->invalidate([], [
                 $pivot->getAttribute('resource_id'), $pivot->getRawOriginal('resource_id'),
             ], [], $pivot->getConnection());
+            if ($pivot->getTable() === 'appointment_resources' && $pivot->appointment_id !== null) {
+                $appointment = Appointment::find($pivot->appointment_id);
+                if ($appointment !== null) {
+                    app(\App\Domain\Calendars\AppointmentIntegrationQueue::class)->request($appointment, dispatch: false);
+                }
+            }
         };
         static::saved($invalidate);
         static::deleted($invalidate);

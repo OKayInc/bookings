@@ -4,10 +4,12 @@ namespace App\Notifications;
 
 use App\Models\Booking;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class BookingAccessEmail extends Notification
+class BookingAccessEmail extends Notification implements ShouldQueue, ShouldBeEncrypted
 {
     use Queueable;
 
@@ -16,6 +18,8 @@ class BookingAccessEmail extends Notification
         private readonly string $manageToken,
         private readonly ?string $intro = null,
     ) {
+        $this->afterCommit();
+        $this->onQueue('notifications');
     }
 
     public function via(object $notifiable): array

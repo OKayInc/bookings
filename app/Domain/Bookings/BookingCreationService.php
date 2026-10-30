@@ -8,7 +8,6 @@ use App\Domain\Questionnaires\QuestionnairePricingService;
 use App\Domain\Questionnaires\QuestionnaireSubmission;
 use App\Domain\Calendars\CalendarSyncService;
 use App\Domain\Calendars\CalendarAvailabilityService;
-use App\Domain\Conferences\ConferenceMeetingService;
 use App\Domain\Availability\AvailabilityInterval;
 use App\Domain\Availability\AppointmentTypeSeasonService;
 use App\Domain\Availability\OrganizationHolidayService;
@@ -47,7 +46,6 @@ class BookingCreationService
         private readonly QuestionnairePricingService $questionnairePricing,
         private readonly QuestionnairePersistenceService $questionnairePersistence,
         private readonly CalendarSyncService $calendarSync,
-        private readonly ConferenceMeetingService $conferenceMeetings,
         private readonly CalendarAvailabilityService $externalCalendars,
         private readonly BookingResourceNotificationService $resourceNotifications,
         private readonly OrganizationHolidayService $holidays,
@@ -367,7 +365,6 @@ class BookingCreationService
         }, 3);
 
         $this->eventApprovals->sendNotifications($eventApprovalDeliveries);
-        $this->conferenceMeetings->safeSync($booking->appointment);
         $this->calendarSync->safeSyncAppointment($booking->appointment);
         $this->resourceNotifications->safeNotifyBookingCreated($booking);
 

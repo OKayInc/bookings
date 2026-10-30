@@ -5,14 +5,18 @@ namespace App\Notifications;
 use App\Models\Booking;
 use App\Models\Resource;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class ResourceReminderEmail extends Notification
+class ResourceReminderEmail extends Notification implements ShouldQueue, ShouldBeEncrypted
 {
     use Queueable;
 
-    public function __construct(private readonly Booking $booking, private readonly Resource $resource) {}
+    public function __construct(private readonly Booking $booking, private readonly Resource $resource) {
+        $this->afterCommit();
+        $this->onQueue('notifications');}
     public function via(object $notifiable): array { return ['mail']; }
 
     public function toMail(object $notifiable): MailMessage

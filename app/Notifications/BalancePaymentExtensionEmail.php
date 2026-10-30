@@ -7,10 +7,16 @@ use App\Models\Booking;
 use Carbon\CarbonImmutable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 
-class BalancePaymentExtensionEmail extends Notification
+class BalancePaymentExtensionEmail extends Notification implements ShouldQueue, ShouldBeEncrypted
 {
-    public function __construct(private readonly Booking $booking, private readonly CarbonImmutable $due) {}
+    use Queueable;
+    public function __construct(private readonly Booking $booking, private readonly CarbonImmutable $due) {
+        $this->afterCommit();
+        $this->onQueue('notifications');}
     public function via(object $notifiable): array { return ['mail']; }
     public function toMail(object $notifiable): MailMessage
     {

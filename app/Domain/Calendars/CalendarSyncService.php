@@ -21,29 +21,29 @@ class CalendarSyncService
 
     public function safeSyncAppointment(Appointment $appointment): void
     {
-        try { $this->syncAppointment($appointment); } catch (Throwable $e) { report($e); }
+        app(AppointmentIntegrationQueue::class)->request($appointment);
     }
 
-    public function syncAppointment(Appointment $appointment): void
+    public function syncAppointment(Appointment $appointment, bool $force = false): void
     {
         $appointment->loadMissing(['appointmentType.organization', 'resources', 'bookings.answers.files', 'externalEvents.calendar.connection']);
-        if ($appointment->status !== AppointmentStatus::Scheduled) { $this->deleteAppointmentEvents($appointment); return; }
+        if ($appointment->status !== AppointmentStatus::Scheduled) { $this->deleteAppointmentEvents($appointment, true); return; }
 
         $resourceIds = $appointment->resources->modelKeys();
         $targets = $this->selections->forType($appointment->appointmentType, $resourceIds)['write'];
 
         $targetIds = $targets->modelKeys();
         foreach ($appointment->externalEvents as $mapping) {
-            if (! in_array($mapping->external_calendar_id, $targetIds, true)) { $this->deleteMapping($mapping); }
+            if (! in_array($mapping->external_calendar_id, $targetIds, true)) { $this->deleteMapping($mapping, true); }
         }
 
-        foreach ($targets as $calendar) { $this->syncToCalendar($appointment, $calendar); }
+        foreach ($targets as $calendar) { $this->syncToCalendar($appointment, $calendar, $force); }
     }
 
-    public function deleteAppointmentEvents(Appointment $appointment): void
+    public function deleteAppointmentEvents(Appointment $appointment, bool $throwOnFailure = false): void
     {
         $appointment->loadMissing('externalEvents.calendar.connection');
-        foreach ($appointment->externalEvents as $mapping) { $this->deleteMapping($mapping); }
+        foreach ($appointment->externalEvents as $mapping) { $this->deleteMapping($mapping, $throwOnFailure); }
     }
 
     public function deleteConnectionEvents(\App\Models\CalendarConnection $connection): void
@@ -56,19 +56,23 @@ class CalendarSyncService
         }
     }
 
-    private function syncToCalendar(Appointment $appointment, ExternalCalendar $calendar): void
+    private function syncToCalendar(Appointment $appointment, ExternalCalendar $calendar, bool $force): void
     {
         $mapping = AppointmentExternalEvent::query()->where('appointment_id', $appointment->getKey())->where('external_calendar_id', $calendar->getKey())->first();
         try {
+            $payload = $this->eventPayload($appointment, $calendar->connection->provider->value);
+            $hash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
+            if (! $force && $mapping?->sync_status === 'synced' && $mapping->payload_hash === $hash) {
+                return;
+            }
             $token = $this->manager->accessToken($calendar->connection);
             $provider = $this->manager->provider($calendar->connection->provider);
-            $payload = $this->eventPayload($appointment, $calendar->connection->provider->value);
             $result = $mapping
                 ? $provider->updateEvent($token, $calendar->external_id, $mapping->provider_event_id, $payload)
                 : $provider->createEvent($token, $calendar->external_id, $payload);
             AppointmentExternalEvent::query()->updateOrCreate(
                 ['appointment_id' => $appointment->getKey(), 'external_calendar_id' => $calendar->getKey()],
-                ['provider_event_id' => $result['id'], 'etag' => $result['etag'] ?? null, 'sync_status' => 'synced', 'last_error' => null, 'last_synced_at_utc' => now('UTC')],
+                ['provider_event_id' => $result['id'], 'etag' => $result['etag'] ?? null, 'sync_status' => 'synced', 'payload_hash' => $hash, 'last_error' => null, 'last_synced_at_utc' => now('UTC')],
             );
         } catch (Throwable $e) {
             if ($mapping) { $mapping->update(['sync_status' => 'error', 'last_error' => $e->getMessage()]); }
@@ -77,7 +81,7 @@ class CalendarSyncService
         }
     }
 
-    private function deleteMapping(AppointmentExternalEvent $mapping): void
+    private function deleteMapping(AppointmentExternalEvent $mapping, bool $throwOnFailure = false): void
     {
         $mapping->loadMissing('calendar.connection');
         try {
@@ -86,6 +90,7 @@ class CalendarSyncService
             $mapping->delete();
         } catch (Throwable $e) {
             $mapping->update(['sync_status' => 'error', 'last_error' => $e->getMessage()]);
+            if ($throwOnFailure) { throw $e; }
             report($e);
         }
     }

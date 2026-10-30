@@ -1,0 +1,21 @@
+<?php
+
+return [
+    'default' => env('QUEUE_CONNECTION', 'redis'),
+    'connections' => [
+        'sync' => ['driver' => 'sync', 'after_commit' => true],
+        'redis' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'queue' => env('REDIS_QUEUE', 'default'),
+            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 180),
+            'block_for' => 5,
+            'after_commit' => true,
+        ],
+    ],
+    'failed' => [
+        'driver' => 'database-uuids',
+        'database' => env('DB_CONNECTION', 'mariadb'),
+        'table' => 'failed_jobs',
+    ],
+];

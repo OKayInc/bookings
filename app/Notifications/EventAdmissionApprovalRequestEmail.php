@@ -4,17 +4,21 @@ namespace App\Notifications;
 
 use App\Models\EventAdmissionApproval;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class EventAdmissionApprovalRequestEmail extends Notification
+class EventAdmissionApprovalRequestEmail extends Notification implements ShouldQueue, ShouldBeEncrypted
 {
     use Queueable;
 
     public function __construct(
         private readonly EventAdmissionApproval $approval,
         private readonly string $token,
-    ) {}
+    ) {
+        $this->afterCommit();
+        $this->onQueue('notifications');}
 
     public function via(object $notifiable): array { return ['mail']; }
 

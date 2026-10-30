@@ -18,6 +18,19 @@ class ResourceDeletionTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_resource_list_paginates_without_counting_all_allocations(): void
+    {
+        [$user, $organization] = $this->ownerContext();
+        for ($index = 1; $index <= 26; $index++) {
+            $this->resource($organization, sprintf('Tripod %02d', $index));
+        }
+        $this->actingAs($user)->withSession(['active_organization_uuid' => $organization->uuid]);
+        $this->get(route('resources.index'))->assertOk()
+            ->assertSee('Tripod 01')->assertSee('Tripod 25')->assertDontSee('Tripod 26');
+        $this->get(route('resources.index', ['page' => 2]))->assertOk()
+            ->assertSee('Tripod 26')->assertDontSee('Tripod 01');
+    }
+
     public function test_delete_option_appears_for_an_unused_owned_resource_and_deletes_it(): void
     {
         [$user, $organization] = $this->ownerContext();

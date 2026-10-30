@@ -32,6 +32,23 @@ class CalendarAvailabilityService
         return $this->intervals($this->configuredCalendars($type, [$resource->getKey()]), $fromUtc, $toUtc, $fresh);
     }
 
+    /** @return array<string, list<AvailabilityInterval>> Keyed by binary resource ID. */
+    public function forResources(iterable $resources, AppointmentType $type, CarbonImmutable $fromUtc, CarbonImmutable $toUtc): array
+    {
+        $ids = collect($resources)->map(fn (Resource $resource) => $resource->getKey())->all();
+        if ($ids === []) {
+            return [];
+        }
+
+        $result = array_fill_keys($ids, []);
+        $calendars = $this->configuredCalendars($type, $ids);
+        foreach ($calendars->groupBy(fn ($calendar) => $calendar->connection->resource_id) as $id => $group) {
+            $result[$id] = $this->intervals(new Collection($group->all()), $fromUtc, $toUtc, false);
+        }
+
+        return $result;
+    }
+
     public function assignedRequiredResourcesBusy(
         AppointmentType $type,
         iterable $resources,

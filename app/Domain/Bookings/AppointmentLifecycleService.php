@@ -38,7 +38,7 @@ class AppointmentLifecycleService
         }, 3);
 
         if ($cancelled) {
-            $this->calendarSync->deleteAppointmentEvents($appointment->fresh());
+            $this->calendarSync->safeSyncAppointment($appointment->fresh());
         }
 
         return $cancelled;

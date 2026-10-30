@@ -90,4 +90,28 @@ class AvailabilityScheduleService
         return $this->find($organization, AvailabilityScope::Resource, $resource)
             ?? $this->find($organization, AvailabilityScope::Organization, $organization);
     }
+
+    /** @return array<string, AvailabilitySchedule|null> Keyed by binary resource ID. */
+    public function effectiveForResources(Organization $organization, iterable $resources): array
+    {
+        $ids = collect($resources)->map(fn (Resource $resource) => $resource->getKey())->all();
+        if ($ids === []) {
+            return [];
+        }
+
+        $schedules = AvailabilitySchedule::query()
+            ->where('organization_id', $organization->getKey())
+            ->where(fn ($query) => $query
+                ->where(fn ($q) => $q->where('scope_type', AvailabilityScope::Resource->value)->whereIn('scope_id', $ids))
+                ->orWhere(fn ($q) => $q->where('scope_type', AvailabilityScope::Organization->value)->where('scope_id', $organization->getKey())))
+            ->with(['rules', 'exceptions'])->get();
+        $default = $schedules->first(fn ($schedule) => $schedule->scope_type === AvailabilityScope::Organization);
+        $custom = $schedules->filter(fn ($schedule) => $schedule->scope_type === AvailabilityScope::Resource)->keyBy('scope_id');
+        $result = [];
+        foreach ($ids as $id) {
+            $result[$id] = $custom->get($id) ?? $default;
+        }
+
+        return $result;
+    }
 }

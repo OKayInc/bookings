@@ -16,7 +16,7 @@ class ConferenceMeetingService
 {
     public function __construct(private readonly ConferenceProviderCatalog $catalog) {}
 
-    public function safeSync(Appointment $appointment): void
+    public function safeSync(Appointment $appointment, bool $throwOnFailure = false): void
     {
         try {
             $this->sync($appointment);
@@ -26,6 +26,9 @@ class ConferenceMeetingService
                 'meeting_status' => 'error',
                 'meeting_error' => $this->safeErrorMessage($appointment, $exception),
             ])->save();
+            if ($throwOnFailure) {
+                throw $exception;
+            }
         }
     }
 

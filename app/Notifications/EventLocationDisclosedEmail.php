@@ -4,14 +4,18 @@ namespace App\Notifications;
 
 use App\Models\Booking;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class EventLocationDisclosedEmail extends Notification
+class EventLocationDisclosedEmail extends Notification implements ShouldQueue, ShouldBeEncrypted
 {
     use Queueable;
 
-    public function __construct(private readonly Booking $booking) {}
+    public function __construct(private readonly Booking $booking) {
+        $this->afterCommit();
+        $this->onQueue('notifications');}
 
     public function via(object $notifiable): array { return ['mail']; }
 

@@ -15,6 +15,7 @@ use App\Domain\Resources\EquipmentInventoryService;
 use App\Domain\Calendars\CalendarAvailabilityService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Facades\DB;
 
 class AvailabilityService
 {
@@ -107,6 +108,11 @@ class AvailabilityService
             $conflictEndUtc,
         ));
         $intervalMinutes = max(1, (int) ($type->start_interval_minutes ?: config('availability.default_start_interval_minutes', 15)));
+        // This snapshot lives only for this call. Write transactions retain the
+        // original fresh checks; no browsing snapshot can authorize a hold.
+        $replacementSnapshots = DB::transactionLevel() === 0 && config('availability.batch_resource_checks', true)
+            ? $this->replacementSnapshots($replacementGroups, $type, $rangeStartUtc, $coverageEndUtc)
+            : null;
         $slots = [];
 
         foreach ($windows ?? [] as $window) {
@@ -136,7 +142,7 @@ class AvailabilityService
 
                 if (! $this->overlapsAny($blocked, $busy)
                     && $this->equipmentInventory->requiredEquipmentAvailableAt($type, $blocked->start, $blocked->end)
-                    && $this->replacementGroupsAvailableAt($replacementGroups, $type, $candidate, $end)) {
+                    && $this->replacementGroupsAvailableAt($replacementGroups, $type, $candidate, $end, $replacementSnapshots)) {
                     $slots[] = new AvailabilitySlot(
                         $candidate,
                         $end,
@@ -410,19 +416,89 @@ class AvailabilityService
         AppointmentType $type,
         CarbonImmutable $startsAtUtc,
         CarbonImmutable $endsAtUtc,
+        ?array $snapshots = null,
     ): bool {
         foreach ($groups as $resources) {
-            if (! $resources->contains(fn (Resource $resource): bool => $this->isResourceAvailableAt(
-                $resource,
-                $type,
-                $startsAtUtc,
-                $endsAtUtc,
-            ))) {
+            if (! $resources->contains(fn (Resource $resource): bool => $snapshots === null
+                ? $this->isResourceAvailableAt($resource, $type, $startsAtUtc, $endsAtUtc)
+                : $this->resourceAvailableInSnapshot($resource, $type, $startsAtUtc, $endsAtUtc, $snapshots[$resource->getKey()]))) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /** Load replacement-resource conflicts once for the entire browsing range. */
+    private function replacementSnapshots(\Illuminate\Support\Collection $groups, AppointmentType $type, CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $resources = $groups->flatten(1)->unique(fn (Resource $resource) => $resource->getKey())->values();
+        if ($resources->isEmpty()) {
+            return [];
+        }
+
+        $blockedFrom = $from->subMinutes((int) $type->buffer_before_minutes);
+        $blockedTo = $to->addMinutes((int) $type->buffer_after_minutes);
+        $schedules = $this->schedules->effectiveForResources($type->organization, $resources);
+        $external = $this->externalCalendars->forResources($resources, $type, $blockedFrom, $blockedTo);
+        $ids = $resources->reject(fn (Resource $resource) => $resource->usesQuantityInventory())->map->getKey()->all();
+        $busy = array_fill_keys($ids, []);
+        if ($ids !== []) {
+            $holds = BookingHold::query()->where('status', BookingHoldStatus::Active->value)
+                ->where('expires_at_utc', '>', now('UTC'));
+            $appointments = Appointment::query()->where('status', AppointmentStatus::Scheduled->value);
+            foreach ([$holds, $appointments] as $query) {
+                $records = $query->where('blocked_starts_at_utc', '<', $blockedTo->format('Y-m-d H:i:s.u'))
+                    ->where('blocked_ends_at_utc', '>', $blockedFrom->format('Y-m-d H:i:s.u'))
+                    ->whereHas('resources', fn ($q) => $q->whereIn('resources.id', $ids))
+                    ->with(['resources' => fn ($q) => $q->whereIn('resources.id', $ids)->select('resources.id')])
+                    ->get(['id', 'blocked_starts_at_utc', 'blocked_ends_at_utc']);
+                foreach ($records as $record) {
+                    $interval = new AvailabilityInterval(
+                        CarbonImmutable::instance($record->blocked_starts_at_utc)->utc(),
+                        CarbonImmutable::instance($record->blocked_ends_at_utc)->utc(),
+                    );
+                    foreach ($record->resources as $resource) {
+                        $busy[$resource->getKey()][] = $interval;
+                    }
+                }
+            }
+        }
+
+        $closed = $this->holidays->closures($type->organization, $from, $to);
+        $windows = [];
+        $result = [];
+        foreach ($resources as $resource) {
+            $schedule = $schedules[$resource->getKey()];
+            $scheduleWindows = [];
+            if ($resource->is_active && $schedule?->is_active) {
+                $scheduleWindows = $windows[$schedule->uuid] ??= $this->scheduleIntervals($schedule, $from, $to);
+            }
+            $result[$resource->getKey()] = [
+                'windows' => $scheduleWindows,
+                'closed' => [...$closed, ...$this->resourceHolidays->closures($resource, $type->organization, $from, $to)],
+                'busy' => [...($busy[$resource->getKey()] ?? []), ...($external[$resource->getKey()] ?? [])],
+            ];
+        }
+
+        return $result;
+    }
+
+    private function resourceAvailableInSnapshot(Resource $resource, AppointmentType $type, CarbonImmutable $from, CarbonImmutable $to, array $snapshot): bool
+    {
+        $fits = collect($snapshot['windows'])->contains(fn (AvailabilityInterval $window) => $window->start->lte($from) && $window->end->gte($to));
+        if (! $fits || $this->overlapsAny(new AvailabilityInterval($from, $to), $snapshot['closed'])) {
+            return false;
+        }
+        $blocked = new AvailabilityInterval(
+            $from->subMinutes((int) $type->buffer_before_minutes),
+            $to->addMinutes((int) $type->buffer_after_minutes),
+        );
+
+        return ! $this->overlapsAny($blocked, $snapshot['busy'])
+            && (! $resource->usesQuantityInventory() || $this->equipmentInventory->canReserve(
+                $resource, $this->equipmentInventory->requiredQuantity($resource), $blocked->start, $blocked->end,
+            ));
     }
 
     private function alignUp(CarbonImmutable $utc, string $timezone, int $intervalMinutes): CarbonImmutable

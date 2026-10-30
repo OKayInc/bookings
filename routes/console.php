@@ -19,6 +19,8 @@ Schedule::command('appointments:sync-staff-confirmations')->everyTenMinutes()->w
 Schedule::command('appointments:disclose-event-locations')->everyTenMinutes()->withoutOverlapping();
 
 Schedule::command('appointments:sync-calendars')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('appointments:sync-calendars --reconcile')->hourly()->withoutOverlapping();
+Schedule::command('appointments:sync-calendars --force')->dailyAt('03:15')->withoutOverlapping();
 
 Schedule::command('gallery:normalize-images')->weeklyOn(1, '02:30')->withoutOverlapping();
 
