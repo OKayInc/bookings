@@ -2,22 +2,16 @@
 
 namespace App\Policies;
 
-use App\Enums\MembershipRole;
-use App\Enums\MembershipStatus;
 use App\Models\AppointmentType;
 use App\Models\User;
+use App\Support\Organizations\ActiveMemberships;
 
 class AppointmentTypePolicy
 {
+    public function __construct(private readonly ActiveMemberships $memberships) {}
+
     public function manage(User $user, AppointmentType $appointmentType): bool
     {
-        return $appointmentType->organization->memberships()
-            ->where('person_id', $user->person_id)
-            ->where('status', MembershipStatus::Active->value)
-            ->whereIn('role', [
-                MembershipRole::Owner->value,
-                MembershipRole::Administrator->value,
-                MembershipRole::Manager->value,
-            ])->exists();
+        return $this->memberships->role($user, $appointmentType->organization)?->canManageScheduling() ?? false;
     }
 }

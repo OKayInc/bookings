@@ -2,20 +2,17 @@
 
 namespace App\Support\Organizations;
 
-use App\Enums\MembershipStatus;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Http\Request;
 
 class ActiveOrganizationResolver
 {
+    public function __construct(private readonly ActiveMemberships $memberships) {}
+
     public function resolve(User $user, Request $request): ?Organization
     {
-        $memberships = $user->person
-            ->memberships()
-            ->with('organization')
-            ->where('status', MembershipStatus::Active->value)
-            ->get();
+        $memberships = $this->memberships->forUser($user);
 
         if ($memberships->isEmpty()) {
             return null;

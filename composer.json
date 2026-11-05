@@ -59,7 +59,8 @@
             "@php artisan key:generate --ansi"
         ],
         "test": [
-            "@php artisan test"
+            "Composer\\Config::disableProcessTimeout",
+            "@php artisan test -d memory_limit=512M"
         ]
     },
     "config": {

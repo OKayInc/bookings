@@ -5,10 +5,14 @@ namespace App\Domain\Plans;
 use App\Enums\OrganizationPlanTier;
 use App\Enums\PlanLevel;
 use App\Models\Organization;
+use App\Models\OrganizationPlanGrant;
+use App\Support\PageReadCache;
 use Carbon\CarbonImmutable;
 
 class PlanEntitlementService
 {
+    public function __construct(private readonly PageReadCache $reads) {}
+
     public function for(Organization $organization): PlanEntitlement
     {
         $uuid = strtolower((string) $organization->uuid);
@@ -16,12 +20,19 @@ class PlanEntitlementService
             return new PlanEntitlement(PlanLevel::Complimentary, 'environment');
         }
 
-        $grant = $organization->planGrants()
+        $now = CarbonImmutable::now('UTC');
+        $grants = fn () => $organization->planGrants()
             ->whereNull('revoked_at_utc')
-            ->where('starts_at_utc', '<=', now('UTC'))
-            ->where(fn ($query) => $query->whereNull('ends_at_utc')->orWhere('ends_at_utc', '>', now('UTC')))
-            ->latest('starts_at_utc')
-            ->first();
+            ->where(fn ($query) => $query->whereNull('ends_at_utc')->orWhere('ends_at_utc', '>', $now))
+            ->latest('starts_at_utc');
+        $key = bin2hex($organization->getKey());
+        // Include future grants in the request snapshot, but evaluate their dates on
+        // every call. A trial/grant can start or expire while a page is rendering.
+        $grant = $this->reads->enabled()
+            ? $this->reads->remember('plan-grants:'.$key, fn () => $grants()->get())
+                ->first(fn (OrganizationPlanGrant $grant) => $grant->starts_at_utc->lte($now)
+                    && ($grant->ends_at_utc === null || $grant->ends_at_utc->gt($now)))
+            : $grants()->where('starts_at_utc', '<=', $now)->first();
         if ($grant !== null) {
             return new PlanEntitlement(
                 PlanLevel::Complimentary,
@@ -30,7 +41,8 @@ class PlanEntitlementService
             );
         }
 
-        $subscription = $organization->planSubscription()->first();
+        $subscription = $this->reads->remember('plan-subscription:'.$key,
+            fn () => $organization->planSubscription()->first());
         if ($subscription !== null && $subscription->providesBusinessAccess()) {
             $expiresAt = $subscription->status === 'trialing'
                 ? $subscription->trial_ends_at_utc

@@ -36,9 +36,15 @@ class ConfigurationCache
     /** @return Collection<int, AppointmentType> */
     public function publicTypes(Organization $organization): Collection
     {
-        return $this->remember($this->key($organization, 'public-types'),
+        return $this->remember($this->key($organization, 'public-types:v2'),
             fn (): Collection => $organization->appointmentTypes()
-                ->with(['organization', 'resources'])
+                ->with([
+                    'organization',
+                    'resources.organizations' => fn ($query) => $query
+                        ->whereKey($organization->getKey())->select('organizations.id'),
+                    'questions.resourceRequirementRule.triggerOption',
+                    'questions.resourceRequirementRule.resources',
+                ])
                 ->where('is_active', true)
                 ->where('visibility', AppointmentVisibility::Public->value)
                 ->orderBy('name')->get());

@@ -33,7 +33,9 @@ class OrganizationStartupChecklist
         $resources = $organization->resources()->get();
         $types = $organization->appointmentTypes()->where('is_active', true)->orderBy('name')
             ->with([
-                'resources', 'questions.options', 'questions.resourceRequirementRule.resources',
+                'resources.organizations' => fn ($query) => $query
+                    ->whereKey($organization->getKey())->select('organizations.id'),
+                'questions.options', 'questions.resourceRequirementRule.resources',
                 'questions.resourceRequirementRule.triggerOption', 'shortNoticeFeeRules',
             ])
             ->withExists(['eventOccurrences as has_future_event' => fn ($query) => $query
@@ -49,13 +51,15 @@ class OrganizationStartupChecklist
         $missingHours = $types->filter(fn (AppointmentType $type) => ! $this->hasHours(
             $schedules->get('appointment_type|'.$type->uuid) ?? $defaultSchedule,
         ));
-        $badResources = $types->filter(fn (AppointmentType $type) => ! $this->resourcesReady($type, $resources, $schedules, $defaultSchedule));
+        $availableResourceIds = array_fill_keys($resources->modelKeys(), true);
+        $badResources = $types->filter(fn (AppointmentType $type) => ! $this->resourcesReady($type, $availableResourceIds, $schedules, $defaultSchedule));
         $missingDates = $types->filter(fn (AppointmentType $type) => $type->ticketing_enabled && ! $type->has_future_event);
         $missingLocations = $types->filter(fn (AppointmentType $type) => $type->ticketing_enabled && ! $type->is_online && blank($type->event_location));
         $missingMeetings = $types->filter(fn (AppointmentType $type) => $type->is_online
             && ! $this->conferences->isConfigured($organization, $type->meeting_provider ?? ConferenceProvider::Jitsi));
-        $paymentNeeded = $types->contains(fn (AppointmentType $type) => $this->mayCharge($type));
-        $offlineReady = $paymentNeeded && $types->filter(fn (AppointmentType $type) => $this->mayCharge($type))
+        $chargeableTypes = $types->filter(fn (AppointmentType $type) => $this->mayCharge($type));
+        $paymentNeeded = $chargeableTypes->isNotEmpty();
+        $offlineReady = $paymentNeeded && $chargeableTypes
             ->every(fn (AppointmentType $type) => (bool) $type->offline_payment_enabled && filled($type->offline_payment_instructions));
         $settings = $organization->paymentSettings;
         $liveProviders = collect(PaymentProvider::cases())->filter(fn (PaymentProvider $provider) => $settings?->isConfigured($provider)
@@ -159,10 +163,10 @@ class OrganizationStartupChecklist
             || str_starts_with((string) $settings->stripe_secret_key, 'rk_test_');
     }
 
-    private function resourcesReady(AppointmentType $type, Collection $resources, Collection $schedules, ?AvailabilitySchedule $default): bool
+    private function resourcesReady(AppointmentType $type, array $availableResourceIds, Collection $schedules, ?AvailabilitySchedule $default): bool
     {
         $usable = fn (Resource $resource) => $resource->is_active
-            && $resources->contains(fn (Resource $available) => $available->is($resource))
+            && isset($availableResourceIds[$resource->getKey()])
             && (! $resource->usesQuantityInventory() || $resource->inventory_quantity >= max(1, (int) $resource->pivot->quantity_required))
             && $this->hasHours($schedules->get('resource|'.$resource->uuid) ?? $default);
 

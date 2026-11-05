@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class Resource extends Model
 {
@@ -109,6 +110,15 @@ class Resource extends Model
 
     public function defaultRequiredForOrganization(Organization $organization): bool
     {
+        // Catalogue/checklist reads can batch-load the organization-specific pivot.
+        // Reservation transactions always read the current setting from SQL.
+        if (DB::transactionLevel() === 0 && $this->relationLoaded('organizations')) {
+            $loaded = $this->organizations->firstWhere('id', $organization->getKey());
+            if ($loaded !== null) {
+                return (bool) $loaded->pivot->is_required_by_default;
+            }
+        }
+
         $shared = $this->organizations()->whereKey($organization->getKey())->first();
 
         return (bool) ($shared?->pivot?->is_required_by_default ?? $this->is_required_by_default);

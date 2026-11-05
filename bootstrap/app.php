@@ -35,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ApplyPlanAddonChangesCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->web(append: [\App\Http\Middleware\ReusePageReads::class]);
         $middleware->validateCsrfTokens(except: [
             'payments/webhooks/*',
             'plans/stripe/webhook',

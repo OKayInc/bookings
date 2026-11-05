@@ -5,15 +5,22 @@ namespace App\Providers;
 use App\Models\AppointmentType;
 use App\Models\Organization;
 use App\Models\Resource;
-use App\Enums\MembershipStatus;
 use App\Policies\AppointmentTypePolicy;
 use App\Policies\OrganizationPolicy;
 use App\Policies\ResourcePolicy;
 use App\Support\Organizations\ActiveOrganizationResolver;
+use App\Support\Organizations\ActiveMemberships;
 use App\Support\Organizations\OrganizationContext;
+use App\Support\PageReadCache;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Database\Events\TransactionBeginning;
+use Illuminate\Database\Events\TransactionCommitted;
+use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
@@ -31,6 +38,15 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Include bulk/query-builder writes, which do not fire model observers.
+        DB::listen(function (QueryExecuted $query): void {
+            if (! preg_match('/^\s*(select|show|describe|explain)\b/i', $query->sql)) {
+                app(PageReadCache::class)->clear();
+            }
+        });
+        Event::listen([TransactionBeginning::class, TransactionCommitted::class, TransactionRolledBack::class],
+            fn () => app(PageReadCache::class)->clear());
+
         foreach ([
             \App\Models\Appointment::class, \App\Models\Booking::class,
             \App\Models\BookingAnswer::class, \App\Models\BookingAnswerFile::class,
@@ -106,10 +122,8 @@ class AppServiceProvider extends ServiceProvider
             }
 
             if ($user) {
-                $availableOrganizations = $user->person->organizations()
-                    ->wherePivot('status', MembershipStatus::Active->value)
-                    ->orderBy('name')
-                    ->get();
+                $availableOrganizations = app(ActiveMemberships::class)->forUser($user)
+                    ->pluck('organization')->filter()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
             }
 
             $view->with([
