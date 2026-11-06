@@ -13,6 +13,7 @@ class OrganizationPaymentSetting extends Model
 
     protected $fillable = [
         'organization_id', 'default_provider',
+        'offline_payment_enabled', 'offline_payment_window_minutes', 'offline_payment_instructions',
         'stripe_enabled', 'stripe_test_mode', 'stripe_secret_key', 'stripe_webhook_secret',
         'paypal_enabled', 'paypal_sandbox', 'paypal_client_id', 'paypal_client_secret', 'paypal_webhook_id',
     ];
@@ -28,6 +29,8 @@ class OrganizationPaymentSetting extends Model
     {
         return [
             'default_provider' => PaymentProvider::class,
+            'offline_payment_enabled' => 'boolean',
+            'offline_payment_window_minutes' => 'integer',
             'stripe_enabled' => 'boolean',
             'stripe_test_mode' => 'boolean',
             'stripe_secret_key' => 'encrypted',
