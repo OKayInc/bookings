@@ -28,18 +28,13 @@ class PublicAppointmentTypeController extends Controller
     ): View
     {
         $organization = $configuration->organization($organizationSlug);
-        $organization->load('galleryPhotos');
         $appointmentTypes = $configuration->publicTypes($organization)
             ->filter(fn (AppointmentType $type): bool => $seasons->isOpenAt($type, CarbonImmutable::now('UTC')))
             ->values();
         $requestedType = $request->query('type');
         $selectedTypeSlug = $appointmentTypes->firstWhere('slug', is_string($requestedType) ? $requestedType : null)?->slug
             ?? $appointmentTypes->first()?->slug;
-        $hasCouponOffers = $organization->couponOffers()
-            ->where('is_public', true)
-            ->where('is_active', true)
-            ->where(fn ($query) => $query->whereNull('expires_on')->orWhereDate('expires_on', '>=', now($organization->timezone)->toDateString()))
-            ->exists();
+        $hasCouponOffers = $configuration->hasPublicCouponOffers($organization);
 
         return view('public.appointment-types.index', [
             'organization' => $organization,
