@@ -19,6 +19,7 @@ class ConfigurationCache
         'contractTemplate',
         'galleryPhotos',
         'resources',
+        'resources.organizations',
         'questions.options',
         'questions.visibilityConditions.sourceQuestion',
         'questions.visibilityConditions.expectedOption',
