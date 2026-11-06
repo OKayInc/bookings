@@ -138,7 +138,9 @@ class OrganizationTaxTest extends TestCase
         $this->get(route('public.booking-holds.edit', $token))
             ->assertOk()
             ->assertSee('id="questionnaire-price-card"', false)
-            ->assertSee('id="questionnaire-tax-id"', false);
+            ->assertSee('id="questionnaire-tax-id"', false)
+            ->assertSee('const initialQuote=', false)
+            ->assertSee('if(initialQuote)renderQuote(initialQuote);else updateQuote();', false);
 
         $this->postJson(route('public.booking-holds.quote', $token))
             ->assertOk()
