@@ -123,7 +123,7 @@ class OrganizationStartupChecklist
                     : ($liveProviders->isNotEmpty() ? 'At least one live payment provider is configured. Check your provider account and try checkout before accepting payments.'
                     : 'Your appointments can charge money, including extras or deposits. Enable Stripe or PayPal in live mode, or configure offline payment for every chargeable appointment type.'))
                 : 'Not needed for your current free appointments. Set up either provider when you add prices, paid extras or deposits.',
-            $offlineReady && $liveProviders->isEmpty() ? $adminUrl(route('payment-settings.edit')) : $adminUrl(route('payment-settings.edit')), 'Set up payments', ! $paymentNeeded && $liveProviders->isEmpty());
+            $adminUrl(route('payment-settings.edit')), 'Set up payments', ! $paymentNeeded && $liveProviders->isEmpty());
         if ($testProviders->isNotEmpty()) {
             $steps[array_key_last($steps)]['description'] .= ' Test mode is enabled for '.$testProviders->map(fn ($provider) => $provider->value)->implode(', ').'; it does not collect real payments.';
         }
