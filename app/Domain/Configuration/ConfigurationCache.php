@@ -15,6 +15,9 @@ class ConfigurationCache
 {
     private const GRAPH = [
         'organization.taxes',
+        'organization.holidays',
+        'contractTemplate',
+        'galleryPhotos',
         'resources',
         'questions.options',
         'questions.visibilityConditions.sourceQuestion',
@@ -30,7 +33,7 @@ class ConfigurationCache
     public function organization(string $slug): Organization
     {
         return $this->remember('organization:'.hash('sha256', $slug),
-            fn (): Organization => Organization::where('slug', $slug)->firstOrFail());
+            fn (): Organization => Organization::with('galleryPhotos')->where('slug', $slug)->firstOrFail());
     }
 
     /** @return Collection<int, AppointmentType> */
@@ -48,6 +51,21 @@ class ConfigurationCache
                 ->where('is_active', true)
                 ->where('visibility', AppointmentVisibility::Public->value)
                 ->orderBy('name')->get());
+    }
+
+    public function hasPublicCouponOffers(Organization $organization): bool
+    {
+        $expiryDates = $this->remember($this->key($organization, 'public-coupon-offer-expiries'),
+            fn () => $organization->couponOffers()
+                ->where('is_public', true)
+                ->where('is_active', true)
+                ->pluck('expires_on'));
+
+        $today = now($organization->timezone)->toDateString();
+
+        return collect($expiryDates)->contains(
+            fn ($expiresOn): bool => $expiresOn === null || (string) $expiresOn >= $today,
+        );
     }
 
     public function publicType(Organization $organization, string $slug): AppointmentType
