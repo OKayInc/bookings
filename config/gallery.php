@@ -11,6 +11,7 @@ return [
     'max_height' => (int) env('GALLERY_MAX_HEIGHT', 2400),
     'max_megapixels' => (int) env('GALLERY_MAX_MEGAPIXELS', 50),
     'webp_quality' => (int) env('GALLERY_WEBP_QUALITY', 82),
+    'thumbnail_size' => 640,
 
     'limits' => [
         'organization' => [

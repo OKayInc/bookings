@@ -10,19 +10,39 @@ class GalleryImageConverter
     /**
      * @return array{contents: string, width: int, height: int, file_size: int, sha256: string}
      */
-    public function toWebp(string $contents): array
+    public function toWebp(string $contents, ?int $maximumWidth = null, ?int $maximumHeight = null): array
     {
         $this->details($contents);
+        $maximumWidth = max(1, $maximumWidth ?? (int) config('gallery.max_width', 2400));
+        $maximumHeight = max(1, $maximumHeight ?? (int) config('gallery.max_height', 2400));
 
         if ($this->imagickAvailable()) {
-            return $this->withImagick($contents);
+            return $this->withImagick($contents, $maximumWidth, $maximumHeight);
         }
 
         if ($this->gdAvailable()) {
-            return $this->withGd($contents);
+            return $this->withGd($contents, $maximumWidth, $maximumHeight);
         }
 
         throw new RuntimeException('Gallery photos require PHP GD with WebP support or ImageMagick with WebP support.');
+    }
+
+    /** @return array{contents: string, width: int, height: int, file_size: int, sha256: string} */
+    public function thumbnail(string $contents): array
+    {
+        $details = $this->details($contents);
+        $size = max(1, (int) config('gallery.thumbnail_size', 640));
+        if ($details['mime_type'] === 'image/webp' && max($details['width'], $details['height']) <= $size) {
+            return $this->result($contents, $details['width'], $details['height']);
+        }
+
+        $thumbnail = $this->toWebp($contents, $size, $size);
+        // Flat artwork can compress better at its original dimensions than after resampling.
+        if ($details['mime_type'] === 'image/webp' && $thumbnail['file_size'] >= strlen($contents)) {
+            return $this->result($contents, $details['width'], $details['height']);
+        }
+
+        return $thumbnail;
     }
 
     /**
@@ -78,7 +98,7 @@ class GalleryImageConverter
     /**
      * @return array{contents: string, width: int, height: int, file_size: int, sha256: string}
      */
-    private function withImagick(string $contents): array
+    private function withImagick(string $contents, int $maximumWidth, int $maximumHeight): array
     {
         $image = new \Imagick;
 
@@ -92,7 +112,7 @@ class GalleryImageConverter
                 $image->autoOrientImage();
             }
 
-            $this->resizeImagick($image);
+            $this->resizeImagick($image, $maximumWidth, $maximumHeight);
             $image->setImagePage(0, 0, 0, 0);
             $image->stripImage();
             $image->setImageFormat('webp');
@@ -111,11 +131,8 @@ class GalleryImageConverter
         }
     }
 
-    private function resizeImagick(\Imagick $image): void
+    private function resizeImagick(\Imagick $image, int $maximumWidth, int $maximumHeight): void
     {
-        $maximumWidth = max(1, (int) config('gallery.max_width', 2400));
-        $maximumHeight = max(1, (int) config('gallery.max_height', 2400));
-
         if ($image->getImageWidth() > $maximumWidth || $image->getImageHeight() > $maximumHeight) {
             $image->thumbnailImage($maximumWidth, $maximumHeight, true, true);
         }
@@ -124,7 +141,7 @@ class GalleryImageConverter
     /**
      * @return array{contents: string, width: int, height: int, file_size: int, sha256: string}
      */
-    private function withGd(string $contents): array
+    private function withGd(string $contents, int $maximumWidth, int $maximumHeight): array
     {
         $details = $this->details($contents);
         $image = @imagecreatefromstring($contents);
@@ -138,7 +155,7 @@ class GalleryImageConverter
                 $image = $this->orientGdJpeg($image, $contents);
             }
 
-            $image = $this->resizeGd($image);
+            $image = $this->resizeGd($image, $maximumWidth, $maximumHeight);
             imagepalettetotruecolor($image);
             imagealphablending($image, false);
             imagesavealpha($image, true);
@@ -196,14 +213,14 @@ class GalleryImageConverter
         return $rotated;
     }
 
-    private function resizeGd(\GdImage $image): \GdImage
+    private function resizeGd(\GdImage $image, int $maximumWidth, int $maximumHeight): \GdImage
     {
         $width = imagesx($image);
         $height = imagesy($image);
         $scale = min(
             1,
-            max(1, (int) config('gallery.max_width', 2400)) / $width,
-            max(1, (int) config('gallery.max_height', 2400)) / $height,
+            $maximumWidth / $width,
+            $maximumHeight / $height,
         );
 
         if ($scale >= 1) {

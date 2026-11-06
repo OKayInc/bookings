@@ -41,7 +41,7 @@
             @foreach($galleryPhotos as $photo)
                 <article class="gallery-admin-item">
                     <a href="{{ $photo->url }}" target="_blank" rel="noopener">
-                        <img src="{{ $photo->url }}" alt="{{ $galleryOwnerLabel }} gallery photo" loading="lazy" decoding="async">
+                        <img src="{{ $photo->thumbnail_url }}" width="{{ $photo->thumbnail_width ?: $photo->width }}" height="{{ $photo->thumbnail_height ?: $photo->height }}" alt="{{ $galleryOwnerLabel }} gallery photo" loading="lazy" decoding="async">
                     </a>
                     <div class="gallery-admin-meta">
                         <span class="badge text-bg-light">{{ $photo->placement->label() }}</span>

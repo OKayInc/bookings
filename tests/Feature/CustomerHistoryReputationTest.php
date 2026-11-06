@@ -10,6 +10,8 @@ use App\Enums\MembershipStatus;
 use App\Models\Appointment;
 use App\Models\AppointmentType;
 use App\Models\Booking;
+use App\Models\BookingOutcome;
+use App\Models\CustomerAccessEvent;
 use App\Models\CustomerAccessEntry;
 use App\Models\Organization;
 use App\Models\OrganizationContact;
@@ -19,6 +21,7 @@ use App\Notifications\PostAppointmentOutcomeReviewEmail;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
 class CustomerHistoryReputationTest extends TestCase
@@ -173,6 +176,81 @@ class CustomerHistoryReputationTest extends TestCase
             'event_type' => 'added',
             'source' => 'manual',
         ]);
+    }
+
+    public function test_customer_history_paginates_without_hydrating_all_bookings_or_changing_lifetime_totals(): void
+    {
+        [$user, $organization, $type, $contact] = $this->context();
+        for ($i = 0; $i < 53; $i++) {
+            $booking = $this->booking($organization, $type, $contact, sprintf('PAGED%07d', $i), now('UTC')->startOfDay()->addHours($i));
+            $booking->update([
+                'paid_minor' => 12500, 'refunded_minor' => $i === 0 ? 20000 : 2500,
+                'status' => match ($i) { 0 => 'cancelled', 1 => 'declined', default => 'confirmed' },
+            ]);
+            if ($i < 14) {
+                BookingOutcome::create([
+                    'organization_id' => $organization->getKey(), 'booking_id' => $booking->getKey(),
+                    'outcome' => $i < 10 ? 'successful' : 'no_show', 'source' => 'dashboard',
+                    'recorded_at_utc' => now('UTC'),
+                ]);
+            }
+        }
+        $expected = ['appointments' => 53, 'successful' => 10, 'no_shows' => 4, 'cancelled' => 2, 'revenue_minor' => 520000];
+        $hydrated = 0;
+        Event::listen('eloquent.retrieved: '.Booking::class, function () use (&$hydrated): void { $hydrated++; });
+        $seen = [];
+        foreach ([1 => 25, 2 => 25, 3 => 3] as $page => $count) {
+            $hydrated = 0;
+            $response = $this->actingAs($user)->withSession(['active_organization_uuid' => $organization->uuid])
+                ->get(route('customers.show', [$contact, 'bookings_page' => $page]))->assertOk()
+                ->assertViewHas('summary', $expected);
+            $bookings = $response->viewData('bookings');
+            $this->assertCount($count, $bookings);
+            $this->assertSame($count, $hydrated);
+            $this->assertSame(53, $bookings->total());
+            $seen = [...$seen, ...$bookings->pluck('reference')->all()];
+            if ($page === 1) {
+                $response->assertSee('bookings_page=2', false)->assertDontSee('PAGED0000000');
+            }
+        }
+        $this->assertSame(array_map(fn ($i) => sprintf('PAGED%07d', $i), range(52, 0)), $seen);
+    }
+
+    public function test_empty_customer_history_is_zero_and_other_organizations_remain_inaccessible(): void
+    {
+        [$user, $organization, , $contact] = $this->context();
+        $this->actingAs($user)->withSession(['active_organization_uuid' => $organization->uuid])
+            ->get(route('customers.show', $contact))->assertOk()->assertViewHas('summary', [
+                'appointments' => 0, 'successful' => 0, 'no_shows' => 0, 'cancelled' => 0, 'revenue_minor' => 0,
+            ])->assertSee('No appointment history.');
+        $other = OrganizationContact::create(['organization_id' => Organization::factory()->create()->getKey(), 'email' => 'other@example.test']);
+        $this->get(route('customers.show', [$other, 'bookings_page' => 2]))->assertNotFound();
+    }
+
+    public function test_customer_history_loads_only_the_latest_25_audit_events_and_open_access_entries(): void
+    {
+        [$user, $organization, , $contact] = $this->context();
+        for ($i = 0; $i < 30; $i++) {
+            CustomerAccessEvent::create([
+                'organization_id' => $organization->getKey(), 'organization_contact_id' => $contact->getKey(),
+                'event_type' => 'added', 'source' => 'manual', 'reason' => 'Audit row '.$i,
+                'actor_person_id' => $user->person_id, 'occurred_at_utc' => now('UTC')->startOfDay()->addMinutes($i),
+            ]);
+        }
+        foreach (['active', 'suggested', 'resolved'] as $status) {
+            CustomerAccessEntry::create([
+                'organization_id' => $organization->getKey(), 'organization_contact_id' => $contact->getKey(),
+                'list_type' => 'whitelist', 'status' => $status, 'source' => 'manual',
+            ]);
+        }
+        $response = $this->actingAs($user)->withSession(['active_organization_uuid' => $organization->uuid])
+            ->get(route('customers.show', $contact))->assertOk();
+        $loaded = $response->viewData('customer');
+        $this->assertCount(25, $loaded->accessEvents);
+        $this->assertSame('Audit row 29', $loaded->accessEvents->first()->reason);
+        $this->assertSame('Audit row 5', $loaded->accessEvents->last()->reason);
+        $this->assertCount(2, $loaded->accessEntries);
+        $this->assertFalse($loaded->relationLoaded('bookings'));
     }
 
     private function context(): array

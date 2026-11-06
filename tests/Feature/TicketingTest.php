@@ -3,10 +3,13 @@
 namespace Tests\Feature;
 
 use App\Domain\Availability\AvailabilityScheduleService;
+use App\Domain\Availability\BookableSlot;
 use App\Domain\Bookings\BookingCancellationService;
 use App\Domain\Bookings\BookingCreationService;
 use App\Domain\Bookings\BookingPolicyService;
 use App\Domain\Bookings\PublicBookingHoldService;
+use App\Domain\Bookings\PublicBookingAvailabilityService;
+use App\Domain\Tickets\TicketEventService;
 use App\Domain\Payments\PaymentStateService;
 use App\Enums\AvailabilityScope;
 use App\Enums\MembershipRole;
@@ -20,6 +23,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -446,6 +450,81 @@ class TicketingTest extends TestCase
         $rule->update(['threshold_value' => 10, 'threshold_unit' => 'day']);
         $this->get($url)->assertOk()->assertViewHas('showPricing', true);
         $this->postJson($quoteUrl, [])->assertOk()->assertJsonPath('show_pricing', true)->assertJsonPath('total_minor', 250);
+    }
+
+    public function test_public_slot_response_batches_event_lookups_and_keeps_show_labels_and_prices(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-24 12:00:00 UTC');
+        [, $organization] = $this->ownerContext();
+        $type = $this->ticketType($organization, [
+            'pricing_mode' => 'per_attendee', 'attendee_pricing_mode' => 'flat', 'attendee_price_minor' => 2500,
+        ]);
+        $start = CarbonImmutable::parse('2026-08-31 09:00', 'America/Toronto')->utc();
+        $slots = [];
+        for ($i = 0; $i < 12; $i++) {
+            $time = $start->addMinutes($i * 15);
+            if ($i > 0) {
+                $type->eventOccurrences()->create(['starts_at_utc' => $time, 'timezone' => 'America/Toronto', 'is_active' => true]);
+            }
+            $slots[] = new BookableSlot($time, $time->addHours(3), null, 5);
+        }
+        $this->mock(PublicBookingAvailabilityService::class)->shouldReceive('slots')->once()->andReturn($slots);
+        $queries = [];
+        DB::listen(function ($query) use (&$queries): void {
+            if (str_contains($query->sql, 'from `event_occurrences`')) { $queries[] = $query->sql; }
+        });
+
+        $this->getJson(route('public.booking.slots', [$type, 'access_mode' => 'direct', 'timezone' => 'America/Toronto',
+            'date' => '2026-08-31', 'attendee_count' => 2]))->assertOk()
+            ->assertJsonCount(12, 'slots')->assertJsonPath('slots.0.price_minor', 5000)
+            ->assertJsonPath('slots.0.client_event_label', 'Doors 9:00 AM · Show 10:00 AM – 11:00 AM')
+            ->assertJsonPath('slots.11.client_event_label', 'Doors 11:45 AM · Show 12:45 PM – 1:45 PM');
+        $this->assertCount(1, $queries);
+    }
+
+    public function test_event_batch_is_scoped_to_the_type_and_booking_reads_ignore_stale_occurrences(): void
+    {
+        [, $organization] = $this->ownerContext();
+        $type = $this->ticketType($organization);
+        $other = $this->ticketType(Organization::factory()->create());
+        $type->eventOccurrences()->update(['venue' => 'Own venue']);
+        $other->eventOccurrences()->update(['venue' => 'Other venue']);
+        $occurrence = $type->eventOccurrences()->firstOrFail();
+        $start = CarbonImmutable::instance($occurrence->starts_at_utc);
+        $slots = [new BookableSlot($start, $start->addHours(3), null, 5)];
+        $events = app(TicketEventService::class);
+        $this->assertSame('Own venue', $events->attributesForSlots($type, $slots)[0]['event_location']);
+
+        $type->load('eventOccurrences');
+        $occurrence->update(['venue' => 'Changed venue']);
+        $this->assertSame('Changed venue', $events->attributesForSlots($type, $slots)[0]['event_location']);
+        $this->assertSame('Changed venue', $events->appointmentAttributes($type, $start, $start->addHours(3))['event_location']);
+        $occurrence->update(['is_active' => false]);
+        foreach (['batch', 'booking'] as $mode) {
+            try {
+                $mode === 'batch' ? $events->attributesForSlots($type, $slots) : $events->appointmentAttributes($type, $start, $start->addHours(3));
+                $this->fail('Inactive occurrences must be rejected even when a stale relation is loaded.');
+            } catch (\RuntimeException $exception) {
+                $this->assertSame('Please select the configured event date and time.', $exception->getMessage());
+            }
+        }
+    }
+
+    public function test_event_batch_preserves_validation_of_show_times_and_event_modes(): void
+    {
+        [, $organization] = $this->ownerContext();
+        $type = $this->ticketType($organization);
+        $start = CarbonImmutable::instance($type->eventOccurrences()->firstOrFail()->starts_at_utc);
+        $slots = [new BookableSlot($start, $start->addHours(3), null, 5)];
+        foreach ([['show_start_offset_minutes' => 200], ['show_end_offset_minutes' => 10], ['attendance_mode' => 'single'], ['duration_mode' => 'variable'], ['pricing_mode' => 'fixed']] as $invalid) {
+            try {
+                app(TicketEventService::class)->attributesForSlots($type->fresh()->fill($invalid), $slots);
+                $this->fail('Invalid event configuration must be rejected.');
+            } catch (\RuntimeException $exception) {
+                $this->assertNotEmpty($exception->getMessage());
+            }
+        }
+        $this->assertSame([], app(TicketEventService::class)->attributesForSlots($type, []));
     }
 
     private function configuration(array $overrides = []): array

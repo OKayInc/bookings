@@ -12,6 +12,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Throwable;
@@ -80,19 +81,21 @@ class GalleryPhotoService
 
     public function delete(GalleryPhoto $photo): void
     {
-        $disk = $photo->disk;
-        $path = $photo->path;
+        [$disk, $paths] = DB::transaction(function () use ($photo): array {
+            Organization::query()->whereKey($photo->organization_id)->lockForUpdate()->firstOrFail();
+            $locked = GalleryPhoto::query()->whereKey($photo->getKey())->lockForUpdate()->firstOrFail();
+            $files = [$locked->disk, $locked->storedPaths()];
+            $locked->delete();
 
-        DB::transaction(function () use ($photo): void {
-            GalleryPhoto::query()->whereKey($photo->getKey())->lockForUpdate()->firstOrFail()->delete();
+            return $files;
         }, 3);
 
         try {
-            Storage::disk($disk)->delete($path);
+            Storage::disk($disk)->delete($paths);
         } catch (Throwable $exception) {
             Log::warning('Gallery photo record was deleted but its stored file could not be removed.', [
                 'disk' => $disk,
-                'path' => $path,
+                'paths' => $paths,
                 'exception' => $exception->getMessage(),
             ]);
         }
@@ -128,6 +131,7 @@ class GalleryPhotoService
                 'sha256' => hash('sha256', $contents),
             ]
             : $this->converter->toWebp($contents);
+        $thumbnail = $this->prepareThumbnail($image['contents']);
 
         $photo->loadMissing(['organization', 'appointmentType']);
         $this->planStorage->assertCanStore($photo->organization, $image['file_size'], (int) $photo->file_size);
@@ -146,22 +150,31 @@ class GalleryPhotoService
             throw new RuntimeException('Unable to store the normalized WebP gallery photo.');
         }
 
+        $newThumbnailPaths = [];
+        $oldThumbnailPath = null;
+        $newThumbnailPath = null;
         try {
-            DB::transaction(function () use ($photo, $oldPath, $newPath, $image): void {
+            DB::transaction(function () use ($photo, $oldPath, $newPath, $image, $thumbnail, $disk, &$newThumbnailPaths, &$oldThumbnailPath, &$newThumbnailPath): void {
+                Organization::query()->whereKey($photo->organization_id)->lockForUpdate()->firstOrFail();
                 $locked = GalleryPhoto::query()->whereKey($photo->getKey())->lockForUpdate()->firstOrFail();
                 if ($locked->path !== $oldPath) {
                     throw new RuntimeException('The gallery photo changed while it was being normalized.');
                 }
 
+                $oldThumbnailPath = $locked->thumbnail_path;
+                $thumbnailAttributes = $this->storeThumbnail($disk, $newPath, $image['sha256'], $thumbnail, $newThumbnailPaths);
+                $newThumbnailPath = $thumbnailAttributes['thumbnail_path'];
                 $locked->update([
                     'path' => $newPath,
                     'width' => $image['width'],
                     'height' => $image['height'],
                     'file_size' => $image['file_size'],
                     'sha256' => $image['sha256'],
+                    ...$thumbnailAttributes,
                 ]);
             }, 3);
         } catch (Throwable $exception) {
+            $storage->delete($newThumbnailPaths);
             if (! $newPathExisted && $newPath !== $oldPath) {
                 $storage->delete($newPath);
             }
@@ -171,8 +184,58 @@ class GalleryPhotoService
         if ($newPath !== $oldPath) {
             $storage->delete($oldPath);
         }
+        if ($oldThumbnailPath && ! in_array($oldThumbnailPath, [$newPath, $newThumbnailPath], true)) {
+            $storage->delete($oldThumbnailPath);
+        }
 
         return true;
+    }
+
+    /** Generate or repair a preview without doing image work on a page request. */
+    public function generateThumbnail(GalleryPhoto $photo, bool $force = false): bool
+    {
+        $storage = Storage::disk($photo->disk);
+        if (! $force && $photo->thumbnail_path && $storage->exists($photo->thumbnail_path)) {
+            return false;
+        }
+
+        $contents = $storage->get($photo->path);
+        $thumbnail = $this->prepareThumbnail($contents);
+        $sourceHash = hash('sha256', $contents);
+        $newPaths = [];
+        $oldThumbnailPath = null;
+        $newThumbnailPath = null;
+
+        try {
+            $changed = DB::transaction(function () use ($photo, $force, $storage, $thumbnail, $sourceHash, &$newPaths, &$oldThumbnailPath, &$newThumbnailPath): bool {
+                Organization::query()->whereKey($photo->organization_id)->lockForUpdate()->firstOrFail();
+                $locked = GalleryPhoto::query()->whereKey($photo->getKey())->lockForUpdate()->firstOrFail();
+                if ($locked->path !== $photo->path || $locked->disk !== $photo->disk || $locked->sha256 !== $photo->sha256) {
+                    throw new RuntimeException('The gallery photo changed while its thumbnail was being generated. Retry it.');
+                }
+                if (! $force && $locked->thumbnail_path && $storage->exists($locked->thumbnail_path)) {
+                    return false;
+                }
+                $oldThumbnailPath = $locked->thumbnail_path;
+                $attributes = $this->storeThumbnail($locked->disk, $locked->path, $sourceHash, $thumbnail, $newPaths);
+                $newThumbnailPath = $attributes['thumbnail_path'];
+                $locked->update($attributes);
+
+                return true;
+            }, 3);
+        } catch (Throwable $exception) {
+            $storage->delete($newPaths);
+            throw $exception;
+        }
+        if (! $changed) {
+            $storage->delete($newPaths);
+        }
+
+        if ($changed && $oldThumbnailPath && ! in_array($oldThumbnailPath, [$photo->path, $newThumbnailPath], true)) {
+            $storage->delete($oldThumbnailPath);
+        }
+
+        return $changed;
     }
 
     /**
@@ -196,6 +259,7 @@ class GalleryPhotoService
 
             try {
                 $image = $this->converter->toWebp($file->getContent());
+                $image['thumbnail'] = $this->prepareThumbnail($image['contents']);
             } catch (Throwable $exception) {
                 throw ValidationException::withMessages([
                     'photos' => $file->getClientOriginalName().': '.$exception->getMessage(),
@@ -274,6 +338,7 @@ class GalleryPhotoService
                     if (! $pathExisted) {
                         $storedNewPaths[] = $path;
                     }
+                    $thumbnailAttributes = $this->storeThumbnail($disk, $path, $image['sha256'], $image['thumbnail'], $storedNewPaths);
 
                     GalleryPhoto::create([
                         'organization_id' => $lockedOrganization->getKey(),
@@ -288,6 +353,7 @@ class GalleryPhotoService
                         'height' => $image['height'],
                         'file_size' => $image['file_size'],
                         'sha256' => $image['sha256'],
+                        ...$thumbnailAttributes,
                     ]);
                     $stored++;
                 }
@@ -308,5 +374,37 @@ class GalleryPhotoService
         $owner = $appointmentType ? 'appointments/'.$appointmentType->uuid : 'organization';
 
         return "{$base}/{$organization->uuid}/{$owner}/{$sha256}.webp";
+    }
+
+    private function prepareThumbnail(string $contents): array
+    {
+        // One path per operation, retained across transaction retries. Failed writes can
+        // clean up their own files without removing another generator's committed preview.
+        return [...$this->converter->thumbnail($contents), 'storage_token' => (string) Str::uuid7()];
+    }
+
+    /** @param list<string> $newPaths */
+    private function storeThumbnail(string $disk, string $originalPath, string $sourceHash, array $thumbnail, array &$newPaths): array
+    {
+        // Reuse small originals and originals that are lighter than their resized preview.
+        $path = $thumbnail['sha256'] === $sourceHash
+            ? $originalPath
+            : $originalPath.'.thumb-'.$thumbnail['storage_token'].'.webp';
+        if ($path !== $originalPath) {
+            $storage = Storage::disk($disk);
+            if (! $storage->exists($path)) {
+                $newPaths[] = $path;
+                if (! $storage->put($path, $thumbnail['contents'], ['visibility' => 'public'])) {
+                    throw new RuntimeException('Unable to store the gallery thumbnail.');
+                }
+            }
+        }
+
+        return [
+            'thumbnail_path' => $path,
+            'thumbnail_width' => $thumbnail['width'],
+            'thumbnail_height' => $thumbnail['height'],
+            'thumbnail_file_size' => $thumbnail['file_size'],
+        ];
     }
 }

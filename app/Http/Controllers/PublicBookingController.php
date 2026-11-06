@@ -99,20 +99,17 @@ class PublicBookingController extends Controller
             $price += $depositTotal;
             $priceTaxQuote = $taxes->calculate($appointmentType->organization, $price, $depositTotal);
             $price = $priceTaxQuote->totalMinor;
-            if ($appointmentType->ticketing_enabled) {
-                foreach ($slots as $slot) {
-                    $ticketEvents->appointmentAttributes($appointmentType, $slot->startsAtUtc, $slot->endsAtUtc);
-                }
-            }
+            $slotEvents = $appointmentType->ticketing_enabled
+                ? $ticketEvents->attributesForSlots($appointmentType, $slots)
+                : array_fill(0, count($slots), null);
         } catch (RuntimeException|\InvalidArgumentException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
         try {
-            $slotPayloads = array_map(function ($slot) use (
+            $slotPayloads = array_map(function ($slot, ?array $event) use (
                 $timezone,
                 $appointmentType,
-                $ticketEvents,
                 $ticketInventory,
                 $pricing,
                 $money,
@@ -126,9 +123,6 @@ class PublicBookingController extends Controller
                 $clientEnd = $slot->endsAtUtc->setTimezone($timezone);
                 $orgStart = $slot->startsAtUtc->setTimezone($appointmentType->organization->timezone);
                 $orgEnd = $slot->endsAtUtc->setTimezone($appointmentType->organization->timezone);
-                $event = $appointmentType->ticketing_enabled
-                    ? $ticketEvents->appointmentAttributes($appointmentType, $slot->startsAtUtc, $slot->endsAtUtc)
-                    : null;
                 $clientShowStart = $event === null ? null : $event['show_starts_at_utc']->setTimezone($timezone);
                 $clientShowEnd = $event === null || $event['show_ends_at_utc'] === null ? null : $event['show_ends_at_utc']->setTimezone($timezone);
                 $orgShowStart = $event === null ? null : $event['show_starts_at_utc']->setTimezone($appointmentType->organization->timezone);
@@ -175,7 +169,7 @@ class PublicBookingController extends Controller
                     'tax_total_minor' => $slotTaxQuote->taxTotalMinor,
                     'tax_total_display' => $money->format($slotTaxQuote->taxTotalMinor, $appointmentType->organization->currency),
                 ];
-            }, $slots);
+            }, $slots, $slotEvents);
         } catch (RuntimeException|\InvalidArgumentException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }

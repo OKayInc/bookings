@@ -45,11 +45,11 @@ class AppointmentTypeDeletionService
                 ])
                 ->all();
             $galleryFiles = $locked->galleryPhotos()
-                ->get(['disk', 'path'])
-                ->map(fn ($photo): array => [
+                ->get(['disk', 'path', 'thumbnail_path'])
+                ->flatMap(fn ($photo): array => array_map(fn (string $path): array => [
                     'disk' => (string) $photo->disk,
-                    'path' => (string) $photo->path,
-                ])
+                    'path' => $path,
+                ], $photo->storedPaths()))
                 ->all();
 
             // Availability schedules use a polymorphic-style scope_id without a DB

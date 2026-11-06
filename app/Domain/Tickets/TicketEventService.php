@@ -2,10 +2,12 @@
 
 namespace App\Domain\Tickets;
 
+use App\Domain\Availability\BookableSlot;
 use App\Enums\AttendanceMode;
 use App\Enums\DurationMode;
 use App\Enums\PricingMode;
 use App\Models\AppointmentType;
+use App\Models\EventOccurrence;
 use Carbon\CarbonImmutable;
 use RuntimeException;
 
@@ -16,6 +18,50 @@ class TicketEventService
         AppointmentType $type,
         CarbonImmutable $startsAtUtc,
         CarbonImmutable $endsAtUtc,
+    ): array {
+        // Booking writes always read the current occurrence, even if a caller loaded a relation.
+        $occurrence = $type->ticketing_enabled
+            ? $type->eventOccurrences()->where('is_active', true)
+                ->where('starts_at_utc', $startsAtUtc->utc()->format('Y-m-d H:i:s.u'))->first()
+            : null;
+
+        return $this->attributes($type, $startsAtUtc, $endsAtUtc, $occurrence);
+    }
+
+    /**
+     * A response-local snapshot for browsing. Never used to authorize a booking write.
+     *
+     * @param list<BookableSlot> $slots
+     * @return list<array<string, mixed>>
+     */
+    public function attributesForSlots(AppointmentType $type, array $slots): array
+    {
+        if ($slots === []) {
+            return [];
+        }
+
+        $occurrences = $type->ticketing_enabled
+            ? $type->eventOccurrences()->where('is_active', true)
+                ->whereIn('starts_at_utc', array_map(
+                    static fn (BookableSlot $slot): string => $slot->startsAtUtc->utc()->format('Y-m-d H:i:s.u'),
+                    $slots,
+                ))->get()->keyBy(fn (EventOccurrence $occurrence): string => $occurrence->starts_at_utc->utc()->format('Y-m-d H:i:s.u'))
+            : collect();
+
+        return array_map(fn (BookableSlot $slot): array => $this->attributes(
+            $type,
+            $slot->startsAtUtc,
+            $slot->endsAtUtc,
+            $occurrences->get($slot->startsAtUtc->utc()->format('Y-m-d H:i:s.u')),
+        ), $slots);
+    }
+
+    /** @return array<string, mixed> */
+    private function attributes(
+        AppointmentType $type,
+        CarbonImmutable $startsAtUtc,
+        CarbonImmutable $endsAtUtc,
+        ?EventOccurrence $occurrence,
     ): array {
         if (! $type->ticketing_enabled) {
             return [
@@ -43,8 +89,6 @@ class TicketEventService
             throw new RuntimeException('Ticketed events must use free or per-attendee pricing.');
         }
 
-        $occurrence = $type->eventOccurrences()->where('is_active', true)
-            ->where('starts_at_utc', $startsAtUtc->utc()->format('Y-m-d H:i:s.u'))->first();
         if (! $occurrence) {
             throw new RuntimeException('Please select the configured event date and time.');
         }

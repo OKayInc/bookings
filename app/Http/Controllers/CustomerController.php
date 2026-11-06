@@ -50,18 +50,31 @@ class CustomerController extends Controller
         $this->authorize('manageScheduling', $context->organization());
 
         $customer->load([
-            'bookings.appointmentType', 'bookings.appointment', 'bookings.outcome.recordedBy',
-            'bookings.couponRedemption.coupon', 'accessEntries.createdBy', 'accessEvents.actor',
+            'organization',
+            'accessEntries' => fn ($query) => $query->where('organization_id', $customer->organization_id)->whereIn('status', ['active', 'suggested'])
+                ->latest()->with('createdBy'),
+            'accessEvents' => fn ($query) => $query->where('organization_id', $customer->organization_id)
+                ->orderByDesc('occurred_at_utc')->orderByDesc('id')->limit(25)->with('actor'),
         ]);
 
-        $bookings = $customer->bookings->sortByDesc(fn ($booking) => $booking->appointment?->starts_at_utc);
-        $summary = [
-            'appointments' => $bookings->count(),
-            'successful' => $bookings->where('outcome.outcome', 'successful')->count(),
-            'no_shows' => $bookings->where('outcome.outcome', 'no_show')->count(),
-            'cancelled' => $bookings->filter(fn ($b) => in_array($b->status->value, ['cancelled', 'declined'], true))->count(),
-            'revenue_minor' => $bookings->sum(fn ($b) => $b->netPaidMinor()),
-        ];
+        $history = $customer->bookings()->where('bookings.organization_id', $customer->organization_id);
+        // The outcome relation has a unique booking_id, so this join cannot multiply totals.
+        $totals = (clone $history)->leftJoin('booking_outcomes', 'booking_outcomes.booking_id', '=', 'bookings.id')
+            ->selectRaw('COUNT(*) AS appointments')
+            ->selectRaw("COALESCE(SUM(booking_outcomes.outcome = 'successful'), 0) AS successful")
+            ->selectRaw("COALESCE(SUM(booking_outcomes.outcome = 'no_show'), 0) AS no_shows")
+            ->selectRaw("COALESCE(SUM(bookings.status IN ('cancelled', 'declined')), 0) AS cancelled")
+            // CASE avoids unsigned subtraction underflow when refunds exceed payments.
+            ->selectRaw('COALESCE(SUM(CASE WHEN bookings.paid_minor > bookings.refunded_minor THEN bookings.paid_minor - bookings.refunded_minor ELSE 0 END), 0) AS revenue_minor')
+            ->toBase()->first();
+        $summary = array_map(static fn ($value): int => (int) $value, (array) $totals);
+
+        $bookings = $history->leftJoin('appointments', 'appointments.id', '=', 'bookings.appointment_id')
+            ->select('bookings.*')
+            ->with(['appointmentType', 'appointment', 'outcome', 'couponRedemption'])
+            ->orderByDesc('appointments.starts_at_utc')->orderByDesc('bookings.id')
+            ->paginate(25, ['bookings.*'], 'bookings_page', total: $summary['appointments'])
+            ->withQueryString()->fragment('appointment-history');
 
         return view('customers.show', compact('customer', 'bookings', 'summary'));
     }

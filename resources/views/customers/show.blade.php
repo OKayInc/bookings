@@ -76,7 +76,7 @@
 @endif
 
 <div class="card mb-4">
-    <h2 class="h4">Appointment history</h2>
+    <h2 class="h4" id="appointment-history">Appointment history</h2>
     <div class="table-responsive">
         <table class="table align-middle">
             <thead><tr><th>Date</th><th>Appointment</th><th>Revenue</th><th>Coupon</th><th>Booking status</th><th>Outcome</th><th></th></tr></thead>
@@ -120,13 +120,14 @@
             </tbody>
         </table>
     </div>
+    {{ $bookings->links('pagination::bootstrap-5') }}
 </div>
 
 @if($customer->accessEvents->isNotEmpty())
 <div class="card">
     <h2 class="h4">Access-list audit trail</h2>
     <ul class="list-group list-group-flush">
-        @foreach($customer->accessEvents->sortByDesc('occurred_at_utc')->take(25) as $event)
+        @foreach($customer->accessEvents as $event)
             <li class="list-group-item px-0">
                 <strong>{{ str_replace('_', ' ', ucfirst($event->event_type)) }}</strong>
                 <span class="text-body-secondary">· {{ $event->occurred_at_utc->setTimezone($customer->organization->timezone)->format('Y-m-d H:i') }}</span>

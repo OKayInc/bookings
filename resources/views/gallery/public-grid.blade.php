@@ -15,7 +15,7 @@
                 data-alt="{{ $photo->alt_text ?: $ownerName.' gallery photo '.($index + 1) }}"
                 aria-label="Enlarge gallery photo {{ $index + 1 }} of {{ $visibleGalleryPhotos->count() }}"
             >
-                <img src="{{ $photo->url }}" alt="{{ $photo->alt_text ?: $ownerName.' gallery photo '.($index + 1) }}" loading="lazy" decoding="async">
+                <img src="{{ $photo->thumbnail_url }}" width="{{ $photo->thumbnail_width ?: $photo->width }}" height="{{ $photo->thumbnail_height ?: $photo->height }}" alt="{{ $photo->alt_text ?: $ownerName.' gallery photo '.($index + 1) }}" loading="lazy" decoding="async">
             </button>
         @endforeach
     </div>

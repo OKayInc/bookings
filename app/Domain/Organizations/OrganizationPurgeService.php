@@ -67,6 +67,9 @@ class OrganizationPurgeService
                 }
                 $this->queueFiles($id, DB::table('appointment_contract_templates')->where('organization_id', $id)->get(['disk', 'path']));
                 $this->queueFiles($id, DB::table('gallery_photos')->where('organization_id', $id)->get(['disk', 'path']));
+                $this->queueFiles($id, DB::table('gallery_photos')->where('organization_id', $id)
+                    ->whereNotNull('thumbnail_path')->whereColumn('thumbnail_path', '!=', 'path')
+                    ->get(['disk', 'thumbnail_path as path']));
                 foreach (['appointment_questions', 'short_notice_fee_rules'] as $table) {
                     DB::table($table)->whereIn('appointment_type_id', $types)->delete();
                 }
@@ -131,6 +134,8 @@ class OrganizationPurgeService
                 foreach (['booking_answer_files', 'booking_contract_files', 'appointment_contract_templates', 'gallery_photos'] as $table) {
                     $referenced = $referenced || DB::table($table)->where('disk', $file->disk)->where('path', $file->path)->exists();
                 }
+                $referenced = $referenced || DB::table('gallery_photos')->where('disk', $file->disk)
+                    ->where('thumbnail_path', $file->path)->exists();
                 foreach (['organizations' => 'organizations', 'appointment_types' => 'appointment-types'] as $table => $config) {
                     if ($file->disk === config($config.'.logo_disk', 'public')) {
                         $referenced = $referenced || DB::table($table)->where('logo_path', $file->path)->exists();
