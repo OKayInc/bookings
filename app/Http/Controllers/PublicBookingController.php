@@ -246,24 +246,57 @@ class PublicBookingController extends Controller
         $hold->load(['organization', 'resources', 'appointmentType', 'contractTemplate', 'invitation']);
         $configuration->prime($hold->appointmentType);
 
+        $resourceUnavailableDefaults = $conditionalResources->unavailableDefaultAnswers($hold);
+        $equipmentResourceQuantities = $hold->resources->mapWithKeys(fn ($resource) => [
+            $resource->getKey() => (int) ($resource->pivot->quantity_reserved ?? 1),
+        ])->all();
         $initialQuote = app(\App\Domain\Questionnaires\QuestionnairePricingService::class)->quote(
-            $hold->appointmentType, (int) $hold->duration_value,
-            $conditionalResources->unavailableDefaultAnswers($hold),
+            $hold->appointmentType,
+            (int) $hold->duration_value,
+            $resourceUnavailableDefaults,
             CarbonImmutable::instance($hold->starts_at_utc)->utc(),
-            attendeeCount: (int) $hold->attendee_count, ticketSeats: $hold->ticket_seats ?? [],
-            equipmentResourceQuantities: $hold->resources->mapWithKeys(fn ($resource) => [
-                $resource->getKey() => (int) ($resource->pivot->quantity_reserved ?? 1),
-            ])->all(),
+            attendeeCount: (int) $hold->attendee_count,
+            ticketSeats: $hold->ticket_seats ?? [],
+            equipmentResourceQuantities: $equipmentResourceQuantities,
         );
+        $initialTaxQuote = app(OrganizationTaxService::class)->quote($hold->organization, $initialQuote);
+        $money = app(MoneyService::class);
+        $showPricing = app(\App\Domain\Bookings\BookingPriceVisibilityService::class)
+            ->shouldShow($hold->appointmentType, $initialQuote->totalMinor);
 
         return view('public.bookings.details', [
-            'showPricing' => app(\App\Domain\Bookings\BookingPriceVisibilityService::class)
-                ->shouldShow($hold->appointmentType, $initialQuote->totalMinor),
+            'showPricing' => $showPricing,
             'organization' => $hold->organization,
             'type' => $hold->appointmentType,
             'hold' => $hold,
             'holdToken' => $token,
-            'resourceUnavailableDefaults' => $conditionalResources->unavailableDefaultAnswers($hold),
+            'resourceUnavailableDefaults' => $resourceUnavailableDefaults,
+            'initialQuotePayload' => [
+                'show_pricing' => $showPricing,
+                'base_price_minor' => $initialQuote->basePriceMinor,
+                'subtotal_minor' => $initialTaxQuote->subtotalMinor,
+                'subtotal_display' => $money->format($initialTaxQuote->subtotalMinor, $hold->organization->currency),
+                'tax_total_minor' => $initialTaxQuote->taxTotalMinor,
+                'tax_total_display' => $money->format($initialTaxQuote->taxTotalMinor, $hold->organization->currency),
+                'total_minor' => $initialTaxQuote->totalMinor,
+                'total_display' => $money->format($initialTaxQuote->totalMinor, $hold->organization->currency),
+                'collects_taxes' => $initialTaxQuote->collectsTaxes(),
+                'tax_price_mode' => $initialTaxQuote->priceMode?->value,
+                'tax_identifier' => $initialTaxQuote->taxIdentifier,
+                'taxes' => array_map(fn ($line) => [
+                    'name' => $line->name,
+                    'percentage' => TaxRate::percentage($line->rateMillionths),
+                    'rate_millionths' => $line->rateMillionths,
+                    'amount_minor' => $line->amountMinor,
+                    'amount_display' => $money->format($line->amountMinor, $hold->organization->currency),
+                ], $initialTaxQuote->lines),
+                'lines' => array_map(fn ($line) => [
+                    'label' => $line->label,
+                    'quantity' => $line->quantity,
+                    'amount_minor' => $line->amountMinor,
+                    'amount_display' => $money->format($line->amountMinor, $hold->organization->currency),
+                ], $initialQuote->lines),
+            ],
             'eventTiming' => $hold->appointmentType->ticketing_enabled
                 ? $ticketEvents->appointmentAttributes(
                     $hold->appointmentType,

@@ -131,6 +131,7 @@
     const message = document.getElementById('slot-message');
     const price = document.getElementById('price-preview');
     let slotRequestVersion = 0;
+    const warmedSelections = new Set();
     const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;',
     })[character]);
@@ -151,6 +152,41 @@
     date.value = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
 
     setEventDate();
+
+    async function warmSlots() {
+        if (!date.value) return;
+        const selection = {
+            timezone: timezone.value,
+            date: date.value,
+            duration_value: duration.value,
+            attendee_count: attendees.value,
+        };
+        const key = JSON.stringify(selection);
+        if (warmedSelections.has(key)) return;
+        warmedSelections.add(key);
+        const params = new URLSearchParams({access_mode: accessMode, ...selection});
+        if (accessToken) params.set('access_token', accessToken);
+        try {
+            await fetch(`${slotsUrl}?${params}`, {
+                headers: {'Accept': 'application/json', 'X-Appointment-Warmup': '1'},
+                credentials: 'same-origin',
+            });
+        } catch (_) {
+            warmedSelections.delete(key);
+        }
+    }
+
+    const scheduler = document.getElementById('booking-scheduler');
+    if ('IntersectionObserver' in window && scheduler) {
+        const observer = new IntersectionObserver(entries => {
+            if (!entries.some(entry => entry.isIntersecting)) return;
+            observer.disconnect();
+            const run = () => warmSlots();
+            if ('requestIdleCallback' in window) requestIdleCallback(run, {timeout: 1200});
+            else setTimeout(run, 250);
+        }, {rootMargin: '300px'});
+        observer.observe(scheduler);
+    }
 
     async function loadSlots() {
         const requestVersion = ++slotRequestVersion;
@@ -232,6 +268,9 @@
         list.innerHTML = '';
         price.textContent = '';
         message.textContent = 'Selection changed. Show available times again to update availability and pricing.';
+        const run = () => warmSlots();
+        if ('requestIdleCallback' in window) requestIdleCallback(run, {timeout: 1200});
+        else setTimeout(run, 350);
     }));
 })();
 </script>

@@ -215,14 +215,27 @@ class CouponController extends Controller
     /** @param list<string> $uuids @return list<string> */
     private function appointmentTypeIds(string $organizationId, array $uuids): array
     {
-        $ids = [];
-        foreach ($uuids as $uuid) {
-            $id = DB::table('appointment_types')->where('organization_id', $organizationId)->where('id', UuidBinary::toBytes($uuid))->value('id');
-            if ($id === null) {
+        if ($uuids === []) {
+            return [];
+        }
+
+        $requested = array_values(array_unique(array_map(
+            static fn (string $uuid): string => UuidBinary::toBytes($uuid),
+            $uuids,
+        )));
+        $found = DB::table('appointment_types')
+            ->where('organization_id', $organizationId)
+            ->whereIn('id', $requested)
+            ->pluck('id')
+            ->all();
+
+        $foundByHex = array_fill_keys(array_map('bin2hex', $found), true);
+        foreach ($requested as $id) {
+            if (! isset($foundByHex[bin2hex($id)])) {
                 abort(422, 'An appointment type does not belong to this organization.');
             }
-            $ids[] = $id;
         }
-        return $ids;
+
+        return $requested;
     }
 }

@@ -2,6 +2,11 @@
 @php
     $seo = app(\App\Support\Seo\PublicSeo::class)->organization($organization, $appointmentTypes);
 @endphp
+@if($selectedTypeSlug)
+    @push('head')
+        <link rel="prefetch" as="document" href="{{ route('public.appointment-types.show', ['organizationSlug' => $organization->slug, 'appointmentSlug' => $selectedTypeSlug]) }}">
+    @endpush
+@endif
 @section('content')
 <div class="card"><h1>{{ $organization->name }}</h1><p class="muted">Available public appointment types</p>@include('public.partials.organization-social-links')</div>
 @include('gallery.public-grid', ['photos' => $organization->galleryPhotos, 'placement' => 'above', 'ownerName' => $organization->name])

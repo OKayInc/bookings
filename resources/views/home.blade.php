@@ -5,6 +5,7 @@
 @endphp
 
 @push('head')
+    <link rel="prefetch" as="document" href="{{ route('pricing') }}">
     <style>
         .sales-hero { background: radial-gradient(circle at 85% 15%, rgba(255,255,255,.13), transparent 28%), linear-gradient(135deg,#111827 0%,#1f2937 58%,#7f1d1d 100%); }
         .sales-eyebrow { letter-spacing:.09em; }

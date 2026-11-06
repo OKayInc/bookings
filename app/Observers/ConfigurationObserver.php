@@ -10,6 +10,10 @@ use App\Models\AppointmentQuestionVisibilityCondition;
 use App\Models\AppointmentType;
 use App\Models\Organization;
 use App\Models\OrganizationTax;
+use App\Models\OrganizationHoliday;
+use App\Models\GalleryPhoto;
+use App\Models\CouponOffer;
+use App\Models\AppointmentContractTemplate;
 use App\Models\QuestionOption;
 use App\Models\Resource;
 use App\Models\ReusableQuestion;
@@ -56,7 +60,9 @@ class ConfigurationObserver
                 ->where('appointment_type_resources.resource_id', $model->getKey())->pluck('appointment_types.organization_id') as $id) {
                 $add($id);
             }
-        } elseif ($model instanceof AppointmentType || $model instanceof OrganizationTax || $model instanceof ReusableQuestion) {
+        } elseif ($model instanceof AppointmentType || $model instanceof OrganizationTax || $model instanceof OrganizationHoliday
+            || $model instanceof GalleryPhoto || $model instanceof CouponOffer || $model instanceof AppointmentContractTemplate
+            || $model instanceof ReusableQuestion) {
             $add($model->organization_id);
             $add($model->getRawOriginal('organization_id'));
         } elseif ($model instanceof ReusableQuestionOption) {

@@ -64,7 +64,16 @@ class PublicBookingAvailabilityService
         }
 
         $appointments = Appointment::query()
-            ->with(['bookings', 'bookingHolds', 'resources'])
+            ->with('resources')
+            ->withSum([
+                'bookings as booked_attendee_count' => fn ($query) => $query
+                    ->whereNotIn('status', [BookingStatus::Cancelled->value, BookingStatus::Declined->value]),
+            ], 'attendee_count')
+            ->withSum([
+                'bookingHolds as held_attendee_count' => fn ($query) => $query
+                    ->where('status', BookingHoldStatus::Active->value)
+                    ->where('expires_at_utc', '>', now('UTC')),
+            ], 'attendee_count')
             ->where('appointment_type_id', $type->getKey())
             ->where('status', AppointmentStatus::Scheduled->value)
             ->where('duration_value', $selectedDuration)
@@ -73,14 +82,31 @@ class PublicBookingAvailabilityService
             ->orderBy('starts_at_utc')
             ->get();
 
+        $eventStarts = $type->ticketing_enabled
+            ? $type->eventOccurrences()
+                ->where('is_active', true)
+                ->where('starts_at_utc', '>=', $rangeStartUtc->format('Y-m-d H:i:s.u'))
+                ->where('starts_at_utc', '<', $rangeEndUtc->format('Y-m-d H:i:s.u'))
+                ->pluck('starts_at_utc')
+                ->mapWithKeys(fn ($start): array => [
+                    CarbonImmutable::instance($start)->utc()->format('Y-m-d H:i:s.u') => true,
+                ])
+                ->all()
+            : null;
+
         foreach ($appointments as $appointment) {
-            $remaining = $this->remainingCapacity($appointment);
+            $remaining = max(
+                0,
+                (int) $appointment->capacity
+                    - (int) ($appointment->booked_attendee_count ?? 0)
+                    - (int) ($appointment->held_attendee_count ?? 0),
+            );
             if ($remaining < $attendeeCount) {
                 continue;
             }
 
             $start = CarbonImmutable::instance($appointment->starts_at_utc)->utc();
-            if (! $type->permitsEventStart($start)) {
+            if ($eventStarts !== null && ! isset($eventStarts[$start->format('Y-m-d H:i:s.u')])) {
                 continue;
             }
             if ($enforceNotice && ! $this->notice->permits($type, $start, $nowUtc)) {

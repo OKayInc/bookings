@@ -130,7 +130,16 @@ class Resource extends Model
             return ['enforce' => false, 'region' => null];
         }
 
-        $shared = $this->organizations()->whereKey($organization->getKey())->first();
+        $shared = null;
+        if (DB::transactionLevel() === 0 && $this->relationLoaded('organizations')) {
+            $shared = $this->organizations->first(
+                fn (Organization $candidate): bool => hash_equals(
+                    (string) $candidate->getKey(),
+                    (string) $organization->getKey(),
+                ),
+            );
+        }
+        $shared ??= $this->organizations()->whereKey($organization->getKey())->first();
 
         return [
             'enforce' => (bool) ($shared?->pivot?->enforce_holidays ?? false),
