@@ -279,7 +279,8 @@ class OfflinePaymentSettingsTest extends TestCase
             'payment_collection_mode' => 'retainer', 'retainer_type' => 'fixed', 'retainer_amount_minor' => 2000,
             'email_verification_mode' => 'none', 'is_active' => true,
         ]);
-        $type->forceFill(['offline_payment_enabled' => true, 'offline_payment_window_minutes' => 1440,
+        $type->forceFill(['offline_payment_use_organization_defaults' => false,
+            'offline_payment_enabled' => true, 'offline_payment_window_minutes' => 1440,
             'offline_payment_instructions' => 'Send your transfer to payments@example.test.'])->save();
         return $type;
     }
