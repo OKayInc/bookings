@@ -173,7 +173,8 @@ class OfflinePaymentSettingsTest extends TestCase
 
         $this->put(route('payment-settings.update'), [
             'offline_payment_enabled' => '1',
-            'offline_payment_window_minutes' => 180,
+            'offline_payment_window_value' => 3,
+            'offline_payment_window_unit' => 'hour',
             'offline_payment_instructions' => '<p>Send the organization e-Transfer.</p>',
             'stripe_enabled' => '0',
             'stripe_test_mode' => '1',
