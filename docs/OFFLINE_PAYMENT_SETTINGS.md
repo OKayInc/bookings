@@ -2,11 +2,11 @@
 
 ## Where to configure
 
-Open **Organization → Payments** (`/payment-settings`). The **Offline payments / e-Transfer** section lists the current organization's appointment types, whether offline payment is enabled, and the configured payment window. Inactive appointment types are labelled. An enabled type without visible payment instructions is labelled **Needs instructions**.
+Open **Organization → Payments** (`/payment-settings`). The **Offline payments / e-Transfer** section now contains the organization-wide defaults: enabled/disabled state, payment window and rich-text customer instructions. New appointment types inherit these defaults automatically.
 
-Use **Configure offline payments** beside an appointment type to open `/appointment-types/{appointmentType}/offline-payments`. The same editor remains accessible from **Appointment types → Edit → Offline payments / e-Transfer settings**. The payment settings page also links to the existing offline-payment and outstanding-balance review queue.
+The same section lists every appointment type and shows whether its effective configuration comes from the **Organization default** or a **Custom override**. Use **Configure / override** to open `/appointment-types/{appointmentType}/offline-payments`, where inheritance can be turned on or off. Existing appointment types are migrated to custom overrides so deployment does not silently change their current behavior.
 
-Offline payments do not require Stripe or PayPal credentials. The default hosted-checkout provider remains an online-only choice; offline setup belongs to individual appointment types.
+Offline payments do not require Stripe or PayPal credentials. The default hosted-checkout provider remains an online-only choice. When a customer selects offline payment, the effective settings are snapshotted onto the booking; later edits to organization defaults or appointment overrides do not rewrite that booking.
 
 ## Editor and appearance
 
@@ -20,11 +20,12 @@ Older plain-text instructions retain their line breaks when opened in the editor
 
 ## Scope and deployment
 
-This UI/rich-text change adds no database migration and does not alter payment amounts, gateway credentials, authorization, reservation expiry, payment-review notifications or the manual verification workflow. See [Offline payments and post-appointment balance review](OFFLINE_PAYMENTS.md) for those workflows.
+This change adds a database migration for organization offline-payment defaults and appointment-type inheritance. It does not alter payment amounts, gateway credentials, authorization, payment-review notifications or the manual verification workflow. See [Offline payments and post-appointment balance review](OFFLINE_PAYMENTS.md) for those workflows.
 
-After deploying the code to each application node, rebuild the usual Laravel caches:
+After deploying the code, run the migration before rebuilding the usual Laravel caches:
 
 ```sh
+php artisan migrate --force
 php artisan optimize:clear
 php artisan optimize
 ```
