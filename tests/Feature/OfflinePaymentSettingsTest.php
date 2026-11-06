@@ -164,6 +164,81 @@ class OfflinePaymentSettingsTest extends TestCase
         $this->assertStringNotContainsString('New instructions', $html);
     }
 
+    public function test_organization_defaults_can_be_saved_and_inherited_by_an_appointment_type(): void
+    {
+        [$user, $organization] = $this->context();
+        $type = $this->type($organization);
+        $type->forceFill(['offline_payment_use_organization_defaults' => true])->save();
+        $this->signIn($user, $organization);
+
+        $this->put(route('payment-settings.update'), [
+            'offline_payment_enabled' => '1',
+            'offline_payment_window_value' => 3,
+            'offline_payment_window_unit' => 'hour',
+            'offline_payment_instructions' => '<p>Send the organization e-Transfer.</p>',
+            'stripe_enabled' => '0',
+            'stripe_test_mode' => '1',
+            'paypal_enabled' => '0',
+            'paypal_sandbox' => '1',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $effective = $type->fresh()->effectiveOfflinePaymentSettings();
+        $this->assertTrue($effective['enabled']);
+        $this->assertSame(180, $effective['window_minutes']);
+        $this->assertSame('<p>Send the organization e-Transfer.</p>', $effective['instructions']);
+        $this->assertSame('organization', $effective['source']);
+
+        $this->get(route('payment-settings.edit'))->assertOk()
+            ->assertSee('Organization default')
+            ->assertSee('3 hours');
+    }
+
+    public function test_appointment_type_override_wins_over_organization_defaults(): void
+    {
+        [$user, $organization] = $this->context();
+        $organization->paymentSettings()->create([
+            'offline_payment_enabled' => true,
+            'offline_payment_window_minutes' => 180,
+            'offline_payment_instructions' => '<p>Organization instructions</p>',
+        ]);
+        $type = $this->type($organization);
+        $type->forceFill([
+            'offline_payment_use_organization_defaults' => false,
+            'offline_payment_enabled' => true,
+            'offline_payment_window_minutes' => 30,
+            'offline_payment_instructions' => '<p>Type instructions</p>',
+        ])->save();
+
+        $effective = $type->fresh()->effectiveOfflinePaymentSettings();
+        $this->assertSame('appointment_type', $effective['source']);
+        $this->assertSame(30, $effective['window_minutes']);
+        $this->assertSame('<p>Type instructions</p>', $effective['instructions']);
+    }
+
+    public function test_inherited_settings_are_snapshotted_when_offline_payment_is_selected(): void
+    {
+        [, $organization] = $this->context();
+        $organization->paymentSettings()->create([
+            'offline_payment_enabled' => true,
+            'offline_payment_window_minutes' => 120,
+            'offline_payment_instructions' => '<p>Original organization instructions</p>',
+        ]);
+        $type = $this->type($organization);
+        $type->forceFill(['offline_payment_use_organization_defaults' => true])->save();
+
+        $booking = app(OfflineBookingPaymentService::class)->select($this->booking($type));
+        $deadline = $booking->offline_payment_deadline_at_utc;
+
+        $organization->paymentSettings()->update([
+            'offline_payment_window_minutes' => 300,
+            'offline_payment_instructions' => '<p>Changed organization instructions</p>',
+        ]);
+
+        $fresh = $booking->fresh();
+        $this->assertSame('<p>Original organization instructions</p>', $fresh->offline_payment_instructions);
+        $this->assertTrue($deadline->equalTo($fresh->offline_payment_deadline_at_utc));
+    }
+
     public function test_settings_cannot_read_or_update_another_organization_type(): void
     {
         [$user, $organization] = $this->context();
@@ -177,7 +252,7 @@ class OfflinePaymentSettingsTest extends TestCase
 
     private function payload(string $instructions): array
     {
-        return ['offline_payment_enabled' => '1', 'window_value' => 2, 'window_unit' => 'hour', 'instructions' => $instructions];
+        return ['offline_payment_use_organization_defaults' => '0', 'offline_payment_enabled' => '1', 'window_value' => 2, 'window_unit' => 'hour', 'instructions' => $instructions];
     }
 
     private function signIn(User $user, Organization $organization): void
@@ -205,7 +280,8 @@ class OfflinePaymentSettingsTest extends TestCase
             'payment_collection_mode' => 'retainer', 'retainer_type' => 'fixed', 'retainer_amount_minor' => 2000,
             'email_verification_mode' => 'none', 'is_active' => true,
         ]);
-        $type->forceFill(['offline_payment_enabled' => true, 'offline_payment_window_minutes' => 1440,
+        $type->forceFill(['offline_payment_use_organization_defaults' => false,
+            'offline_payment_enabled' => true, 'offline_payment_window_minutes' => 1440,
             'offline_payment_instructions' => 'Send your transfer to payments@example.test.'])->save();
         return $type;
     }

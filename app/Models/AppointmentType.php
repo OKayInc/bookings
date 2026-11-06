@@ -156,6 +156,7 @@ class AppointmentType extends Model
             'show_resources_to_clients' => 'boolean',
             'email_verification_mode' => EmailVerificationMode::class,
             'is_active' => 'boolean',
+            'offline_payment_use_organization_defaults' => 'boolean',
             'cancellation_allowed' => 'boolean',
             'cancellation_notice_value' => 'integer',
             'cancellation_notice_unit' => BookingNoticeUnit::class,
@@ -232,6 +233,34 @@ class AppointmentType extends Model
     {
         return $this->belongsTo(Organization::class);
     }
+
+    public function effectiveOfflinePaymentSettings(): array
+    {
+        if (! (bool) $this->offline_payment_use_organization_defaults) {
+            return [
+                'enabled' => (bool) $this->offline_payment_enabled,
+                'window_minutes' => max(1, (int) ($this->offline_payment_window_minutes ?: 1440)),
+                'instructions' => $this->offline_payment_instructions,
+                'source' => 'appointment_type',
+            ];
+        }
+
+        $this->loadMissing('organization.paymentSettings');
+        $settings = $this->organization?->paymentSettings;
+
+        return [
+            'enabled' => (bool) ($settings?->offline_payment_enabled ?? false),
+            'window_minutes' => max(1, (int) ($settings?->offline_payment_window_minutes ?: 1440)),
+            'instructions' => $settings?->offline_payment_instructions,
+            'source' => 'organization',
+        ];
+    }
+
+    public function usesOrganizationOfflinePaymentDefaults(): bool
+    {
+        return (bool) $this->offline_payment_use_organization_defaults;
+    }
+
 
     public function couponOffers(): BelongsToMany
     {

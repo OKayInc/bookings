@@ -60,7 +60,11 @@ class OrganizationStartupChecklist
         $chargeableTypes = $types->filter(fn (AppointmentType $type) => $this->mayCharge($type));
         $paymentNeeded = $chargeableTypes->isNotEmpty();
         $offlineReady = $paymentNeeded && $chargeableTypes
-            ->every(fn (AppointmentType $type) => (bool) $type->offline_payment_enabled && filled($type->offline_payment_instructions));
+            ->every(function (AppointmentType $type): bool {
+                $offline = $type->effectiveOfflinePaymentSettings();
+
+                return $offline['enabled'] && filled($offline['instructions']);
+            });
         $settings = $organization->paymentSettings;
         $liveProviders = collect(PaymentProvider::cases())->filter(fn (PaymentProvider $provider) => $settings?->isConfigured($provider)
             && ! $this->testMode($settings, $provider));
@@ -119,7 +123,7 @@ class OrganizationStartupChecklist
                     : ($liveProviders->isNotEmpty() ? 'At least one live payment provider is configured. Check your provider account and try checkout before accepting payments.'
                     : 'Your appointments can charge money, including extras or deposits. Enable Stripe or PayPal in live mode, or configure offline payment for every chargeable appointment type.'))
                 : 'Not needed for your current free appointments. Set up either provider when you add prices, paid extras or deposits.',
-            $offlineReady && $liveProviders->isEmpty() ? $typeUrl : $adminUrl(route('payment-settings.edit')), 'Set up payments', ! $paymentNeeded && $liveProviders->isEmpty());
+            $adminUrl(route('payment-settings.edit')), 'Set up payments', ! $paymentNeeded && $liveProviders->isEmpty());
         if ($testProviders->isNotEmpty()) {
             $steps[array_key_last($steps)]['description'] .= ' Test mode is enabled for '.$testProviders->map(fn ($provider) => $provider->value)->implode(', ').'; it does not collect real payments.';
         }

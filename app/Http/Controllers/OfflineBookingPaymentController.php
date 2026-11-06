@@ -28,11 +28,22 @@ class OfflineBookingPaymentController extends Controller
     {
         $this->authorizeType($appointmentType, $context);
         $data = $request->validate([
-            'offline_payment_enabled' => ['required', 'boolean'],
-            'window_value' => ['required', 'integer', 'min:1', 'max:43200'],
-            'window_unit' => ['required', 'in:minute,hour,day'],
-            'instructions' => ['nullable', 'required_if:offline_payment_enabled,1', 'string', 'max:10000'],
+            'offline_payment_use_organization_defaults' => ['required', 'boolean'],
+            'offline_payment_enabled' => ['nullable', 'boolean'],
+            'window_value' => ['nullable', 'integer', 'min:1', 'max:43200'],
+            'window_unit' => ['nullable', 'in:minute,hour,day'],
+            'instructions' => ['nullable', 'string', 'max:10000'],
         ]);
+
+        if ($request->boolean('offline_payment_use_organization_defaults')) {
+            $appointmentType->forceFill(['offline_payment_use_organization_defaults' => true])->save();
+
+            return back()->with('success', 'Offline-payment settings now use the organization defaults. Existing reservation deadlines are unchanged.');
+        }
+
+        if (! isset($data['window_value'], $data['window_unit'])) {
+            throw ValidationException::withMessages(['window_value' => 'Choose the offline-payment window for this appointment type.']);
+        }
         $minutes = (int) $data['window_value'] * match ($data['window_unit']) { 'minute' => 1, 'hour' => 60, 'day' => 1440 };
         if ($minutes > 43200) {
             throw ValidationException::withMessages(['window_value' => 'The offline-payment window cannot exceed 30 days.']);
@@ -42,6 +53,7 @@ class OfflineBookingPaymentController extends Controller
             throw ValidationException::withMessages(['instructions' => 'Enter payment instructions with visible text.']);
         }
         $appointmentType->forceFill([
+            'offline_payment_use_organization_defaults' => false,
             'offline_payment_enabled' => $request->boolean('offline_payment_enabled'),
             'offline_payment_window_minutes' => $minutes,
             'offline_payment_instructions' => $instructions,

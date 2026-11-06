@@ -38,12 +38,13 @@ class OfflineBookingPaymentService
     {
         return DB::transaction(function () use ($booking): Booking {
             $locked = Booking::query()->whereKey($booking->getKey())->lockForUpdate()->firstOrFail();
-            $locked->load(['appointmentType', 'appointment']);
+            $locked->load(['appointmentType.organization.paymentSettings', 'appointment']);
             $this->assertActive($locked);
             if ($locked->offline_payment_selected_at_utc !== null) {
                 return $locked;
             }
-            if (! (bool) $locked->appointmentType->offline_payment_enabled) {
+            $offline = $locked->appointmentType->effectiveOfflinePaymentSettings();
+            if (! $offline['enabled']) {
                 throw new RuntimeException('Offline payment is not enabled for this appointment type.');
             }
             if ($locked->status !== BookingStatus::PendingPayment || $locked->initialOutstandingMinor() <= 0) {
@@ -52,7 +53,7 @@ class OfflineBookingPaymentService
             if ($locked->expires_at_utc !== null && $locked->expires_at_utc->lte(now('UTC'))) {
                 throw new RuntimeException('The existing reservation has expired. Please make a new booking.');
             }
-            $deadline = CarbonImmutable::now('UTC')->addMinutes(max(1, (int) $locked->appointmentType->offline_payment_window_minutes));
+            $deadline = CarbonImmutable::now('UTC')->addMinutes($offline['window_minutes']);
             // A prepayment hold cannot run beyond the start of the appointment.
             if ($locked->appointment->starts_at_utc->lt($deadline)) {
                 $deadline = CarbonImmutable::instance($locked->appointment->starts_at_utc);
@@ -63,7 +64,7 @@ class OfflineBookingPaymentService
             $locked->forceFill([
                 'offline_payment_selected_at_utc' => now('UTC'),
                 'offline_payment_deadline_at_utc' => $deadline,
-                'offline_payment_instructions' => $locked->appointmentType->offline_payment_instructions,
+                'offline_payment_instructions' => $offline['instructions'],
                 'expires_at_utc' => $deadline,
             ])->save();
             $this->audit($locked, 'offline_selected', null, (string) Str::uuid(), ['deadline_utc' => $deadline->toIso8601String()]);
@@ -80,7 +81,7 @@ class OfflineBookingPaymentService
         }
         return DB::transaction(function () use ($booking, $reference, $idempotencyKey): BookingPaymentAction {
             $locked = Booking::query()->whereKey($booking->getKey())->lockForUpdate()->firstOrFail();
-            $locked->load('appointmentType');
+            $locked->load('appointmentType.organization.paymentSettings');
             $this->assertActive($locked);
             if ($existing = $this->previousAction($locked, $idempotencyKey, 'transfer_submitted')) {
                 if ($existing->reference !== $reference) {
@@ -88,7 +89,7 @@ class OfflineBookingPaymentService
                 }
                 return $existing;
             }
-            if (! (bool) $locked->appointmentType->offline_payment_enabled && $locked->offline_payment_selected_at_utc === null) {
+            if (! $locked->appointmentType->effectiveOfflinePaymentSettings()['enabled'] && $locked->offline_payment_selected_at_utc === null) {
                 throw new RuntimeException('Offline payment is not enabled for this booking.');
             }
             if ($locked->outstandingMinor() <= 0) {

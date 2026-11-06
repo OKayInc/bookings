@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\PaymentProvider;
 use App\Support\Organizations\OrganizationContext;
+use App\Support\Html\OfflinePaymentInstructions;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -21,6 +22,10 @@ class UpdatePaymentSettingsRequest extends FormRequest
 
         return [
             'default_provider' => ['nullable', Rule::in([PaymentProvider::Stripe->value, PaymentProvider::PayPal->value])],
+            'offline_payment_enabled' => ['nullable', 'boolean'],
+            'offline_payment_window_value' => ['nullable', 'integer', 'min:1', 'max:43200'],
+            'offline_payment_window_unit' => ['nullable', Rule::in(['minute', 'hour', 'day'])],
+            'offline_payment_instructions' => ['nullable', 'string', 'max:10000'],
             'stripe_enabled' => ['nullable', 'boolean'],
             'stripe_test_mode' => ['nullable', 'boolean'],
             'stripe_secret_key' => $secret,
@@ -42,6 +47,18 @@ class UpdatePaymentSettingsRequest extends FormRequest
     {
         $validator->after(function (Validator $validator): void {
             $settings = app(OrganizationContext::class)->organization()->paymentSettings;
+            if ($this->boolean('offline_payment_enabled')) {
+                $instructions = app(OfflinePaymentInstructions::class)->sanitize((string) $this->input('offline_payment_instructions', ''));
+                if ($instructions === null) {
+                    $validator->errors()->add('offline_payment_instructions', 'Enter payment instructions with visible text.');
+                }
+            }
+            $value = (int) $this->input('offline_payment_window_value', 1);
+            $unit = (string) $this->input('offline_payment_window_unit', 'day');
+            $minutes = $value * match ($unit) { 'minute' => 1, 'hour' => 60, 'day' => 1440, default => 0 };
+            if ($minutes < 1 || $minutes > 43200) {
+                $validator->errors()->add('offline_payment_window_value', 'The offline-payment window cannot exceed 30 days.');
+            }
             $present = function (string $field) use ($settings): bool {
                 if ($this->boolean('clear_'.$field)) {
                     return false;
