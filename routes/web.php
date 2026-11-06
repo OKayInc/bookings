@@ -22,6 +22,7 @@ use App\Http\Controllers\HealthController;
 use App\Http\Controllers\PlanController;
 use App\Http\Controllers\PlanWebhookController;
 use App\Http\Controllers\PlatformPlanController;
+use App\Http\Controllers\PlatformUserImpersonationController;
 use App\Http\Controllers\GalleryPhotoController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\OnboardingController;
@@ -213,6 +214,11 @@ Route::get('/calendar-connections/oauth/{provider}/callback', [CalendarConnectio
 
 Route::middleware('auth')->group(function (): void {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+
+    Route::post('/platform/impersonation', [PlatformUserImpersonationController::class, 'store'])
+        ->middleware('throttle:30,1')->name('platform.impersonation.store');
+    Route::delete('/platform/impersonation', [PlatformUserImpersonationController::class, 'destroy'])
+        ->middleware('throttle:30,1')->name('platform.impersonation.destroy');
 
     Route::get('/account/password', [PasswordController::class, 'edit'])->name('account.password.edit');
     Route::put('/account/password', [PasswordController::class, 'update'])
