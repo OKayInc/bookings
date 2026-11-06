@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\AppointmentType;
 use App\Models\Organization;
+use App\Models\User;
 use App\Models\Resource;
 use App\Policies\AppointmentTypePolicy;
 use App\Policies\OrganizationPolicy;
@@ -125,6 +126,23 @@ class AppServiceProvider extends ServiceProvider
             $request = request();
             $user = $request->user();
             $availableOrganizations = collect();
+            $availableUsers = collect();
+            $platformOwnerUser = app(\App\Domain\Plans\PlatformOwnerService::class)->isOwner($user) ? $user : null;
+            $impersonatedUser = null;
+
+            $ownerUuid = trim((string) $request->session()->get(\App\Http\Controllers\PlatformUserImpersonationController::OWNER_SESSION_KEY, ''));
+            if (! $platformOwnerUser && $ownerUuid !== '') {
+                $candidate = User::query()->with('person')->whereUuid($ownerUuid)->first();
+                if (app(\App\Domain\Plans\PlatformOwnerService::class)->isOwner($candidate)) {
+                    $platformOwnerUser = $candidate;
+                    $impersonatedUser = $user;
+                }
+            }
+
+            if ($platformOwnerUser) {
+                $platformOwnerUser->loadMissing('person');
+                $availableUsers = User::query()->with('person')->orderBy('email')->get();
+            }
 
             if (! $organization && $user) {
                 $organization = app(ActiveOrganizationResolver::class)->resolve($user, $request);
@@ -138,6 +156,9 @@ class AppServiceProvider extends ServiceProvider
             $view->with([
                 'activeOrganization' => $organization,
                 'availableOrganizations' => $availableOrganizations,
+                'availableUsers' => $availableUsers,
+                'platformOwnerUser' => $platformOwnerUser,
+                'impersonatedUser' => $impersonatedUser,
                 'activePlanEntitlement' => $organization
                     ? app(\App\Domain\Plans\PlanEntitlementService::class)->for($organization)
                     : null,

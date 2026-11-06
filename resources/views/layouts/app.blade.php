@@ -9,6 +9,14 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <style>
+        .platform-user-switcher { min-width: min(20rem, 100%); }
+        .platform-user-switcher .form-select { max-width: 20rem; }
+        @media (max-width: 991.98px) {
+            .platform-user-switcher,
+            .platform-user-switcher .form-select { width: 100%; max-width: none; }
+        }
+    </style>
     <script src="{{ asset('js/page-loader.js') }}?v=m10-gallery" defer></script>
     @stack('head')
 </head>
@@ -72,6 +80,23 @@
                 </ul>
 
                 <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-2 gap-lg-3 mt-3 mt-lg-0">
+                    @if($platformOwnerUser)
+                        <form method="post" action="{{ route('platform.impersonation.store') }}" class="platform-user-switcher d-grid d-lg-block m-0">
+                            @csrf
+                            <label class="visually-hidden" for="platformUserSwitcher">Switch user</label>
+                            <select class="form-select form-select-sm" id="platformUserSwitcher" name="user_uuid" title="Switch user" onchange="this.form.submit()">
+                                <option value="{{ $platformOwnerUser->uuid }}" @selected(!$impersonatedUser)>
+                                    User: {{ $platformOwnerUser->person?->full_name ?: $platformOwnerUser->email }} (owner)
+                                </option>
+                                @foreach($availableUsers as $userOption)
+                                    @continue($userOption->is($platformOwnerUser))
+                                    <option value="{{ $userOption->uuid }}" @selected($impersonatedUser?->is($userOption))>
+                                        {{ $userOption->person?->full_name ?: $userOption->email }} — {{ $userOption->email }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </form>
+                    @endif
                     @if($activeOrganization)
                         @if($availableOrganizations->count() > 1)
                             <div class="dropdown d-grid d-lg-block organization-switcher">
@@ -103,7 +128,9 @@
                             </span>
                         @endif
                     @endif
-                    <a class="btn btn-outline-light btn-sm" href="{{ route('account.password.edit') }}">Change password</a>
+                    @unless($impersonatedUser)
+                        <a class="btn btn-outline-light btn-sm" href="{{ route('account.password.edit') }}">Change password</a>
+                    @endunless
                     <form method="post" action="{{ route('logout') }}" class="m-0">
                         @csrf
                         <button class="btn btn-outline-light btn-sm w-100" type="submit">Log out</button>
@@ -118,6 +145,19 @@
         @endauth
     </div>
 </nav>
+
+@if($impersonatedUser)
+    <div class="alert alert-warning rounded-0 border-start-0 border-end-0 mb-0 py-2 text-center" role="status">
+        <span class="fw-semibold">Impersonating:</span>
+        {{ $impersonatedUser->person?->full_name ?: $impersonatedUser->email }}
+        ({{ $impersonatedUser->email }})
+        <form method="post" action="{{ route('platform.impersonation.destroy') }}" class="d-inline ms-2">
+            @csrf
+            @method('DELETE')
+            <button class="btn btn-sm btn-outline-dark" type="submit">Return to owner</button>
+        </form>
+    </div>
+@endif
 
 <main class="py-4 py-lg-5">
     <div class="container-xl">
