@@ -60,6 +60,7 @@
         ],
         "test": [
             "Composer\\Config::disableProcessTimeout",
+            "@php artisan config:clear --env=testing",
             "@php artisan test -d memory_limit=512M"
         ]
     },
