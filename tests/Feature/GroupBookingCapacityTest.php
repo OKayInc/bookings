@@ -59,6 +59,8 @@ class GroupBookingCapacityTest extends TestCase
         $joinable = collect($slots)->first(fn ($slot) => $slot->startsAtUtc->equalTo($start));
         $this->assertNotNull($joinable);
         $this->assertNotNull($joinable->appointment);
+        $this->assertFalse($joinable->appointment->relationLoaded('bookings'));
+        $this->assertFalse($joinable->appointment->relationLoaded('bookingHolds'));
         $this->assertSame(3, $joinable->remainingCapacity);
 
         $second = app(PublicBookingHoldService::class)->acquire($type, $start, 60, 'America/Toronto', 3);
