@@ -3,14 +3,14 @@
 @section('content')
 <div class="page-heading">
     <h1>{{ $organization->name }} payments</h1>
-    <p>Configure offline payments by appointment type or connect your organization's Stripe and PayPal accounts. Online provider secrets are encrypted and are never displayed again.</p>
+    <p>Configure organization-wide offline payment defaults or connect your organization's Stripe and PayPal accounts. Appointment types can override the offline defaults when needed. Online provider secrets are encrypted and are never displayed again.</p>
 </div>
-
-@include('payments.offline-settings')
 
 <form method="post" action="{{ route('payment-settings.update') }}">
     @csrf
     @method('PUT')
+
+    @include('payments.offline-settings')
 
     <div class="section-card">
         <h2>Checkout preference</h2>
@@ -94,4 +94,5 @@
         </div>
     @endif
 </div>
+@include('partials.rich-text-editor-assets')
 @endsection
