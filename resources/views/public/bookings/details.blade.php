@@ -120,7 +120,7 @@
 <script src="{{ asset('js/question-visibility.js') }}?v=m9-r2"></script>
 <script>
 (function(){
- const form=document.querySelector('form.form-stack'); const total=document.getElementById('questionnaire-total'); const lines=document.getElementById('questionnaire-price-lines'); const taxIdentifier=document.getElementById('questionnaire-tax-id'); const questionElements=Array.from(document.querySelectorAll('.questionnaire-question')); let timer; let quoteVersion=0;
+ const form=document.querySelector('form.form-stack'); const total=document.getElementById('questionnaire-total'); const lines=document.getElementById('questionnaire-price-lines'); const taxIdentifier=document.getElementById('questionnaire-tax-id'); const questionElements=Array.from(document.querySelectorAll('.questionnaire-question')); const initialQuote=@json($initialQuotePayload ?? null); let timer; let quoteVersion=0;
  if(!form||!total||!lines)return;
  const questions=new Map(questionElements.map(element=>[element.dataset.questionUuid,element]));
  questionElements.forEach(element=>{element._visibilityConditions=JSON.parse(element.dataset.visibilityConditions||'[]');element._resourceUnavailable=element.dataset.resourceUnavailable==='1';element.querySelectorAll('input,select,textarea').forEach(control=>{control.dataset.visibilityRequired=control.required?'1':'0';});});
@@ -153,6 +153,10 @@
      if(currentQuote!==quoteVersion)return;
      if(response.status===410){window.location.reload();return;}
      if(!response.ok)throw new Error(data.message||'Unable to calculate price.');
+     renderQuote(data);
+   }catch(e){if(currentQuote===quoteVersion)total.textContent=e.message;}
+ }
+ function renderQuote(data){
      document.getElementById('questionnaire-price-card').hidden = !data.show_pricing;
      document.getElementById('booking-coupon-section').hidden = !data.show_pricing;
      document.getElementById('coupon_code').disabled = !data.show_pricing;
@@ -165,10 +169,9 @@
      }
      lines.innerHTML=breakdown;
      if(taxIdentifier){taxIdentifier.hidden=!data.collects_taxes||!data.tax_identifier;taxIdentifier.textContent=data.tax_identifier?'Tax ID: '+data.tax_identifier:'';}
-   }catch(e){if(currentQuote===quoteVersion)total.textContent=e.message;}
- }
+   }
  function escapeHtml(v){const d=document.createElement('div');d.textContent=String(v);return d.innerHTML;}
- form.addEventListener('change',e=>{if(e.target.name?.startsWith('answers[')||e.target.name==='coupon_code'){refreshVisibility();refreshNumericConstraints();clearTimeout(timer);timer=setTimeout(updateQuote,100);}}); form.addEventListener('input',e=>{if((e.target.type==='number'&&e.target.name?.startsWith('answers['))||e.target.name==='coupon_code'){refreshNumericConstraints();clearTimeout(timer);timer=setTimeout(updateQuote,350);}}); refreshVisibility(); refreshNumericConstraints(); updateQuote();
+ form.addEventListener('change',e=>{if(e.target.name?.startsWith('answers[')||e.target.name==='coupon_code'){refreshVisibility();refreshNumericConstraints();clearTimeout(timer);timer=setTimeout(updateQuote,100);}}); form.addEventListener('input',e=>{if((e.target.type==='number'&&e.target.name?.startsWith('answers['))||e.target.name==='coupon_code'){refreshNumericConstraints();clearTimeout(timer);timer=setTimeout(updateQuote,350);}}); refreshVisibility(); refreshNumericConstraints(); if(initialQuote)renderQuote(initialQuote);else updateQuote();
 })();
 </script>
 @endsection
