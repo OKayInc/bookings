@@ -335,7 +335,8 @@ class OfflineBookingPaymentsTest extends TestCase
             'fixed_price_minor' => 5000, 'payment_collection_mode' => 'retainer', 'retainer_type' => 'fixed',
             'retainer_amount_minor' => 2000, 'email_verification_mode' => 'none', 'is_active' => true,
         ]);
-        $type->forceFill(['offline_payment_enabled' => true, 'offline_payment_window_minutes' => 1440,
+        $type->forceFill(['offline_payment_use_organization_defaults' => false,
+            'offline_payment_enabled' => true, 'offline_payment_window_minutes' => 1440,
             'offline_payment_instructions' => 'Send your transfer to payments@example.test.'])->save();
         $contact = OrganizationContact::create(['organization_id' => $organization->getKey(),
             'first_name' => 'Offline', 'last_name' => 'Customer', 'email' => 'offline@example.test', 'phone' => '+1 613 555 0123']);
