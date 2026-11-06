@@ -16,7 +16,7 @@
         <env name="CACHE_STORE" value="array"/>
         <env name="CONFIGURATION_CACHE_STORE" value="array"/>
         <env name="RESOURCE_AVAILABILITY_CACHE_STORE" value="array" force="true"/>
-        <env name="DB_CONNECTION" value="mariadb_testing"/>
+        <env name="DB_CONNECTION" value="mariadb_testing" force="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="INTEGRATION_LOCK_STORE" value="array" force="true"/>
