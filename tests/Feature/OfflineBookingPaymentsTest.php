@@ -282,7 +282,7 @@ class OfflineBookingPaymentsTest extends TestCase
         $this->actingAs($context[0])->withSession(['active_organization_uuid' => $context[1]->uuid]);
         $this->get(route('appointment-types.offline-payments.edit', $context[2]))->assertOk();
         $this->put(route('appointment-types.offline-payments.update', $context[2]), [
-            'offline_payment_enabled' => '1', 'window_value' => 2, 'window_unit' => 'hour',
+            'offline_payment_use_organization_defaults' => '0', 'offline_payment_enabled' => '1', 'window_value' => 2, 'window_unit' => 'hour',
             'instructions' => 'Transfer to finance@example.test.',
         ])->assertRedirect();
         $this->assertSame(120, (int) $context[2]->fresh()->offline_payment_window_minutes);
