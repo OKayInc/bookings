@@ -1,5 +1,8 @@
 @php
     $globalMinutes = max(1, (int) ($settings->offline_payment_window_minutes ?: 1440));
+    $globalDivisor = $globalMinutes % 1440 === 0 ? 1440 : ($globalMinutes % 60 === 0 ? 60 : 1);
+    $globalWindowValue = intdiv($globalMinutes, $globalDivisor);
+    $globalWindowUnit = $globalDivisor === 1440 ? 'day' : ($globalDivisor === 60 ? 'hour' : 'minute');
     $globalInstructions = app(\App\Support\Html\OfflinePaymentInstructions::class)
         ->sanitize(old('offline_payment_instructions', $settings->offline_payment_instructions));
 @endphp
@@ -20,13 +23,24 @@
     </label>
     @error('offline_payment_enabled')<p class="text-danger">{{ $message }}</p>@enderror
 
-    <div class="field mt-3">
-        <label for="offline_payment_window_minutes">Default payment window (minutes)</label>
-        <input id="offline_payment_window_minutes" type="number" name="offline_payment_window_minutes"
-            min="1" max="43200" step="1" value="{{ old('offline_payment_window_minutes', $globalMinutes) }}">
-        <p class="muted">Default: 1,440 minutes (24 hours). Maximum: 43,200 minutes (30 days). The deadline can never extend past the appointment start.</p>
-        @error('offline_payment_window_minutes')<p class="text-danger">{{ $message }}</p>@enderror
+    <div class="row mt-3">
+        <div class="field">
+            <label for="offline_payment_window_value">Default payment window</label>
+            <input id="offline_payment_window_value" type="number" name="offline_payment_window_value"
+                min="1" max="43200" step="1" value="{{ old('offline_payment_window_value', $globalWindowValue) }}">
+            @error('offline_payment_window_value')<p class="text-danger">{{ $message }}</p>@enderror
+        </div>
+        <div class="field">
+            <label for="offline_payment_window_unit">Time unit</label>
+            <select id="offline_payment_window_unit" name="offline_payment_window_unit">
+                <option value="minute" @selected(old('offline_payment_window_unit', $globalWindowUnit) === 'minute')>Minutes</option>
+                <option value="hour" @selected(old('offline_payment_window_unit', $globalWindowUnit) === 'hour')>Hours</option>
+                <option value="day" @selected(old('offline_payment_window_unit', $globalWindowUnit) === 'day')>Days</option>
+            </select>
+            @error('offline_payment_window_unit')<p class="text-danger">{{ $message }}</p>@enderror
+        </div>
     </div>
+    <p class="muted">Default: 1 day (24 hours). Maximum: 30 days. The deadline can never extend past the appointment start.</p>
 
     <div class="field">
         <label for="offline_payment_instructions">Default instructions shown to customers</label>
