@@ -383,6 +383,72 @@ class PaymentSupportTest extends TestCase
         $this->assertSame(PaymentRefundStatus::Succeeded, $refund->fresh()->status);
     }
 
+    public function test_booking_page_reads_payment_ledger_once_and_preserves_refund_amounts(): void
+    {
+        $booking = $this->paidBooking(['deposit_minor' => 2000, 'deposit_refunded_minor' => 300]);
+        $owner = \App\Models\User::factory()->create();
+        \App\Models\OrganizationMembership::create([
+            'organization_id' => $booking->organization_id, 'person_id' => $owner->person_id,
+            'role' => 'owner', 'status' => 'active',
+        ]);
+        $first = $this->payment($booking, ['status' => 'succeeded', 'amount_minor' => 7000,
+            'deposit_amount_minor' => 2000, 'completed_at_utc' => now()->subHours(2)]);
+        $this->payment($booking, ['status' => 'succeeded', 'amount_minor' => 3000, 'completed_at_utc' => now()->subHour()]);
+        $this->payment($booking, ['status' => 'pending', 'amount_minor' => 90000]);
+        foreach ([['pending', 'deposit', 500], ['succeeded', 'general', 1000], ['failed', 'general', 900]] as [$status, $type, $amount]) {
+            PaymentRefund::create([
+                'organization_id' => $booking->organization_id, 'booking_id' => $booking->getKey(),
+                'payment_transaction_id' => $first->getKey(), 'provider' => 'stripe', 'status' => $status,
+                'refund_type' => $type, 'amount_minor' => $amount, 'currency' => 'CAD',
+                'idempotency_key' => (string) Str::uuid(), 'reason' => 'Display fixture',
+            ]);
+        }
+        $queries = [];
+        DB::listen(function ($query) use (&$queries): void { $queries[] = $query->sql; });
+        $response = $this->actingAs($owner)->withSession(['active_organization_uuid' => $booking->organization->uuid])
+            ->get(route('bookings.show', $booking))->assertOk()
+            ->assertViewHas('refundableDepositMinor', 1500)->assertViewHas('refundablePriceMinor', 7000);
+        $this->assertCount(1, array_filter($queries, fn ($sql) => str_contains($sql, 'from `payment_transactions`')));
+        $this->assertCount(2, array_filter($queries, fn ($sql) => str_contains($sql, 'from `booking_schedule_proposals`')));
+        $this->assertCount(3, $response->viewData('booking')->payments);
+        $this->assertCount(3, $response->viewData('booking')->refunds);
+    }
+
+    public function test_display_refund_totals_keep_payment_order_and_action_reads_ignore_stale_relations(): void
+    {
+        $booking = $this->paidBooking(['deposit_minor' => 2000]);
+        $older = $this->payment($booking, ['status' => 'succeeded', 'amount_minor' => 5000, 'deposit_amount_minor' => 2000,
+            'completed_at_utc' => now()->subMinutes(30)]);
+        $older->forceFill(['created_at' => now()->subHours(2)])->save();
+        $newer = $this->payment($booking, ['status' => 'succeeded', 'amount_minor' => 5000, 'deposit_amount_minor' => 2000,
+            'completed_at_utc' => now()->subHours(3)]);
+        $newer->forceFill(['created_at' => now()->subHour()])->save();
+        $refund = PaymentRefund::create([
+            'organization_id' => $booking->organization_id, 'booking_id' => $booking->getKey(),
+            'payment_transaction_id' => $newer->getKey(), 'provider' => 'stripe', 'status' => 'pending',
+            'refund_type' => 'deposit', 'amount_minor' => 1500, 'currency' => 'CAD',
+            'idempotency_key' => (string) Str::uuid(), 'reason' => 'Deposit fixture',
+        ]);
+        $service = app(PaymentRefundService::class);
+        $booking->load('payments.refunds');
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        try {
+            $display = $service->availabilityForDisplay($booking);
+            $this->assertSame([], DB::getQueryLog());
+        } finally {
+            DB::disableQueryLog();
+        }
+        $this->assertSame(['deposit_minor' => 500, 'price_minor' => 8000], $display);
+        $this->assertSame($display['deposit_minor'], $service->refundableDepositMinor($booking));
+        $this->assertSame($display['price_minor'], $service->refundablePriceMinor($booking));
+
+        $refund->update(['amount_minor' => 2000]);
+        $this->assertSame(0, $service->refundableDepositMinor($booking));
+        $this->assertSame(8000, $service->refundablePriceMinor($booking));
+        $this->assertSame(1500, $booking->payments->find($newer->getKey())->refunds->first()->amount_minor);
+    }
+
     private function paidBooking(array $overrides = []): Booking
     {
         $organization = Organization::factory()->create(['timezone' => 'America/Toronto', 'currency' => 'CAD']);

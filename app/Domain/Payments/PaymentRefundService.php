@@ -138,22 +138,43 @@ class PaymentRefundService
 
     public function refundableDepositMinor(Booking $booking): int
     {
-        $transactions = $booking->payments()
-            ->where('status', PaymentTransactionStatus::Succeeded->value)
-            ->oldest('completed_at_utc')
-            ->with('refunds')
-            ->get();
-
-        return min($booking->depositRemainingMinor(), $this->depositCapacity($booking, $transactions));
+        return $this->availabilityFromPayments($booking, $this->successfulPayments($booking))['deposit_minor'];
     }
 
     public function refundablePriceMinor(Booking $booking): int
     {
-        $transactions = $booking->payments()
+        return $this->availabilityFromPayments($booking, $this->successfulPayments($booking))['price_minor'];
+    }
+
+    /** Display only: refund actions must still query and lock current payment records.
+     *  @return array{deposit_minor: int, price_minor: int}
+     */
+    public function availabilityForDisplay(Booking $booking): array
+    {
+        $booking->loadMissing('payments.refunds');
+        // Match payments()->latest()->oldest('completed_at_utc'), including its primary order.
+        $transactions = $booking->payments
+            ->where('status', PaymentTransactionStatus::Succeeded)
+            ->sortBy([['created_at', 'desc'], ['completed_at_utc', 'asc']]);
+
+        return $this->availabilityFromPayments($booking, $transactions);
+    }
+
+    /** Always read fresh, even if the supplied model has loaded payment relations. */
+    private function successfulPayments(Booking $booking): Collection
+    {
+        return $booking->payments()
             ->where('status', PaymentTransactionStatus::Succeeded->value)
             ->oldest('completed_at_utc')
             ->with('refunds')
             ->get();
+    }
+
+    /** @param Collection<int,PaymentTransaction> $transactions
+     *  @return array{deposit_minor: int, price_minor: int}
+     */
+    private function availabilityFromPayments(Booking $booking, Collection $transactions): array
+    {
         $available = (int) $transactions->sum(function (PaymentTransaction $transaction): int {
             $allocated = (int) $transaction->refunds
                 ->whereIn('status', [PaymentRefundStatus::Pending, PaymentRefundStatus::Succeeded])
@@ -162,7 +183,12 @@ class PaymentRefundService
             return max(0, (int) $transaction->amount_minor - $allocated);
         });
 
-        return max(0, $available - $this->depositCapacity($booking, $transactions));
+        $depositCapacity = $this->depositCapacity($booking, $transactions);
+
+        return [
+            'deposit_minor' => min($booking->depositRemainingMinor(), $depositCapacity),
+            'price_minor' => max(0, $available - $depositCapacity),
+        ];
     }
 
     /** @return Collection<int,PaymentRefund> */

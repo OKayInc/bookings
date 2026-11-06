@@ -287,9 +287,11 @@ class AppointmentType extends Model
 
     public function currentEventOccurrence(): ?EventOccurrence
     {
-        return $this->eventOccurrences()->where('is_active', true)
-            ->where('starts_at_utc', '>', now('UTC'))->first()
-            ?? $this->eventOccurrences()->where('is_active', true)->reorder('starts_at_utc', 'desc')->first();
+        return app(\App\Support\PageReadCache::class)->remember('current-event:'.bin2hex((string) $this->getKey()), fn () =>
+            $this->eventOccurrences()->where('is_active', true)
+                ->where('starts_at_utc', '>', now('UTC'))->first()
+                ?? $this->eventOccurrences()->where('is_active', true)->reorder('starts_at_utc', 'desc')->first()
+        );
     }
 
     public function permitsEventStart(\Carbon\CarbonImmutable $start): bool

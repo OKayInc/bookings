@@ -11,6 +11,7 @@ use App\Enums\CouponDiscountType;
 use App\Models\Coupon;
 use App\Models\CouponOffer;
 use App\Models\PaymentRefund;
+use App\Enums\PaymentRefundStatus;
 use App\Rules\MoneyAmount;
 use App\Support\Organizations\OrganizationContext;
 use App\Support\Uuid\UuidBinary;
@@ -31,8 +32,12 @@ class CouponController extends Controller
         return view('coupons.index', [
             'organization' => $organization,
             'appointmentTypes' => $organization->appointmentTypes()->where('is_active', true)->orderBy('name')->get(),
-            'offers' => $organization->couponOffers()->with('appointmentTypes')->latest()->get(),
-            'coupons' => $organization->coupons()->with(['offer', 'redemptions.booking', 'payments', 'refunds'])->latest()->get(),
+            'offers' => $organization->couponOffers()->with('appointmentTypes')->latest()->orderByDesc('id')
+                ->paginate(25, ['*'], 'offers_page')->withQueryString()->fragment('coupon-offers'),
+            'coupons' => $organization->coupons()->withExists('redemptions')
+                ->with(['refunds' => fn ($query) => $query->whereIn('status', [PaymentRefundStatus::Pending->value, PaymentRefundStatus::Failed->value])])
+                ->latest()->orderByDesc('id')->paginate(25, ['*'], 'coupons_page')
+                ->withQueryString()->fragment('issued-coupons'),
             'discountTypes' => CouponDiscountType::cases(),
             'deliveryMethods' => CouponDeliveryMethod::cases(),
         ]);

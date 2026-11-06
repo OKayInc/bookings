@@ -10,6 +10,13 @@ return [
         'trace' => env('LOG_DEPRECATIONS_TRACE', false),
     ],
     'channels' => [
+        'performance' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/performance.log'),
+            'level' => 'info',
+            'days' => 7,
+            'replace_placeholders' => true,
+        ],
         'stack' => [
             'driver' => 'stack',
             'channels' => explode(',', env('LOG_STACK', 'single')),

@@ -12,6 +12,7 @@ use App\Support\Organizations\ActiveOrganizationResolver;
 use App\Support\Organizations\ActiveMemberships;
 use App\Support\Organizations\OrganizationContext;
 use App\Support\PageReadCache;
+use App\Support\RequestTimings;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Database\Events\TransactionBeginning;
 use Illuminate\Database\Events\TransactionCommitted;
@@ -40,6 +41,10 @@ class AppServiceProvider extends ServiceProvider
     {
         // Include bulk/query-builder writes, which do not fire model observers.
         DB::listen(function (QueryExecuted $query): void {
+            $timings = app()->bound('request') ? request()->attributes->get(RequestTimings::ATTRIBUTE) : null;
+            if ($timings instanceof RequestTimings) {
+                $timings->recordQuery((float) $query->time);
+            }
             if (! preg_match('/^\s*(select|show|describe|explain)\b/i', $query->sql)) {
                 app(PageReadCache::class)->clear();
             }

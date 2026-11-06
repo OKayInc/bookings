@@ -230,6 +230,26 @@ class StaffScheduleProposalTest extends TestCase
             ->assertSee('Cancel booking');
     }
 
+    public function test_staff_booking_page_expires_proposals_before_loading_the_displayed_history(): void
+    {
+        Notification::fake();
+        [$booking, $staff] = $this->fixture();
+        $proposal = app(BookingScheduleProposalService::class)->create(
+            $booking, $staff->person, CarbonImmutable::parse('2026-08-26 13:00', 'America/Toronto')->utc(),
+            'America/Toronto', 2,
+        )['proposal'];
+        CarbonImmutable::setTestNow('2026-08-25 15:00 UTC');
+
+        $response = $this->actingAs($staff)->withSession(['active_organization_uuid' => $booking->appointmentType->organization->uuid])
+            ->get(route('bookings.show', $booking))->assertOk();
+        $displayed = $response->viewData('booking')->scheduleProposals->first();
+        $this->assertSame(ScheduleProposalStatus::Expired, $displayed->status);
+        $this->assertTrue($displayed->warning_active);
+        $this->assertSame(BookingHoldStatus::Released, $displayed->hold->status);
+        $this->assertSame(ScheduleProposalStatus::Expired, $proposal->fresh()->status);
+        $this->assertSame($booking->appointment_id, $response->viewData('booking')->appointment_id);
+    }
+
     private function fixture(): array
     {
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-25 12:00 UTC'));

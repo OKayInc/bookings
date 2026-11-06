@@ -58,16 +58,16 @@ class BookingController extends Controller
         $isAssignedStaff = $this->isAssignedStaff($booking, $request);
         abort_unless($canManage || $isAssignedStaff, 403);
         $canProposeScheduleChange = $canManage || $isAssignedStaff;
-        $booking->load(['organization.paymentSettings', 'appointmentType', 'appointment.resources.person', 'contact.accessEntries', 'outcome', 'attendees', 'tickets.attendee', 'tickets.checkedInBy', 'contractTemplate', 'contractSubmissions.files', 'contractSubmissions.reviewedBy', 'answers.files', 'priceLines', 'taxLines', 'resourceDeposits', 'resourceConfirmations.resource', 'resourceConfirmations.person', 'resourceConfirmations.respondedBy', 'eventAdmissionApprovals.coordinator', 'eventAdmissionApprovals.respondedBy', 'reschedules', 'scheduleProposals.proposedBy', 'scheduleProposals.hold', 'appointment.externalEvents.calendar.connection.resource', 'payments.refunds', 'refunds.transaction', 'refunds.requestedBy']);
         app(BookingScheduleProposalService::class)->expireForBooking($booking);
-        $booking->load('scheduleProposals.proposedBy', 'scheduleProposals.hold');
+        $booking->load(['organization.paymentSettings', 'appointmentType', 'appointment.resources.person', 'contact.accessEntries', 'outcome', 'attendees', 'tickets.attendee', 'tickets.checkedInBy', 'contractTemplate', 'contractSubmissions.files', 'contractSubmissions.reviewedBy', 'answers.files', 'priceLines', 'taxLines', 'resourceDeposits', 'resourceConfirmations.resource', 'resourceConfirmations.person', 'resourceConfirmations.respondedBy', 'eventAdmissionApprovals.coordinator', 'eventAdmissionApprovals.respondedBy', 'reschedules', 'scheduleProposals.proposedBy', 'scheduleProposals.hold', 'appointment.externalEvents.calendar.connection.resource', 'payments.refunds', 'refunds.requestedBy']);
+        $refundAvailability = app(\App\Domain\Payments\PaymentRefundService::class)->availabilityForDisplay($booking);
 
         return view('bookings.show', [
             'booking' => $booking,
             'canManage' => $canManage,
             'canProposeScheduleChange' => $canProposeScheduleChange,
-            'refundableDepositMinor' => app(\App\Domain\Payments\PaymentRefundService::class)->refundableDepositMinor($booking),
-            'refundablePriceMinor' => app(\App\Domain\Payments\PaymentRefundService::class)->refundablePriceMinor($booking),
+            'refundableDepositMinor' => $refundAvailability['deposit_minor'],
+            'refundablePriceMinor' => $refundAvailability['price_minor'],
             'timezones' => \DateTimeZone::listIdentifiers(),
         ]);
     }
