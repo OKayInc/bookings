@@ -47,7 +47,9 @@ class PaymentSettingsController extends Controller
         $settings->organization_id = $organization->getKey();
         $settings->default_provider = $data['default_provider'] ?? null;
         $settings->offline_payment_enabled = $request->boolean('offline_payment_enabled');
-        $settings->offline_payment_window_minutes = (int) ($data['offline_payment_window_minutes'] ?? 1440);
+        $windowValue = (int) ($data['offline_payment_window_value'] ?? 1);
+        $windowUnit = (string) ($data['offline_payment_window_unit'] ?? 'day');
+        $settings->offline_payment_window_minutes = $windowValue * match ($windowUnit) { 'minute' => 1, 'hour' => 60, 'day' => 1440 };
         $settings->offline_payment_instructions = app(OfflinePaymentInstructions::class)->sanitize($data['offline_payment_instructions'] ?? null);
         $settings->stripe_enabled = $request->boolean('stripe_enabled');
         $settings->stripe_test_mode = $request->boolean('stripe_test_mode');
