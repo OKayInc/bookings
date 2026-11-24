@@ -52,6 +52,7 @@ class ResourceController extends Controller
 
         return view('resources.index', [
             'organization' => $organization,
+            'canShareExternally' => $this->userOwnsOrganization($organization),
             'resources' => $resources,
             'search' => $search,
             'type' => $type,

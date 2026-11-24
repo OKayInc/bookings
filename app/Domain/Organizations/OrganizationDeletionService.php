@@ -63,6 +63,9 @@ class OrganizationDeletionService
                 ->where('organization_id', '!=', $locked->getKey())
                 ->pluck('organization_id')->unique()->all();
 
+            if (DB::table('resource_share_invitations')->whereIn('resource_id', $ownedResourceIds)->where('status', 'accepted')->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['organization' => 'End all outgoing external resource shares before deleting this organization.']);
+            }
             $this->unshareResources($locked, $ownedResourceIds);
 
             // Delete booking history first. It owns answers, uploaded files,

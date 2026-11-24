@@ -131,13 +131,18 @@ class ResourceSharingController extends Controller
             abort_unless(in_array($share->status, ['pending', 'accepted'], true), 404);
             if ($share->status === 'accepted') {
                 $recipient = $share->recipient_organization_id;
+                // A pending invite may have been accepted while we waited for the resource lock.
+                // Retry with the recipient organization lock held before touching its configuration.
+                if ($candidate->recipient_organization_id !== $recipient) {
+                    $this->fail('The invitation was just accepted. Reload and try again.');
+                }
                 // Never silently change existing appointment definitions or reservations.
                 if ($resource->appointmentTypes()->where('appointment_types.organization_id', $recipient)->exists()
                     || $resource->conditionalRequirementRules()->whereHas('question.appointmentType', fn ($q) => $q->where('organization_id', $recipient))->exists()
                     || $resource->appointments()->where('appointments.organization_id', $recipient)->where('appointments.status', 'scheduled')->where('appointments.blocked_ends_at_utc', '>', now())->exists()
                     || $resource->bookingHolds()->where('booking_holds.organization_id', $recipient)->where('booking_holds.status', 'active')->where('booking_holds.expires_at_utc', '>', now())->exists()
                     || $resource->calendarConnections()->where('organization_id', $recipient)->exists()
-                    || \App\Models\CalendarOauthState::query()->where('organization_id', $recipient)->where('resource_id', $resource->getKey())->exists()) {
+                    || \App\Models\CalendarOauthState::query()->where('organization_id', $recipient)->where('resource_id', $resource->getKey())->whereNull('consumed_at_utc')->where('expires_at_utc', '>', now())->exists()) {
                     $this->fail('Remove the receiving organization’s appointment assignments, active reservations and calendar connections before ending this share.');
                 }
                 $resource->availabilitySchedules()->where('organization_id', $recipient)->delete();
