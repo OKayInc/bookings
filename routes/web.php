@@ -361,6 +361,10 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         Route::get('/availability/preview', AvailabilityPreviewController::class)->name('availability.preview');
 
         Route::patch('/resources/{resource}/organization-settings', [ResourceController::class, 'updateOrganizationSettings'])->name('resources.organization-settings.update');
+        Route::get('/resource-sharing', [\App\Http\Controllers\ResourceSharingController::class, 'index'])->name('resource-sharing.index');
+        Route::post('/resource-sharing/invite', [\App\Http\Controllers\ResourceSharingController::class, 'invite'])->middleware('throttle:10,1')->name('resource-sharing.invite');
+        Route::post('/resource-sharing/accept', [\App\Http\Controllers\ResourceSharingController::class, 'accept'])->middleware('throttle:10,1')->name('resource-sharing.accept');
+        Route::post('/resource-sharing/{invitation}/revoke', [\App\Http\Controllers\ResourceSharingController::class, 'revoke'])->middleware('throttle:20,1')->name('resource-sharing.revoke');
         Route::resource('resources', ResourceController::class)->except(['show']);
         Route::get('/organization-members', [OrganizationMemberController::class, 'index'])->name('organization-members.index');
         Route::post('/organization-member-invitations', [OrganizationMemberController::class, 'store'])->name('organization-members.invitations.store');

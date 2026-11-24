@@ -255,7 +255,7 @@ This is useful for:
 
 ## Shared Resources
 
-Resources can be shared between organizations belonging to the same owner where appropriate.
+Resources can be shared between organizations belonging to the same owner where appropriate. Independent organization owners can also share resources using email-bound invitation codes. See [External resource sharing](docs/EXTERNAL-RESOURCE-SHARING.md).
 
 This makes it possible for multiple brands or business units to compete for the same physical inventory or personnel.
 

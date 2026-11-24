@@ -1,7 +1,7 @@
 @extends('layouts.app')
 @section('title', 'Resources')
 @section('content')
-<div class="actions" style="justify-content:space-between"><h1>Resources</h1><a class="btn btn-primary" href="{{ route('resources.create') }}">Add resource</a></div>
+<div class="actions" style="justify-content:space-between"><h1>Resources</h1><div class="d-flex flex-wrap gap-2">@if($canShareExternally)<a class="btn" href="{{ route('resource-sharing.index') }}">External resource sharing</a>@endif<a class="btn btn-primary" href="{{ route('resources.create') }}">Add resource</a></div></div>
 
 <form method="get" action="{{ route('resources.index') }}" class="card card-body mb-3" role="search">
 <div class="row g-2 align-items-end">
