@@ -238,6 +238,7 @@ class ResourceController extends Controller
         }
 
         DB::transaction(function () use ($request, $resource, $organization, $data, $personKey, $timezone, $enforceHolidays, $holidayRegion, $defaultRequired, $quantityEnabled, $depositMinor): void {
+            Resource::query()->whereKey($resource->getKey())->lockForUpdate()->firstOrFail();
             $resource->update([
                 'person_id' => $personKey,
                 'name' => $data['name'],
@@ -286,6 +287,9 @@ class ResourceController extends Controller
 
         return DB::transaction(function () use ($resource): RedirectResponse {
             $locked = Resource::query()->whereKey($resource->getKey())->lockForUpdate()->firstOrFail();
+            if (DB::table('resource_share_invitations')->where('resource_id', $locked->getKey())->where('status', 'accepted')->exists()) {
+                return redirect()->route('resources.index')->withErrors(['resource' => 'End external resource shares before deleting this resource.']);
+            }
             if ($locked->appointments()->exists()
                 || $locked->bookingHolds()->exists()
                 || $locked->confirmations()->exists()) {
@@ -456,6 +460,17 @@ class ResourceController extends Controller
             ];
         }
 
+        // External grants are independent of the same-owner checkbox list.
+        $externalIds = DB::table('resource_share_invitations')
+            ->where('resource_id', $resource->getKey())->where('status', 'accepted')
+            ->pluck('recipient_organization_id');
+        foreach ($resource->organizations()->whereIn('organizations.id', $externalIds)->get() as $external) {
+            $sync[$external->getKey()] = [
+                'is_required_by_default' => (bool) $external->pivot->is_required_by_default,
+                'enforce_holidays' => $isPerson && (bool) $external->pivot->enforce_holidays,
+                'holiday_region' => $isPerson ? $external->pivot->holiday_region : null,
+            ];
+        }
         $previous = $resource->organizations()->pluck('organizations.id')->all();
         $resource->organizations()->sync($sync);
         foreach (array_unique(array_merge($previous, array_keys($sync))) as $organizationId) {
